@@ -19,12 +19,13 @@ def fetch_gws(args):
             result_dframe=result_dframe.append(dframe[dframe["pval"]<sig_tresh])
         
     #save gws snps to new vcf
-    result_dframe.to_csv(path_or_buf="gws_snps.csv",sep="\t",index=False)
+    result_dframe.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
 
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetching gws SNPs from phenotype data")
     parser.add_argument("fpath",type=str,help="Filepath of the compressed tsv")
     parser.add_argument("-s","--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
+    parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
     args=parser.parse_args()
     fetch_gws(args)
