@@ -38,9 +38,11 @@ def fetch_gws(args):
                 result_dframe=temp_dframe.copy()
             else:
                 result_dframe.append(temp_dframe)
-    print("filtered gws values")
+    #print("filtered gws values")
     new_df=None
     if args.grouping:
+        #basic idea:
+        #
         tcall="tabix "+fname+" -h "
         for _idx,row in result_dframe.iterrows():
             tcall =tcall+" chr "+row["#chrom"]+":"+str(row["pos_rmin"])+"-"+str(row["pos_rmax"])
@@ -87,6 +89,6 @@ if __name__=="__main__":
     parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
     parser.add_argument("-w","--locus-width",dest="loc_width",type=int,default=250000,help="location width to include for each SNP")
     parser.add_argument("-g" "--group", dest="grouping",action='store_true',help="Whether to include p-values that are within location width and have pval<sig_treshold_2")
-    parser.add_argument("-s2","--alternate-sign-treshold",dest="sig_treshold_2",type=float, default=5e-7,help="optional group treshold")
+    parser.add_argument("-s2","--alternate-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     args=parser.parse_args()
     fetch_gws(args)
