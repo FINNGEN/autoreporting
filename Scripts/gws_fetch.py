@@ -42,7 +42,12 @@ def fetch_gws(args):
     new_df=None
     if args.grouping:
         #basic idea:
-        #
+        #we have our gws as result list, and tabixed list
+        #while SNPs in result list:
+        #   we find the most significant SNP in result list
+        #   Then, wefind the SNPs from tabix file that are in its locus width area
+        #   Remove those that are in result list, add tabixed ones to group, so groups can overlap.
+        #   Repeat until no SNPs in result list.  
         tcall="tabix "+fname+" -h "
         for _idx,row in result_dframe.iterrows():
             tcall =tcall+" chr "+row["#chrom"]+":"+str(row["pos_rmin"])+"-"+str(row["pos_rmax"])
@@ -69,18 +74,31 @@ def fetch_gws(args):
         #print("drop duplicates")
         tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos"])
         new_df=pd.DataFrame(columns=result_dframe.columns).drop(["pos_rmin","pos_rmax"],axis=1)
-        for t in result_dframe.itertuples():
-            rowidx=(tabixdf["pos"]<=t.pos_rmax)&(tabixdf["pos"]>=t.pos_rmin)
+        #find groups
+        i=1
+        total=result_dframe.shape[0]
+        while not result_dframe.empty:
+            #find most significant SNP
+            ms_snp=result_dframe.loc[result_dframe["pval"].idxmin(),:]
+            #take the grop from tabixdf
+            rowidx=(tabixdf["pos"]<=ms_snp["pos_rmax"])&(tabixdf["pos"]>=ms_snp["pos_rmin"])
             tmp=tabixdf.loc[rowidx,:].copy()
-            tmp.loc[:,"locid"]=t.locid
+            tmp.loc[:,"locid"]=ms_snp["locid"]
             new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
-    if args.grouping:
+
+            #convergence: remove the indexes from result_dframe
+            dropidx=(result_dframe["pos"]<=ms_snp["pos_rmax"])&(result_dframe["pos"]>=ms_snp["pos_rmin"])
+            result_dframe=result_dframe.loc[~dropidx,:]
+            if i%10==0:
+                print("iter: {}, SNPs remaining:{}/{}".format(i,result_dframe.shape[0],total))
+            i+=1
+        subprocess.run(shlex.split("rm temp.out"))
         new_df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
     else:
-        result_dframe.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
-    #remove temp.out
-    subprocess.run(shlex.split("rm temp.out"))
-
+        result_dframe.loc[:,["#chrom","pos","ref","alt","rsids",
+                    "nearest_genes","pval","beta","sebeta","maf",
+                    "maf_cases","maf_controls","locid"]].to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
+    
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetching gws SNPs from phenotype data")
