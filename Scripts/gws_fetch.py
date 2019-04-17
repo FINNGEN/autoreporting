@@ -80,7 +80,7 @@ def fetch_gws(args):
         while not result_dframe.empty:
             #find most significant SNP
             ms_snp=result_dframe.loc[result_dframe["pval"].idxmin(),:]
-            #take the grop from tabixdf
+            #take the group from tabixdf
             rowidx=(tabixdf["pos"]<=ms_snp["pos_rmax"])&(tabixdf["pos"]>=ms_snp["pos_rmin"])
             tmp=tabixdf.loc[rowidx,:].copy()
             tmp.loc[:,"locid"]=ms_snp["locid"]
