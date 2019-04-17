@@ -39,6 +39,7 @@ def fetch_gws(args):
             else:
                 result_dframe.append(temp_dframe)
     #print("filtered gws values")
+    result_dframe.to_csv("result_dframe.csv",sep="\t",index=False)
     new_df=None
     if args.grouping:
         #basic idea:
@@ -105,6 +106,7 @@ if __name__=="__main__":
     parser.add_argument("fpath",type=str,help="Filepath of the compressed tsv")
     parser.add_argument("-s","--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
+    parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("-w","--locus-width",dest="loc_width",type=int,default=250000,help="location width to include for each SNP")
     parser.add_argument("-g" "--group", dest="grouping",action='store_true',help="Whether to include p-values that are within location width and have pval<sig_treshold_2")
     parser.add_argument("-s2","--alternate-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
