@@ -9,9 +9,8 @@ def fetch_gws(args):
     sig_tresh=args.sig_treshold
 
     c_size=100000
-    result_dframe=None
     r=args.loc_width#range for location width
-    #get data
+    df=None
     for dframe in pd.read_csv(fname,compression="gzip",sep="\t",dtype={"#chrom":str,
         "pos":np.int32,
         "ref":str,
@@ -26,20 +25,19 @@ def fetch_gws(args):
         "maf_controls":np.float64
         },engine="c",chunksize=c_size):
         #filter gws snps
-        temp_dframe=dframe[dframe["pval"]<sig_tresh].copy()
+        temp_dframe=dframe.loc[dframe["pval"]<sig_tresh,:]
         if not temp_dframe.empty:
-            temp_dframe.loc[:,"zero"]=0
-            temp_dframe.loc[:,"pos_rmin"]=temp_dframe.loc[:,("pos","zero") ].max(axis=1)
-            temp_dframe.loc[:,"pos_rmax"]=temp_dframe.loc[:,"pos"]+r
-            #drop zero
-            temp_dframe=temp_dframe.drop(axis=1,columns=["zero"])
-            temp_dframe.loc[:,"locid"]="c_"+temp_dframe["#chrom"].map(str)+"_p_"+temp_dframe["pos"].map(str)
-            if type(result_dframe) == type(None):
-                result_dframe=temp_dframe.copy()
+            if type(df) == type(None):
+                df=temp_dframe.copy()
             else:
-                result_dframe.append(temp_dframe)
-    #print("filtered gws values")
-    result_dframe.to_csv("result_dframe.csv",sep="\t",index=False)
+                df=df.append(temp_dframe)
+    df=df.reset_index(drop=True)
+    df.to_csv("df_debug.csv",sep="\t",index=False)
+    df.loc[:,"pos_rmin"]=df.loc[:,"pos"]-r
+    df.loc[:,"pos_rmax"]=df.loc[:,"pos"]+r
+    df.loc[:,"pos_rmin"]=df.loc[:,"pos_rmin"].clip(lower=0)
+    df.loc[:,"locid"]="c_"+df.loc[:,"#chrom"].map(str)+"_p_"+df.loc[:,"pos"].map(str)
+    result_dframe=df
     new_df=None
     if args.grouping:
         #basic idea:
@@ -52,28 +50,33 @@ def fetch_gws(args):
         tcall="tabix "+fname+" -h "
         for _idx,row in result_dframe.iterrows():
             tcall =tcall+" chr "+row["#chrom"]+":"+str(row["pos_rmin"])+"-"+str(row["pos_rmax"])
-        #print(tcall) 
         call=shlex.split(tcall)
         #execute tabix call
         with open("temp.out","w") as out: 
             tbx=subprocess.run(call,stdout=out)
-        #print("Tabix ran")
-        tabixdf=pd.read_csv("temp.out",sep="\t",dtype={"#chrom":str,
-                                                        "pos":np.int32,
-                                                        "ref":str,
-                                                        "alt":str,
-                                                        "rsids":str,
-                                                        "nearest_genes":str,
-                                                        "pval":np.float64,
-                                                        "beta":np.float64,
-                                                        "sebeta":np.float64,
-                                                        "maf":np.float64,
-                                                        "maf_cases":np.float64,
-                                                        "maf_controls":np.float64
-                                                        },engine="c")
-        tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
+        tabixdf=None
+        for t_df in pd.read_csv("temp.out",sep="\t",dtype={"#chrom":str,
+            "pos":np.int32,
+            "ref":str,
+            "alt":str,
+            "rsids":str,
+            "nearest_genes":str,
+            "pval":np.float64,
+            "beta":np.float64,
+            "sebeta":np.float64,
+            "maf":np.float64,
+            "maf_cases":np.float64,
+            "maf_controls":np.float64
+            },chunksize=c_size,engine="c"):
+            t_df=t_df[t_df["pval"]<args.sig_treshold_2]
+            if not t_df.empty:
+                if type(tabixdf) == type(None):
+                    tabixdf=t_df.copy()
+                else:
+                    tabixdf=tabixdf.append(t_df)
+                    tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos"],keep="first")
+        #tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
         #print("drop duplicates")
-        tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos"])
         new_df=pd.DataFrame(columns=result_dframe.columns).drop(["pos_rmin","pos_rmax"],axis=1)
         #find groups
         i=1
@@ -86,11 +89,10 @@ def fetch_gws(args):
             tmp=tabixdf.loc[rowidx,:].copy()
             tmp.loc[:,"locid"]=ms_snp["locid"]
             new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
-
             #convergence: remove the indexes from result_dframe
             dropidx=(result_dframe["pos"]<=ms_snp["pos_rmax"])&(result_dframe["pos"]>=ms_snp["pos_rmin"])
             result_dframe=result_dframe.loc[~dropidx,:]
-            if i%10==0:
+            if i%100==0:
                 print("iter: {}, SNPs remaining:{}/{}".format(i,result_dframe.shape[0],total))
             i+=1
         subprocess.run(shlex.split("rm temp.out"))
@@ -108,7 +110,7 @@ if __name__=="__main__":
     parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("-w","--locus-width",dest="loc_width",type=int,default=250000,help="location width to include for each SNP")
-    parser.add_argument("-g" "--group", dest="grouping",action='store_true',help="Whether to include p-values that are within location width and have pval<sig_treshold_2")
+    parser.add_argument("-g", "--group", dest="grouping",action='store_true',help="Whether to include p-values that are within location width and have pval<sig_treshold_2")
     parser.add_argument("-s2","--alternate-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     args=parser.parse_args()
     fetch_gws(args)
