@@ -47,9 +47,35 @@ def fetch_gws(args):
         #   Then, wefind the SNPs from tabix file that are in its locus width area
         #   Remove those that are in result list, add tabixed ones to group, so groups can overlap.
         #   Repeat until no SNPs in result list.  
+
+        #simplify tabix call by removing overlapping tabix calls
+        regions=[]
+        for t in df.loc[:,["#chrom", "pos_rmin","pos_rmax"]].itertuples():
+            if regions:
+                #do region stuff
+                found=False
+                for region in regions:
+                    if (t.pos_rmax<region["min"]) or (t.pos_rmin>region["max"]):
+                        continue
+                    elif t.pos_rmin>=region["min"] and t.pos_rmax<=region["max"]:
+                        found=True
+                        break
+                    else: 
+                        if t.pos_rmin<region["min"] and t.pos_rmax>region["min"]:
+                            region["min"]=t.pos_rmin
+                        if t.pos_rmax>region["max"] and t.pos_rmin<region["max"]:
+                            region["max"]=t.pos_rmax
+                        found=True
+                        break
+                if not found:
+                    regions.append({"#chrom":t._1,"min":t.pos_rmin,"max":t.pos_rmax})
+            else:
+                regions.append({"#chrom":t._1,"min":t.pos_rmin,"max":t.pos_rmax})
+        print("amount of tabix regions: {}".format(df.shape[0]))
+        print("amount of pruned regions: {}".format(len(regions)))
         tcall="tabix "+fname+" -h "
-        for _idx,row in result_dframe.iterrows():
-            tcall =tcall+" chr "+row["#chrom"]+":"+str(row["pos_rmin"])+"-"+str(row["pos_rmax"])
+        for region in regions:
+            tcall =tcall+" chr "+region["#chrom"]+":"+str(region["min"])+"-"+str(region["max"])
         call=shlex.split(tcall)
         #execute tabix call
         with open("temp.out","w") as out: 
@@ -74,9 +100,8 @@ def fetch_gws(args):
                     tabixdf=t_df.copy()
                 else:
                     tabixdf=tabixdf.append(t_df)
-                    tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos"],keep="first")
         #tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
-        #print("drop duplicates")
+        tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos"],keep="first")
         new_df=pd.DataFrame(columns=result_dframe.columns).drop(["pos_rmin","pos_rmax"],axis=1)
         #find groups
         i=1
