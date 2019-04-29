@@ -8,7 +8,7 @@ def tabix_command(df,path,prefix=""):
     tcall="tabix "+path+" -h " 
     for t in df.itertuples():
         #add correct row
-        tcall=tcall+str(prefix)+str(t._1)+":"+str(t.pos)+"-"+str(t.pos)+" "
+        tcall=tcall+" "+str(prefix)+str(t._1)+":"+str(t.pos)+"-"+str(t.pos)+" "
     return tcall
 
 def main(args):
