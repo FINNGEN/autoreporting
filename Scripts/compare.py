@@ -9,8 +9,9 @@ def main(args):
     #if using summary file
     if args.compare_style=="file":
         #load original file
-
+        df=pd.read_csv(args.fpath,sep="\t")
         #load summary file
+        summary_df=pd.read_csv(args.summary_fpath,sep="\t")
     else:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
 

@@ -50,21 +50,16 @@ def fetch_gws(args):
     if args.grouping:
         if args.grouping_method=="ld":
             #write current SNPs to file
-            
             df.loc[:,["#variant","#chrom","pos","ref","alt","pval"]].to_csv(path_or_buf="ld_variants.csv",index=False,sep="\t")
-            #raise NotImplementedError("ld grouping not implemented yet")
             plink_fname="temp_plink"
             plink_command="plink --allow-extra-chr --bfile "+args.ld_panel_path+" --clump ld_variants.csv --clump-field pval --clump-snp-field '#variant' --clump-r2 "\
             +str(args.ld_r2)+" --clump-kb "+str(args.loc_width) +" --clump-p1 "+str(args.sig_treshold)+" --clump-p2 "+str(args.sig_treshold_2) +" --out "+ plink_fname+ " --memory 12000 --clump-allow-overlap"
             #call plink
             subprocess.call(shlex.split(plink_command), stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
             #parse output file, find locus width
-            #The output file is organized into the groups, for which they have all the members in a separate column, as comma-separated, with (#) added.
-            #So, it seems I'll have to take the rows, and unroll them so that the groups have a group id, and then the id can be added to those SNPs
             group_data=pd.read_csv(plink_fname+".clumped",sep="\s+")
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
             #fetch the correct SNPs from our data, maybe easiest to get using tabix
-            #TODO: do this, first make a df with the correct positions and then fetch it with tabix
             chrom_pos_lst=[]
             for t in group_data.itertuples():
                 chrom_pos_lst.append(t.SNP)
@@ -101,7 +96,6 @@ def fetch_gws(args):
                     tabixdf.loc[tabixdf["#variant"].isin(sp2_split),"locus_id"]=t.SNP
             tabixdf.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
             subprocess.run(shlex.split("rm temp.out"))
-
 
         else:
             #simple grouping
@@ -163,7 +157,8 @@ def fetch_gws(args):
                 ms_snp=result_dframe.loc[result_dframe["pval"].idxmin(),:]
                 rowidx=(tabixdf["pos"]<=ms_snp["pos_rmax"])&(tabixdf["pos"]>=ms_snp["pos_rmin"])
                 tmp=tabixdf.loc[rowidx,:].copy()
-                tmp.loc[:,"#variant"]=ms_snp["#variant"]
+                tmp.loc[:,"locus_id"]=ms_snp["#variant"]
+                tmp.loc[:,"#variant"]="chr"+tmp.loc[:,"#chrom"].map(str)+"_"+tmp.loc[:,"pos"].map(str)+"_"+tmp.loc[:,"ref"].map(str)+"_"+tmp.loc[:,"alt"].map(str)
                 new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
                 #convergence: remove the indexes from result_dframe
                 dropidx=(result_dframe["pos"]<=ms_snp["pos_rmax"])&(result_dframe["pos"]>=ms_snp["pos_rmin"])
@@ -171,16 +166,15 @@ def fetch_gws(args):
                 if i%100==0:
                     print("iter: {}, SNPs remaining:{}/{}".format(i,result_dframe.shape[0],total))
                 i+=1
-            #subprocess.run(shlex.split("rm temp.out"))
+            subprocess.run(shlex.split("rm temp.out"))
             new_df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
     else:
         result_dframe.loc[:,["#chrom","pos","ref","alt","rsids",
                     "nearest_genes","pval","beta","sebeta","maf",
                     "maf_cases","maf_controls","#variant","locus_id"]].to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
     
-
 if __name__=="__main__":
-    parser=argparse.ArgumentParser(description="Fetching gws SNPs from phenotype data")
+    parser=argparse.ArgumentParser(description="Fetch and group gws SNPs from summary statistic")
     parser.add_argument("fpath",type=str,help="Filepath of the compressed tsv")
     parser.add_argument("-s","--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
