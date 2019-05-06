@@ -10,6 +10,9 @@ def tabix_command(df,path,prefix=""):
         tcall=tcall+" "+str(prefix)+str(t._1)+":"+str(t.pos)+"-"+str(t.pos)+" "
     return tcall
 
+def create_variant_column(df,chrom="#chrom",pos="pos",ref="ref",alt="alt"):
+    return "chr{}_{}_{}_{}".format(df.loc[:,chrom].map(str), df.loc[:,pos].map(str), df.loc[:,ref].map(str),df.loc[:,alt].map(str))
+
 def annotate(args):
     #load main file
     df=pd.read_csv(args.annotate_fpath,sep="\t")
@@ -47,13 +50,13 @@ def annotate(args):
     fg_df=pd.read_csv("temp_fg_tbx.out",sep="\t")
     fg_df=fg_df.drop_duplicates(subset=["#variant"])
     #add #variant column in df
-    df.loc[:,"#variant"]="chr"+df.loc[:,"#chrom"].map(str)+"_"+df.loc[:,"pos"].map(str)+"_"+df.loc[:,"ref"].map(str)+"_"+df.loc[:,"alt"].map(str)
+    df.loc[:,"#variant"]=create_variant_column(df)
     #join based on variant
     fg_cols=fg_df.columns.values.tolist()
     colist=list(set(fg_cols)-set(["chrom","pos","ref","alt"]))
     fg_df=fg_df.loc[:,]
     df=df.merge(fg_df.loc[:,colist],on="#variant",how="left")
-    fg_out=["most_severe","INFO"]
+    fg_out=["most_severe","INFO","gene"]
     
     #get batch columns, for INFO, IMP, AF
     info=list(filter(lambda s: "INFO_" in s,fg_cols))
