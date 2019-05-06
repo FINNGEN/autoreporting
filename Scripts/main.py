@@ -1,12 +1,16 @@
 #! /usr/bin/python3
 
+import argparse,shlex,subprocess
+import pandas as pd 
+import numpy as np
 import gws_fetch, compare, annotate
 
-def main(args)
+def main(args):
     ###########################
     ###Filter and Group SNPs###
     ###########################
-    args.out_fname="fetch.out"
+    print("filter & group SNPs")
+    args.out_fname="temp_tsv.out"
     args.annotate_fpath=args.out_fname
     args.compare_fname=args.out_fname
     gws_fetch.fetch_gws(args)
@@ -18,14 +22,17 @@ def main(args)
     ###########################
     #######Annotate SNPs#######
     ###########################
-    annotate.main(args)
+    print("Annotate SNPs")
+    annotate.annotate(args)
     ###########################
     ######Compare results######
     ###########################
+    print("Compare results to previous findings")
     compare.compare(args)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="FINNGEN automatic hit reporting tool")
+    
     #gws_fetch
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed tsv")
     parser.add_argument("--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
@@ -36,6 +43,7 @@ if __name__=="__main__":
     parser.add_argument("--alternate-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
     parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
+    
     #finemap
     
     #annotate
@@ -49,7 +57,6 @@ if __name__=="__main__":
     #parser.add_argument("compare_fname",type=str,help="GWS result file")
     parser.add_argument("--compare-style",type=str,help="use 'database' or 'file'")
     parser.add_argument("--summary-fpath",type=str,help="comparison summary filepath")
-    
     
     args=parser.parse_args()
     main(args)

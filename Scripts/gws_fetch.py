@@ -12,7 +12,7 @@ def tabix_command(df,path,min_="pos_rmin",max_="pos_rmax",prefix=""):
     return tcall
 
 def fetch_gws(args):
-    fname=args.fpath
+    fname=args.gws_fpath
     sig_tresh=args.sig_treshold
 
     c_size=100000
@@ -175,7 +175,7 @@ def fetch_gws(args):
     
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetch and group gws SNPs from summary statistic")
-    parser.add_argument("fpath",type=str,help="Filepath of the compressed tsv")
+    parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed tsv")
     parser.add_argument("-s","--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
     parser.add_argument("-g", "--group", dest="grouping",action='store_true',help="Whether to group SNPs")
