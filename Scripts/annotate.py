@@ -1,28 +1,50 @@
 #! /usr/bin/python3
 
 import argparse,shlex,subprocess
+from subprocess import Popen, PIPE
 import pandas as pd 
 import numpy as np
-
+import tabix
+#TODO: make a system for making sure we can calculate all necessary fields,
+#e.g by checking that the columns exist
 def tabix_command(df,path,prefix=""):
     tcall="tabix "+path+" -h " 
     for t in df.itertuples():
         tcall=tcall+" "+str(prefix)+str(t._1)+":"+str(t.pos)+"-"+str(t.pos)+" "
     return tcall
 
+def pytabix(tb,chrom,start,end):
+    return tb.querys("{}:{}-{}".format(chrom,start,end))
+
+def get_gzip_header(fname):
+    """"Returns header for gzipped tsvs, as that is not currently possible using pytabix
+    In: file path of gzipped tsv
+    Out: header of tsv as a list of column names"""
+    #create gzip call
+    gzip_call=shlex.split("gzip -cd {}".format(fname))
+    head_call=shlex.split("head -n 1")
+    gzip_process=Popen(gzip_call,stdout=PIPE)
+    head_proc=Popen(head_call,stdin=gzip_process.stdout,stdout=PIPE)
+    out=[]
+    for line in head_proc.stdout:
+        out.append(line.decode().strip().split("\t"))
+    return out[0]
+
 def create_variant_column(df,chrom="#chrom",pos="pos",ref="ref",alt="alt"):
-    return "chr{}_{}_{}_{}".format(df.loc[:,chrom].map(str), df.loc[:,pos].map(str), df.loc[:,ref].map(str),df.loc[:,alt].map(str))
+    return df.apply( lambda x: "chr{}_{}_{}_{}".format(x[chrom],x[pos],x[ref],x[alt]) ,axis=1)
 
 def annotate(args):
     #load main file
     df=pd.read_csv(args.annotate_fpath,sep="\t")
     original_cols=df.columns.values.tolist()
     #create tabix command
-    tcall=tabix_command(df,args.gnomad_path)
-    call=shlex.split(tcall)
-    with open("temp_annotate_tbx.out","w") as out: 
-        tbx=subprocess.run(call,stdout=out)
-    annotation_tbx=pd.read_csv("temp_annotate_tbx.out",sep="\t")
+    tbxlst=[]
+    tb=tabix.open(args.gnomad_path)
+    for _,row in df.iterrows():
+                tbxlst=tbxlst+list(pytabix(tb,row["#chrom"],int(row["pos"]),int(row["pos"]) ) )
+    tbxheader=get_gzip_header(args.gnomad_path)
+    annotation_tbx=pd.DataFrame(tbxlst,columns=tbxheader )
+    annotation_tbx[annotation_tbx.columns]=annotation_tbx[annotation_tbx.columns].apply(pd.to_numeric,errors="ignore")
     annotation_tbx=annotation_tbx.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":"#chrom","POS":"pos","REF":"ref","ALT":"alt"})
     #add gnomad annotations, by fetching the correct rows using tabix and calculating the necessary features
     allele_frequency_groups=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu"]
@@ -41,16 +63,19 @@ def annotate(args):
     df.loc[:,"AN_sum_nfe_est"]=df[all_number_nfe].sum(axis=1)
     df.loc[:,"FI_enrichment_nfe_no_est"]=df.loc[:,"AN_sum_nfe_est"]*df.loc[:,"AF_fin"]/df.loc[:,"AC_sum_nfe_est"]
     df.loc[:,"FI_enrichment_nfe_no_est"]=df.loc[:,"FI_enrichment_nfe_no_est"].clip(0.0,1e6)#replace inf with 1 000 000
-    
+    #TODO: add enrichment for non-finnish,estonian,swedist europeans
+    #NOTE: the swedish counts o not exist in gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz 
     #add finngen annotations, using tabix
-    tcall=tabix_command(df,args.finngen_path,prefix="chr")
-    call=shlex.split(tcall)
-    with open("temp_fg_tbx.out","w") as out: 
-        tbx=subprocess.run(call,stdout=out)
-    fg_df=pd.read_csv("temp_fg_tbx.out",sep="\t")
+    tbxlst=[]
+    tb=tabix.open(args.finngen_path)
+    for _,row in df.iterrows():
+        tbxlst=tbxlst+list(pytabix(tb,"chr{}".format(row["#chrom"]),int(row["pos"]),int(row["pos"]) ) )
+    tbxheader=get_gzip_header(args.finngen_path)
+    fg_df=pd.DataFrame(tbxlst,columns=tbxheader )
+    fg_df[fg_df.columns]=fg_df[fg_df.columns].apply(pd.to_numeric,errors="ignore")
+    df.loc[:,"#variant"]=create_variant_column(df)
     fg_df=fg_df.drop_duplicates(subset=["#variant"])
     #add #variant column in df
-    df.loc[:,"#variant"]=create_variant_column(df)
     #join based on variant
     fg_cols=fg_df.columns.values.tolist()
     colist=list(set(fg_cols)-set(["chrom","pos","ref","alt"]))
@@ -68,10 +93,9 @@ def annotate(args):
     if args.batch_freq:
         out_columns+=fg_batches
 
-    df.loc[:,out_columns].to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
-    #delete temporary tabix files
-    subprocess.run(shlex.split("rm temp_annotate_tbx.out"))
-    subprocess.run(shlex.split("rm temp_fg_tbx.out"))
+    df=df.loc[:,out_columns]
+    df=df.rename(index=str,columns={"gene":"most_severe_gene"})
+    df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Annotate results using gnoMAD and additional annotations")

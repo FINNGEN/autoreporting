@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 
 import argparse,shlex,subprocess
+from subprocess import Popen, PIPE
 import pandas as pd 
 import numpy as np
 import tabix
@@ -41,6 +42,20 @@ def prune_regions(df):
         else:
             regions.append({"#chrom":t._1,"min":t.pos_rmin,"max":t.pos_rmax})
     return pd.DataFrame(regions)
+
+def get_gzip_header(fname):
+    """"Returns header for gzipped tsvs, as that is not currently possible using pytabix
+    In: file path of gzipped tsv
+    Out: header of tsv as a list of column names"""
+    #create gzip call
+    gzip_call=shlex.split("gzip -cd {}".format(fname))
+    head_call=shlex.split("head -n 1")
+    gzip_process=Popen(gzip_call,stdout=PIPE)
+    head_proc=Popen(head_call,stdin=gzip_process.stdout,stdout=PIPE)
+    out=[]
+    for line in head_proc.stdout:
+        out.append(line.decode().strip().split("\t"))
+    return out[0]
 
 def fetch_gws(args):
     fname=args.gws_fpath
@@ -127,9 +142,8 @@ def fetch_gws(args):
             tb=tabix.open(fname)
             for _,row in res.iterrows():
                 tbxlst=tbxlst+list(pytabix(tb,row["#chrom"],int(row["pos"]),int(row["pos"]) ) )
-            tabixdf=pd.DataFrame(tbxlst,columns=["#chrom", "pos", "ref", "alt", 
-                "rsids", "nearest_genes", "pval", "beta", "sebeta", "maf", 
-                "maf_cases", "maf_controls"])
+            tbxheader=get_gzip_header(fname)
+            tabixdf=pd.DataFrame(tbxlst,columns=tbxheader )
             tabixdf=tabixdf.astype(dtype=dtype)
             tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos","ref","alt"],keep="first")
             tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
@@ -155,9 +169,8 @@ def fetch_gws(args):
             tb=tabix.open(fname)
             for _,row in reg_df.iterrows():
                 tbxlst=tbxlst+list(pytabix(tb,row["#chrom"],int(row["min"]),int(row["max"]) ))
-            tabixdf=pd.DataFrame(tbxlst,columns=["#chrom", "pos", "ref", "alt", 
-                "rsids", "nearest_genes", "pval", "beta", "sebeta", "maf", 
-                "maf_cases", "maf_controls"])
+            tbxheader=get_gzip_header(fname)
+            tabixdf=pd.DataFrame(tbxlst,columns=tbxheader)
             tabixdf=tabixdf.astype(dtype=dtype)
 
             tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
