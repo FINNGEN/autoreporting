@@ -39,17 +39,17 @@ def annotate(args):
     original_cols=df.columns.values.tolist()
     #create tabix command
     tbxlst=[]
-    tb=tabix.open(args.gnomad_path)
+    tb=tabix.open(args.gnomad_genome_path)
     for _,row in df.iterrows():
                 tbxlst=tbxlst+list(pytabix(tb,row["#chrom"],int(row["pos"]),int(row["pos"]) ) )
-    tbxheader=get_gzip_header(args.gnomad_path)
-    annotation_tbx=pd.DataFrame(tbxlst,columns=tbxheader )
-    annotation_tbx[annotation_tbx.columns]=annotation_tbx[annotation_tbx.columns].apply(pd.to_numeric,errors="ignore")
-    annotation_tbx=annotation_tbx.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":"#chrom","POS":"pos","REF":"ref","ALT":"alt"})
+    tbxheader=get_gzip_header(args.gnomad_genome_path)
+    gnomad_genomes=pd.DataFrame(tbxlst,columns=tbxheader )
+    gnomad_genomes[gnomad_genomes.columns]=gnomad_genomes[gnomad_genomes.columns].apply(pd.to_numeric,errors="ignore")
+    gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":"#chrom","POS":"pos","REF":"ref","ALT":"alt"})
     #add gnomad annotations, by fetching the correct rows using tabix and calculating the necessary features
     allele_frequency_groups=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu"]
     #join based on chrom, pos, ref, and alt
-    df=df.merge(annotation_tbx,on=["#chrom","pos","ref","alt"],how="left")
+    df=df.merge(gnomad_genomes,on=["#chrom","pos","ref","alt"],how="left")
     all_counts_nfe=["AC_nfe","AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
     all_number_nfe=["AN_nfe","AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
     df.loc[:,"AC_sum_nfe"]=df[all_counts_nfe].sum(axis=1)
@@ -64,7 +64,7 @@ def annotate(args):
     df.loc[:,"FI_enrichment_nfe_no_est"]=df.loc[:,"AN_sum_nfe_est"]*df.loc[:,"AF_fin"]/df.loc[:,"AC_sum_nfe_est"]
     df.loc[:,"FI_enrichment_nfe_no_est"]=df.loc[:,"FI_enrichment_nfe_no_est"].clip(0.0,1e6)#replace inf with 1 000 000
     #TODO: add enrichment for non-finnish,estonian,swedist europeans
-    #NOTE: the swedish counts o not exist in gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz 
+    #NOTE: the swedish counts are only in exome data
     #add finngen annotations, using tabix
     tbxlst=[]
     tb=tabix.open(args.finngen_path)
@@ -100,7 +100,8 @@ def annotate(args):
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Annotate results using gnoMAD and additional annotations")
     parser.add_argument("annotate_fpath",type=str,help="Filepath of the results to be annotated")
-    parser.add_argument("-g","--gnomad-path",dest="gnomad_path",type=str,help="Gnomad annotation file filepath")
+    parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
+    parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
     parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")

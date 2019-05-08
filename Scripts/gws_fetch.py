@@ -2,8 +2,7 @@
 
 import argparse,shlex,subprocess
 from subprocess import Popen, PIPE
-import pandas as pd 
-import numpy as np
+import pandas as pd, numpy as np
 import tabix
 
 def tabix_command(df,path,min_="pos_rmin",max_="pos_rmax",prefix=""):
@@ -14,18 +13,30 @@ def tabix_command(df,path,min_="pos_rmin",max_="pos_rmax",prefix=""):
     return tcall
 
 def pytabix(tb,chrom,start,end):
+    """Call pytabix for region
+    In: handle for tabix file, chrom, start, end
+    Out: list of lists where each inner list is a row
+    """
     return tb.querys("{}:{}-{}".format(chrom,start,end))
 
 def create_variant_column(df,chrom="#chrom",pos="pos",ref="ref",alt="alt"):
+    """Create 'chr$#chrom_$pos_$ref_$alt' column
+    In: dataframe, with potentially defined column names
+    Out: Variant column as pd.Series
+    """
     return df.apply( lambda x: "chr{}_{}_{}_{}".format(x[chrom],x[pos],x[ref],x[alt]) ,axis=1)
 
 def prune_regions(df):
+    """Prune overlapping tabix regions so that no duplicate calls are made
+    In: dataframe with the regions
+    Out:dataframe with pruned regions
+    """
     regions=[]
     for t in df.itertuples():
         if regions:
             found=False
             for region in regions:
-                if (t.pos_rmax<region["min"]) or (t.pos_rmin>region["max"]):
+                if ((t.pos_rmax<region["min"]) or (t.pos_rmin>region["max"]) ) or (t._1!=region["#chrom"]):
                     continue
                 elif t.pos_rmin>=region["min"] and t.pos_rmax<=region["max"]:
                     found=True
