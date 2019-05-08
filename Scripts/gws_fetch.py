@@ -57,6 +57,42 @@ def get_gzip_header(fname):
         out.append(line.decode().strip().split("\t"))
     return out[0]
 
+def parse_plink_output(df):
+    """Parse plink --clump output, which is a multiple-space separated dataframe with the groups
+    separated by commas. Is used to get tabixdf
+    In: plink --clump output dataframe
+    Out: dataframe that has chrom,pos,ref,alt of all of the grouped and group variants"""
+    chrom_pos_lst=[]
+    for t in df.itertuples():
+        chrom_pos_lst.append(t.SNP)
+        if t.TOTAL != 0:
+            sp2_split=t.SP2.split(",")
+            sp2_split=[x.strip().strip("(1)") for x in sp2_split]
+            chrom_pos_lst=chrom_pos_lst+sp2_split
+    #separate to chrom and pos
+    res={"#chrom":[],"pos":[],"ref":[],"alt":[]}
+    for row in chrom_pos_lst:
+        tmp=row.strip("chr").split("_")
+        res["#chrom"].append(tmp[0])
+        res["pos"].append(tmp[1])
+        res["ref"].append(tmp[2])
+        res["alt"].append(tmp[3])
+    res=pd.DataFrame(res)
+    res.loc[:,"variant"]=create_variant_column(res)
+    return res
+
+def solve_groups(result_dframe,group_data,tabixdf):
+    for t in group_data.itertuples():
+        group=[t.SNP]
+        if t.TOTAL>0:
+            sp2_split=t.SP2.split(",")
+            sp2_split=[x.strip().strip("(1)") for x in sp2_split]
+            group=group+sp2_split
+        tmp=tabixdf.loc[tabixdf["#variant"].isin(group),].copy(deep=True)
+        tmp.loc[:,"locus_id"]=t.SNP
+        result_dframe=pd.concat([result_dframe,tmp],axis=0)
+    return result_dframe
+
 def fetch_gws(args):
     fname=args.gws_fpath
     sig_tresh=args.sig_treshold
@@ -85,9 +121,6 @@ def fetch_gws(args):
             else:
                 df=df.append(temp_dframe)
     df=df.reset_index(drop=True)
-    df.loc[:,"pos_rmin"]=df.loc[:,"pos"]-r
-    df.loc[:,"pos_rmax"]=df.loc[:,"pos"]+r
-    df.loc[:,"pos_rmin"]=df.loc[:,"pos_rmin"].clip(lower=0)
     df.loc[:,"#variant"]=create_variant_column(df)
     df.loc[:,"locus_id"]=df.loc[:,"#variant"]
     result_dframe=df
@@ -116,52 +149,30 @@ def fetch_gws(args):
             #parse output file, find locus width
             group_data=pd.read_csv(plink_fname+".clumped",sep="\s+")
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
-            chrom_pos_lst=[]
-            for t in group_data.itertuples():
-                chrom_pos_lst.append(t.SNP)
-                if t.TOTAL != 0:
-                    sp2_split=t.SP2.split(",")
-                    sp2_split=[x.strip().strip("(1)") for x in sp2_split]
-                    chrom_pos_lst=chrom_pos_lst+sp2_split
-            #separate to chrom and pos
-            res={}
-            res["#chrom"]=[]
-            res["pos"]=[]
-            res["ref"]=[]
-            res["alt"]=[]
-
-            for row in chrom_pos_lst:
-                tmp=row.strip("chr").split("_")
-                res["#chrom"].append(tmp[0])
-                res["pos"].append(tmp[1])
-                res["ref"].append(tmp[2])
-                res["alt"].append(tmp[3])
+            res=parse_plink_output(group_data)
             #fetch tabix
-            res=pd.DataFrame(res)
             tbxlst=[]
             tb=tabix.open(fname)
             for _,row in res.iterrows():
                 tbxlst=tbxlst+list(pytabix(tb,row["#chrom"],int(row["pos"]),int(row["pos"]) ) )
             tbxheader=get_gzip_header(fname)
+            #transform into dataframe
             tabixdf=pd.DataFrame(tbxlst,columns=tbxheader )
             tabixdf=tabixdf.astype(dtype=dtype)
+            #filter, create variant column
             tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos","ref","alt"],keep="first")
             tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
             tabixdf.loc[:,"#variant"]=create_variant_column(tabixdf)
-            tabixdf=tabixdf[tabixdf["#variant"].isin(chrom_pos_lst)]
-            
-            tabixdf.loc[:,"locus_id"]=tabixdf.loc[:,"#variant"]
-            for t in group_data.itertuples():
-                #split SP2 to different values
-                if t.TOTAL>0:
-                    sp2_split=t.SP2.split(",")
-                    sp2_split=[x.strip().strip("(1)") for x in sp2_split]
-                    #add the correct locus id
-                    tabixdf.loc[tabixdf["#variant"].isin(sp2_split),"locus_id"]=t.SNP
-            tabixdf.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
+            #add tabix info to groups and write to file
+            df=pd.DataFrame(columns=tbxheader+["#variant","locus_id"])
+            df=solve_groups(df,group_data,tabixdf)
+            df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
 
         else:
             #simple grouping
+            df.loc[:,"pos_rmin"]=df.loc[:,"pos"]-r
+            df.loc[:,"pos_rmax"]=df.loc[:,"pos"]+r
+            df.loc[:,"pos_rmin"]=df.loc[:,"pos_rmin"].clip(lower=0)
             reg_df=prune_regions(df.loc[:,["#chrom", "pos_rmin","pos_rmax"]])
             print("amount of tabix regions: {}".format(df.shape[0]))
             print("amount of pruned regions: {}".format(reg_df.shape[0]))
@@ -175,26 +186,26 @@ def fetch_gws(args):
 
             tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
             tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos","ref","alt"],keep="first")
-            new_df=pd.DataFrame(columns=result_dframe.columns).drop(["pos_rmin","pos_rmax"],axis=1)
+            new_df=pd.DataFrame(columns=df.columns).drop(["pos_rmin","pos_rmax"],axis=1)
             tabixdf.to_csv("tbx_debug.csv",sep="\t",index=False)
             i=1
-            total=result_dframe.shape[0]
-            while not result_dframe.empty:
-                ms_snp=result_dframe.loc[result_dframe["pval"].idxmin(),:]
+            total=df.shape[0]
+            while not df.empty:
+                ms_snp=df.loc[df["pval"].idxmin(),:]
                 rowidx=(tabixdf["pos"]<=ms_snp["pos_rmax"])&(tabixdf["pos"]>=ms_snp["pos_rmin"])
                 tmp=tabixdf.loc[rowidx,:].copy()
                 tmp.loc[:,"locus_id"]=ms_snp["#variant"]
                 tmp.loc[:,"#variant"]=create_variant_column(tmp)
                 new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
                 #convergence: remove the indexes from result_dframe
-                dropidx=(result_dframe["pos"]<=ms_snp["pos_rmax"])&(result_dframe["pos"]>=ms_snp["pos_rmin"])
-                result_dframe=result_dframe.loc[~dropidx,:]
+                dropidx=(df["pos"]<=ms_snp["pos_rmax"])&(df["pos"]>=ms_snp["pos_rmin"])
+                df=df.loc[~dropidx,:]
                 if i%100==0:
                     print("iter: {}, SNPs remaining:{}/{}".format(i,result_dframe.shape[0],total))
                 i+=1
             new_df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
     else:
-        result_dframe.loc[:,["#chrom","pos","ref","alt","rsids",
+        df.loc[:,["#chrom","pos","ref","alt","rsids",
                     "nearest_genes","pval","beta","sebeta","maf",
                     "maf_cases","maf_controls","#variant","locus_id"]].to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
     
