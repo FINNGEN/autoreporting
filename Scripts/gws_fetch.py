@@ -89,7 +89,7 @@ def parse_plink_output(df):
         res["ref"].append(tmp[2])
         res["alt"].append(tmp[3])
     res=pd.DataFrame(res)
-    res.loc[:,"variant"]=create_variant_column(res)
+    res.loc[:,"#variant"]=create_variant_column(res)
     return res
 
 def solve_groups(result_dframe,group_data,tabixdf):
