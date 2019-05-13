@@ -198,7 +198,6 @@ def fetch_gws(args):
             tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
             tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos","ref","alt"],keep="first")
             new_df=pd.DataFrame(columns=df.columns).drop(["pos_rmin","pos_rmax"],axis=1)
-            tabixdf.to_csv("tbx_debug.csv",sep="\t",index=False)
             i=1
             total=df.shape[0]
             while not df.empty:
