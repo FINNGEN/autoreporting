@@ -1,5 +1,5 @@
 import unittest
-import sys
+import sys,os
 sys.path.append("../")
 sys.path.append("./")
 import pandas as pd,numpy as np
@@ -61,7 +61,7 @@ class TestGws(unittest.TestCase):
 
     def test_plink_parsing(self):
         #load data
-        df=pd.read_csv("testing/test_plink.clumped",sep="\s+")
+        df=pd.read_csv("fetch_resources/test_plink.clumped",sep="\s+")
         df=df.loc[:,["SNP","TOTAL","SP2"]]
         #create end result
         df2={"#chrom":["1","1","X","X","X"],
@@ -78,11 +78,11 @@ class TestGws(unittest.TestCase):
         #create parameters for function
         result_header=["#chrom", "pos", "ref", "alt", "rsids", "nearest_genes", "pval", "beta", "sebeta", "maf", "maf_cases", "maf_controls","#variant","locus_id"]
         df=pd.DataFrame(columns=result_header)
-        group_df=pd.read_csv("testing/test_plink.clumped",sep="\s+")
+        group_df=pd.read_csv("fetch_resources/test_plink.clumped",sep="\s+")
         group_df=group_df.loc[:,["SNP","TOTAL","SP2"]]
-        tabixdf=pd.read_csv("testing/test_tsv",sep="\t")
+        tabixdf=pd.read_csv("fetch_resources/test_tsv",sep="\t")
         tabixdf.loc[:,"#variant"]=gws_fetch.create_variant_column(tabixdf)
-        df2=pd.read_csv("testing/solve_groups_result.tsv",sep="\t")
+        df2=pd.read_csv("fetch_resources/solve_groups_result.tsv",sep="\t")
         df=gws_fetch.solve_groups(df,group_df,tabixdf)
         df.loc[:,"pos"]=df.loc[:,"pos"].astype(np.int64)
         #test for equality
@@ -91,4 +91,5 @@ class TestGws(unittest.TestCase):
 
 
 if __name__=="__main__":
+    os.chdir("./testing")
     unittest.main()
