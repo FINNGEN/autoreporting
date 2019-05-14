@@ -1,6 +1,0 @@
-#chrom	pos	ref	alt	rsids	nearest_genes	pval	beta	sebeta	maf	maf_cases	maf_controls
-1	111111111	A	T	rs1111111	GEN1	1e-11	0.1	0.1	0.1	0.1	0.10
-1	111111112	C	T	rs1111112	GEN1	1e-11	0.2	0.2	0.2	0.2	0.20
-X	111111113	A	T	rs1111113	GEN1	1e-11	0.3	0.3	0.3	0.3	0.30
-X	111111114	G	T	rs1111114	GEN1	1e-11	0.4	0.4	0.4	0.4	0.40
-X	111111115	C	T	rs1111115	GEN1	1e-11	0.5	0.5	0.5	0.5	0.50

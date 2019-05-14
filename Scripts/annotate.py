@@ -14,7 +14,11 @@ def tabix_command(df,path,prefix=""):
     return tcall
 
 def pytabix(tb,chrom,start,end):
-    return tb.querys("{}:{}-{}".format(chrom,start,end))
+    try:
+        retval=tb.querys("{}:{}-{}".format(chrom,start,end))
+        return retval
+    except tabix.TabixError:
+        return []
 
 def load_tb_df(df,tb,fpath,chrom_prefix=""):
     tbxlst=[]
@@ -32,11 +36,11 @@ def get_gzip_header(fname):
     #create gzip call
     gzip_call=shlex.split("gzip -cd {}".format(fname))
     head_call=shlex.split("head -n 1")
-    gzip_process=Popen(gzip_call,stdout=PIPE)
-    head_proc=Popen(head_call,stdin=gzip_process.stdout,stdout=PIPE)
     out=[]
-    for line in head_proc.stdout:
-        out.append(line.decode().strip().split("\t"))
+    with Popen(gzip_call,stdout=PIPE) as gz:
+        with Popen(head_call,stdin=gz.stdout,stdout=PIPE) as hd:
+            for line in hd.stdout:
+                out.append(line.decode().strip().split("\t"))
     return out[0]
 
 def create_variant_column(df,chrom="#chrom",pos="pos",ref="ref",alt="alt"):
