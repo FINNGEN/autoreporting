@@ -20,12 +20,13 @@ def pytabix(tb,chrom,start,end):
     except tabix.TabixError:
         return []
 
-def load_tb_df(df,tb,fpath,chrom_prefix=""):
+def load_tb_df(df,tb,fpath,chrom_prefix="",na_value="."):
     tbxlst=[]
     for _,row in df.iterrows():
         tbxlst=tbxlst+list(pytabix(tb,"{}{}".format(chrom_prefix,row["#chrom"]),int(row["pos"]),int(row["pos"]) ) )
     header=get_gzip_header(fpath)
     out_df=pd.DataFrame(tbxlst,columns=header )
+    out_df=out_df.replace(na_value,np.nan)
     out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
     return out_df
 
@@ -52,8 +53,8 @@ def calculate_enrichment(gnomad_df,fi_af_col,count_nfe_lst,number_nfe_lst):
     In: gnomad dataframe, finnish allele frequency column,
     other group allele count and number columns
     Out: enrichment column"""
-    nfe_counts=gnomad_df.loc[:,count_nfe_lst].sum(axis=1)
-    nfe_numbers=gnomad_df.loc[:,number_nfe_lst].sum(axis=1)
+    nfe_counts=gnomad_df.loc[:,count_nfe_lst].sum(axis=1,skipna=True)
+    nfe_numbers=gnomad_df.loc[:,number_nfe_lst].sum(axis=1,skipna=True)
     finn_freq=gnomad_df.loc[:,fi_af_col]
     enrichment=nfe_numbers*finn_freq/nfe_counts
     # clip enrichment
@@ -69,9 +70,9 @@ def create_rename_dict(list_of_names, prefix):
 def annotate(args):
     #TODO
     """Annotation function info
-    What it does
-    In:
-    Out:"""
+    Annotates variants with allele frequencies, 
+    enrichment numbers, and most severe gene/consequence data
+    """
     
     #columns that we want to take from gnomad and finngen annotations
     gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
@@ -81,7 +82,7 @@ def annotate(args):
 
     #load main file
     df=pd.read_csv(args.annotate_fpath,sep="\t")
-    original_cols=df.columns.values.tolist()
+    #original_cols=df.columns.values.tolist()
     #load gnomad_genomes
     tb_g=tabix.open(args.gnomad_genome_path)
     gnomad_genomes=load_tb_df(df,tb_g,args.gnomad_genome_path)
@@ -92,7 +93,7 @@ def annotate(args):
 
     #load finngen annotations
     tb_f=tabix.open(args.finngen_path)
-    fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr")
+    fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA")
     fg_df=fg_df.drop_duplicates(subset=["#variant"])
 
     if not gnomad_genomes.empty:
@@ -131,8 +132,6 @@ def annotate(args):
     else:
         for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe","#variant"]:
             gnomad_exomes[val]=None
-    
-        
         
     
     #rename gnomad_exomes and gnomad_genomes
@@ -164,7 +163,7 @@ def annotate(args):
     
     df=df.merge(fg_df,how="left",on="#variant")
 
-    df.to_csv(path_or_buf=args.out_fname,sep="\t",na_rep="NA",index=False)
+    df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Annotate results using gnoMAD and additional annotations")

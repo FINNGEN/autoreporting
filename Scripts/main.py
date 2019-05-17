@@ -43,12 +43,13 @@ if __name__=="__main__":
     parser.add_argument("--alternate-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
     parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
-    
+    parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     #finemap
     
     #annotate
     #parser.add_argument("annotate_fpath",type=str,help="Filepath of the results to be annotated")
-    parser.add_argument("--gnomad-path",dest="gnomad_path",type=str,help="Gnomad annotation file filepath")
+    parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
+    parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
     #parser.add_argument("--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
