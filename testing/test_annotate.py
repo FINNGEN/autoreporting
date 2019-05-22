@@ -48,7 +48,7 @@ class TestAnnotate(unittest.TestCase):
         args.gnomad_exome_path="annotate_resources/gnomad_exomes.tsv.gz"
         args.finngen_path="annotate_resources/finngen_anno.tsv.gz"
         args.out_fname="annotate_resources/test_out.csv"
-        args.batch_freq=True
+        args.batch_freq=False
         try:
             with open("annotate_resources/annotate_df.tsv","r") as f:
                 #test case lines
