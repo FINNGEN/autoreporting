@@ -7,28 +7,47 @@ from gws_fetch import create_variant_column,prune_regions
 import gwcatalog_api
 
 
+def map_alleles(a1,a2):
+    """
+    Flips alleles to the A strand if neccessary and orders them lexicogaphically
+    Author: Pietro? with smallish modifications from Arto(in this instance of the function)
+    """
+    allele_dict={}
+    for n1,n2 in [("T","A"),("C","G"),("G","C")]:
+        allele_dict[n1]=n2
+     # check if the A variant is present
+    if 'A' not in a1 + a2 and 'a' not in a1+a2:
+        # for both/ref and alt map them to the A strand and order each one lexicographically
+        a1 = ''.join([allele_dict[elem.upper()] for elem in a1])
+        a2 = ''.join([allele_dict[elem.upper()] for elem in a2])
+    # further sorting
+    return sorted([a1,a2])
+    
+
 def compare(args):
     
     #load original file
     df=pd.read_csv(args.compare_fname,sep="\t")
+    
     #if using summary file
     if args.compare_style=="file":
         #load summary file
+        summary_df=pd.DataFrame()
         for idx in range(0,len(args.summary_files) ):
-            summary_df=pd.read_csv(args.summary_files[idx],sep="\t")
+            s_df=pd.read_csv(args.summary_files[idx],sep="\t")
             #make sure the variant column exists
-            summary_cols=summary_df.columns
+            summary_cols=s_df.columns
             if "#variant" not in summary_cols:
-                summary_df.loc[:, "#variant"]=create_variant_column(summary_df)
-            #summary_df.loc[:,"endpoint"] = args.endpoint
+                s_df.loc[:, "summary_#variant"]=create_variant_column(summary_df)
+            
+            s_df.loc[:,"trait"] = args.endpoints[idx]
+            #s_df=s_df.rename(columns=summary_rename)
             if not args.build_38:
                 raise NotImplementedError("Non-build 38 raports are not supported yet.")
-            else:
-                df.loc[:,args.endpoints[idx]]=np.nan
-                df.loc[df["#variant"].isin(summary_df["#variant"]),args.endpoints[idx]]=1
-                if args.ld_check:
-                    raise NotImplementedError("LD calculations not yet implemented")
-        df.to_csv(args.raport_out,sep="\t",index=False)
+            #TODO: add summary files to end of each other, hope that they have the correct columns
+            summary_df=pd.concat([summary_df,s_df],axis=0)
+        #df.to_csv(args.raport_out,sep="\t",index=False)
+        #raise NotImplementedError("Comparison not yet fully implemented.")
                     
     elif args.compare_style=="gwascatalog":
         #create ranges that contain all of the SNPs
@@ -49,33 +68,58 @@ def compare(args):
                 bp_lower=region["min"],bp_upper=region["max"])  )
         gwas_df=pd.DataFrame(result_lst)
         #parse hits to a proper form, drop unnecessary information
-        #drop links
-        #only keep chrom, pos, ref, alt, p-val, association, study
         #print(gwas_df.columns)
-        gwas_cols=["base_pair_location","chromosome","hm_beta","p_value","hm_effect_allele","hm_other_allele",
-            "trait","study_accession","effect_allele","other_allele","hm_code"]
+        gwas_cols=["base_pair_location","chromosome","p_value","hm_effect_allele","hm_other_allele",
+            "trait","study_accession","hm_code","hm_beta","hm_effect_allele_frequency"]
         gwas_df=gwas_df.loc[:,gwas_cols]
         gwas_rename={"base_pair_location":"pos","chromosome":"#chrom","hm_beta":"beta",
-            "p_value":"pval","hm_effect_allele":"hm_alt","hm_other_allele":"hm_ref","effect_allele":"alt","other_allele":"ref"}
+            "p_value":"pval","hm_code":"code","hm_effect_allele":"alt","hm_other_allele":"ref","hm_effect_allele_frequency":"af"}
         gwas_df=gwas_df.rename(columns=gwas_rename)
         
         #gwas_df.loc[:,"code_column"].update(gwas_df.loc[:,"hm_code"])
-        tmp_df=gwas_df[["#chrom","pos","ref","alt","hm_ref","hm_alt","pval","hm_code"]]
+        tmp_df=gwas_df[["#chrom","pos","ref","alt","pval","code","beta","af","trait"]]
         
-        #filter out the ones that are not harmonized
-
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
         filter_out_codes=[9, 14, 15, 16, 17, 18]
-        tmp_df=tmp_df.loc[~tmp_df.loc[:,"hm_code"].isin(filter_out_codes)]
-        print(tmp_df)
-        tmp_df.to_csv("temp.csv",sep="\t",index=False)
-
+        tmp_df=tmp_df.loc[~tmp_df.loc[:,"code"].isin(filter_out_codes)]
+        #print(tmp_df.columns)
+        #tmp_df.to_csv("temp_before_mapping.csv",sep="\t",index=False)
+        tmp_df.loc[:,"#variant"]=create_variant_column(tmp_df,chrom="#chrom",pos="pos",ref="ref",alt="alt")
         #change alleles to a strand using the code from commons
-
-        #report hits in some way
-        raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
+        summary_df=tmp_df
+        #print(summary_df.loc[0,"trait"][0])
+        #create list of unique traits
+        summary_df.loc[:,"trait"]=summary_df.loc[:,"trait"].apply(lambda x:",".join(x))
+        unique_efos=list(summary_df["trait"].unique())
+        trait_name_map={}
+        for key in unique_efos:
+            trait_name_map[key]=gwcatalog_api.get_trait_name(key)
+        
+        summary_df.loc[:,"trait_name"]=summary_df.loc[:,"trait"].apply(lambda x: trait_name_map[x])
+        
     else:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
+    #now we should have df and summary_df
+    for _,row in summary_df.iterrows():
+        [alt,ref]=map_alleles(row["alt"],row["ref"])
+        summary_df.loc[_,"map_ref"]=ref
+        summary_df.loc[_,"map_alt"]=alt
+
+    for _,row in df.iterrows():
+        [alt,ref]=map_alleles(row["alt"],row["ref"])
+        df.loc[_,"map_ref"]=ref
+        df.loc[_,"map_alt"]=alt
+    
+    summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
+    df.loc[:,"map_variant"]=create_variant_column(df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
+    tmp=pd.merge(df,summary_df,how="inner",on="map_variant")
+    #TODO: make options for ld, i.e. if ld_check parameter is supplied, for each of our hits we check if there are any summary stat variants 
+    #in ld with them
+    if args.ld_check:
+        raise NotImplementedError("LD comparison not yet implemented".format(args.compare_style))
+
+    #TODO: make a better representation from the data
+    tmp.to_csv("temp_joined_mapping.csv",sep="\t",index=False)
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")

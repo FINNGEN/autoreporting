@@ -8,7 +8,8 @@ def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=
         "reveal":"all","bp_lower":bp_lower,"bp_upper":bp_upper}
     url="{}{}{}".format(base_url,chromosome,association)
     r=requests.get(url,params=payload)
-    print(r.url)
+    if r.status_code != 200:
+        raise Exception("Request {} with params {} returned status code {}".format(url,params,r.status_code))
     dump=r.json()
     dumplst=[]
     if "_links" not in dump.keys():
@@ -18,6 +19,8 @@ def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=
     while "next" in dump["_links"].keys():
         print(i)
         r=requests.get(dump["_links"]["next"]["href"],params={"reveal":"all"})
+        if r.status_code != 200:
+            break
         dump=r.json()
         if "_links" not in dump.keys():
             break
@@ -31,3 +34,14 @@ def parse_output(dumplst):
         for k in d.keys():
             rows.append(d[k])
     return rows
+
+def get_trait_name(trait):
+    base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
+    trait_=trait.upper()
+    r=requests.get(url=base_url+trait_)
+    if r.status_code == 404:
+        raise Exception("Trait {} not found".format(trait))
+    elif r.status_code != 200:
+        raise Exception("Request for trait {} returned status code {}".format(trait,r.status_code))
+    else:
+        return r.json()["trait"]
