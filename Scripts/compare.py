@@ -10,7 +10,7 @@ import gwcatalog_api
 def map_alleles(a1,a2):
     """
     Flips alleles to the A strand if neccessary and orders them lexicogaphically
-    Author: Pietro? with smallish modifications from Arto(in this instance of the function)
+    Author: Pietro?
     """
     allele_dict={}
     for n1,n2 in [("T","A"),("C","G"),("G","C")]:
@@ -46,27 +46,25 @@ def compare(args):
                 raise NotImplementedError("Non-build 38 raports are not supported yet.")
             #TODO: add summary files to end of each other, hope that they have the correct columns
             summary_df=pd.concat([summary_df,s_df],axis=0)
-        #df.to_csv(args.raport_out,sep="\t",index=False)
-        #raise NotImplementedError("Comparison not yet fully implemented.")
                     
     elif args.compare_style=="gwascatalog":
         #create ranges that contain all of the SNPs
         range_df=df.loc[:,["#chrom","pos"]].copy(deep=True)
         range_df.loc[:,"pos2"]=range_df.loc[:,"pos"]
         range_df=range_df.rename(columns={"pos":"pos_rmin","pos2":"pos_rmax"})
-        print(range_df.columns)
         #add 100000 bp to the interval to make the ranges a bit more common
-        range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-100000
-        range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+100000
+        range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-25000
+        range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+25000
         range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
         regions=prune_regions(range_df)
-        print(regions)
         #use api to get all gwascatalog hits
+        print(regions)
         result_lst=[]
         for _,region in regions.iterrows():
             result_lst+= gwcatalog_api.parse_output(gwcatalog_api.get_all_associations(chromosome=region["#chrom"],
-                bp_lower=region["min"],bp_upper=region["max"])  )
+                bp_lower=region["min"],bp_upper=region["max"],p_upper=args.gwascatalog_pval,p_lower=1e-323)  )
         gwas_df=pd.DataFrame(result_lst)
+        gwas_df.to_csv("gwas_out_mapping.csv",sep="\t")
         #parse hits to a proper form, drop unnecessary information
         #print(gwas_df.columns)
         gwas_cols=["base_pair_location","chromosome","p_value","hm_effect_allele","hm_other_allele",
@@ -130,5 +128,6 @@ if __name__ == "__main__":
     parser.add_argument("--build-38",dest="build_38",action="store_true",help="Whether is in GRCh38")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_output.csv",help="Raport output path")
+    parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
     args=parser.parse_args()
     compare(args)
