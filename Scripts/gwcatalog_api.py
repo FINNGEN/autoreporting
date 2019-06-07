@@ -9,8 +9,11 @@ def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=
     url="{}{}{}".format(base_url,chromosome,association)
     r=requests.get(url,params=payload)
     print(r.url)
-    if r.status_code != 200:
+    if r.status_code not in {200,400,404}:
         raise Exception("Request {} with params {} returned status code {}".format(url,payload,r.status_code))
+    if r.status_code in [400,404]:
+        print("No variants found in {}:{}-{}".format(chromosome,bp_lower,bp_upper))
+        return
     dump=r.json()
     dumplst=[]
     if "_links" not in dump.keys():
@@ -18,10 +21,10 @@ def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=
     dumplst.append(dump["_embedded"]["associations"])
     i=1
     while "next" in dump["_links"].keys():
-        payload["start"]+=20
+        #payload["start"]+=20
         print(i)
-        #r=requests.get(dump["_links"]["next"]["href"],params={"reveal":"all"})
-        r=requests.get(url,params=payload)
+        r=requests.get(dump["_links"]["next"]["href"],params={"reveal":"all"})
+        #r=requests.get(url,params=payload)
         print(r.url)
         if r.status_code != 200:
             print("Request {} with params {} returned status code {}".format(url,payload,r.status_code))
@@ -45,7 +48,7 @@ def get_trait_name(trait):
     trait_=trait.upper()
     r=requests.get(url=base_url+trait_)
     if r.status_code == 404:
-        raise Exception("Trait {} not found".format(trait))
+        raise Exception("Trait {} not found in GWASCatalog".format(trait))
     elif r.status_code != 200:
         raise Exception("Request for trait {} returned status code {}".format(trait,r.status_code))
     else:

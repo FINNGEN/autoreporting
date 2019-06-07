@@ -62,7 +62,7 @@ def compare(args):
         result_lst=[]
         for _,region in regions.iterrows():
             result_lst+= gwcatalog_api.parse_output(gwcatalog_api.get_all_associations(chromosome=region["#chrom"],
-                bp_lower=region["min"],bp_upper=region["max"],p_upper=args.gwascatalog_pval,p_lower=1e-323)  )
+                bp_lower=region["min"],bp_upper=region["max"],p_upper=args.gwascatalog_pval)  )
         gwas_df=pd.DataFrame(result_lst)
         gwas_df.to_csv("gwas_out_mapping.csv",sep="\t")
         #parse hits to a proper form, drop unnecessary information
@@ -114,6 +114,11 @@ def compare(args):
     #TODO: make options for ld, i.e. if ld_check parameter is supplied, for each of our hits we check if there are any summary stat variants 
     #in ld with them
     if args.ld_check:
+        #gather the variant list
+        var_cols=["#variant","pos","#chrom","ref","alt"]
+        var_rename={"#variant":"RSID","pos":"position","#chrom":"chromosome","ref":"A_allele","alt":"B_allele"}
+        var_lst_df=pd.concat([summary_df.loc[:,var_cols].rename(columns=var_rename),df.loc[:,var_cols].rename(columns=var_rename)  ])
+        var_lst_df.to_csv("variants_for_ld.csv",sep="\t",index=False)
         raise NotImplementedError("LD comparison not yet implemented".format(args.compare_style))
 
     #TODO: make a better representation from the data
@@ -127,7 +132,9 @@ if __name__ == "__main__":
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
     parser.add_argument("--build-38",dest="build_38",action="store_true",help="Whether is in GRCh38")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
+    parser.add_argument("--ld-panel-path",dest="ld_panel",help="The path for the LD panel to determine what samples are in LD with each other")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_output.csv",help="Raport output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
+    
     args=parser.parse_args()
     compare(args)
