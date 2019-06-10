@@ -1,11 +1,11 @@
 #! /usr/bin/python3
 import json, requests
 
-def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=5e-8,p_lower=2.4704e-324):
+def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=5e-8,p_lower=2.4704e-324,size=500):
     base_url="https://www.ebi.ac.uk/gwas/summary-statistics/api/chromosomes/"
     association="/associations"
     payload={"p_upper":p_upper,"p_lower":p_lower,
-        "reveal":"all","bp_lower":bp_lower,"bp_upper":bp_upper,"start":0}
+        "reveal":"all","bp_lower":bp_lower,"bp_upper":bp_upper,"start":0,"size":size}
     url="{}{}{}".format(base_url,chromosome,association)
     r=requests.get(url,params=payload)
     print(r.url)
