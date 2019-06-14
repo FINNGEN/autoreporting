@@ -56,8 +56,16 @@ if __name__=="__main__":
     
     #compare results
     #parser.add_argument("compare_fname",type=str,help="GWS result file")
-    parser.add_argument("--compare-style",type=str,help="use 'database' or 'file'")
-    parser.add_argument("--summary-fpath",type=str,help="comparison summary filepath")
-    
+    parser.add_argument("--compare-style",type=str,help="use 'file' or 'gwascatalog'")
+    parser.add_argument("--summary-fpath",dest="summary_files",metavar="FILE",nargs="+",help="comparison summary filepaths")
+    parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
+    parser.add_argument("--build-38",dest="build_38",action="store_true",help="Whether is in GRCh38")
+    parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
+    #parser.add_argument("--ld-panel-path",dest="ld_panel",help="The path for the LD panel to determine what samples are in LD with each other")
+    parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_output.csv",help="Comparison raport output path")
+    parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
+    parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
+    parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore")
+    parser.add_argument("--ld-treshold",type=float,default=0.4,help="ld treshold")
     args=parser.parse_args()
     main(args)
