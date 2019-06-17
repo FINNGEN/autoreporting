@@ -26,13 +26,15 @@ def map_alleles(a1,a2):
     
 
 def compare(args):
-    
+    """
+    Compares our findings to gwascatalog results or supplied summary statistic files
+    """
     #load original file
     df=pd.read_csv(args.compare_fname,sep="\t")
     
     #if using summary file
     if args.compare_style=="file":
-        #load summary file
+        #load summary files
         summary_df=pd.DataFrame()
         for idx in range(0,len(args.summary_files) ):
             s_df=pd.read_csv(args.summary_files[idx],sep="\t")
@@ -42,11 +44,11 @@ def compare(args):
                 s_df.loc[:, "summary_#variant"]=create_variant_column(summary_df)
             
             s_df.loc[:,"trait"] = args.endpoints[idx]
-            #s_df=s_df.rename(columns=summary_rename)
             if not args.build_38:
-                raise NotImplementedError("Non-build 38 raports are not supported yet.")
-            #TODO: add summary files to end of each other, hope that they have the correct columns
+                raise NotImplementedError("Non-build 38 raports are not supported.")
             summary_df=pd.concat([summary_df,s_df],axis=0)
+
+        #TODO: make sure necessary columns are available 
                     
     elif args.compare_style=="gwascatalog":
         gwas_df=None
@@ -133,12 +135,12 @@ def compare(args):
         #get unique chromosomes in the results
         unique_chrom_list=df["#chrom"].unique()
         c1="mkdir temp"
-        Popen(shlex.split(c1),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
+        Popen(shlex.split(c1),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         c2="ln -s ../{}.bed ./temp/temp.bed".format(args.ld_panel_path)
         c3="ln -s ../{}.fam ./temp/temp.fam".format(args.ld_panel_path)
         
-        Popen(shlex.split(c2),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
-        Popen(shlex.split(c3),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
+        Popen(shlex.split(c2),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        Popen(shlex.split(c3),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         ld_df=pd.DataFrame()
         for chromosome in unique_chrom_list:
             print("Chromosome {} ld computation".format(chromosome))
