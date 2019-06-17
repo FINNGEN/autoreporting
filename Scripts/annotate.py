@@ -1,24 +1,13 @@
-#! /usr/bin/python3
+#!/usr/bin/env python3
 
 import argparse,shlex,subprocess
 from subprocess import Popen, PIPE
 import pandas as pd 
 import numpy as np
 import tabix
+from autoreporting_utils import *
 #TODO: make a system for making sure we can calculate all necessary fields,
 #e.g by checking that the columns exist
-def tabix_command(df,path,prefix=""):
-    tcall="tabix "+path+" -h " 
-    for t in df.itertuples():
-        tcall=tcall+" "+str(prefix)+str(t._1)+":"+str(t.pos)+"-"+str(t.pos)+" "
-    return tcall
-
-def pytabix(tb,chrom,start,end):
-    try:
-        retval=tb.querys("{}:{}-{}".format(chrom,start,end))
-        return retval
-    except tabix.TabixError:
-        return []
 
 def load_tb_df(df,tb,fpath,chrom_prefix="",na_value="."):
     tbxlst=[]
@@ -29,23 +18,6 @@ def load_tb_df(df,tb,fpath,chrom_prefix="",na_value="."):
     out_df=out_df.replace(na_value,np.nan)
     out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
     return out_df
-
-def get_gzip_header(fname):
-    """"Returns header for gzipped tsvs, as that is not currently possible using pytabix
-    In: file path of gzipped tsv
-    Out: header of tsv as a list of column names"""
-    #create gzip call
-    gzip_call=shlex.split("gzip -cd {}".format(fname))
-    head_call=shlex.split("head -n 1")
-    out=[]
-    with Popen(gzip_call,stdout=PIPE) as gz:
-        with Popen(head_call,stdin=gz.stdout,stdout=PIPE) as hd:
-            for line in hd.stdout:
-                out.append(line.decode().strip().split("\t"))
-    return out[0]
-
-def create_variant_column(df,chrom="#chrom",pos="pos",ref="ref",alt="alt"):
-    return df.apply( lambda x: "chr{}_{}_{}_{}".format(x[chrom],x[pos],x[ref],x[alt]) ,axis=1)
 
 def calculate_enrichment(gnomad_df,fi_af_col,count_nfe_lst,number_nfe_lst):
     """Calculate enrichment for finns vs the other group, 

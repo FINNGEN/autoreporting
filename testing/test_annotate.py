@@ -2,6 +2,7 @@ import unittest
 import sys,os,io
 sys.path.append("../")
 sys.path.append("./")
+sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import annotate
 

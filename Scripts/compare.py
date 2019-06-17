@@ -4,7 +4,7 @@ import argparse,shlex,subprocess
 from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
-from gws_fetch import create_variant_column,prune_regions
+from autoreporting_utils import *
 import gwcatalog_api
 import os
 
