@@ -184,9 +184,9 @@ def compare(args):
         Popen(shlex.split(c4),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         Popen(shlex.split(c5),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         ld_df=ld_df.merge(summary_df[["#variant","pval"]],left_on="RSID2",right_on="#variant",how="inner")
-    ld_df=ld_df.drop(columns=["RSID2","index1","index2"])
-    ld_df=ld_df.rename({"RDIS_1":"gws_variant"})
-    ld_df.to_csv("ld_raport_out.csv",sep="\t",index=False)
+        ld_df=ld_df.drop(columns=["RSID2","index1","index2"])
+        ld_df=ld_df.rename({"RSID_1":"gws_variant"})
+        ld_df.to_csv("ld_raport_out.csv",sep="\t",index=False)
     #TODO: make a better representation from the data
     tmp.to_csv(args.raport_out,sep="\t",index=False)
 
