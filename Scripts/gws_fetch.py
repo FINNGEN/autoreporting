@@ -116,7 +116,7 @@ def fetch_gws(args):
             #add tabix info to groups and write to file
             df=pd.DataFrame(columns=tbxheader+["#variant","locus_id"])
             df=solve_groups(df,group_data,tabixdf)
-            df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
+            df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
 
         else:
             #simple grouping
@@ -152,17 +152,17 @@ def fetch_gws(args):
                 if i%100==0:
                     print("iter: {}, SNPs remaining:{}/{}".format(i,result_dframe.shape[0],total))
                 i+=1
-            new_df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
+            new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     else:
         df.loc[:,["#chrom","pos","ref","alt","rsids",
                     "nearest_genes","pval","beta","sebeta","maf",
-                    "maf_cases","maf_controls","#variant","locus_id"]].to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
+                    "maf_cases","maf_controls","#variant","locus_id"]].to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetch and group gws SNPs from summary statistic")
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed tsv")
     parser.add_argument("-s","--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
-    parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
+    parser.add_argument("--fetch_out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
     parser.add_argument("-g", "--group", dest="grouping",action='store_true',help="Whether to group SNPs")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("-w","--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")

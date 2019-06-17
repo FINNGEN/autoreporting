@@ -10,9 +10,8 @@ def main(args):
     ###Filter and Group SNPs###
     ###########################
     print("filter & group SNPs")
-    args.out_fname="temp_tsv.out"
-    args.annotate_fpath=args.out_fname
-    args.compare_fname=args.out_fname
+    args.annotate_fpath=args.fetch_out
+    args.compare_fname=args.annotate_out
     gws_fetch.fetch_gws(args)
     
     ###########################
@@ -36,7 +35,7 @@ if __name__=="__main__":
     #gws_fetch
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed tsv")
     parser.add_argument("--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
-    #parser.add_argument("--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
+    parser.add_argument("--fetch_out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
     parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
@@ -52,7 +51,7 @@ if __name__=="__main__":
     parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
-    #parser.add_argument("--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
+    parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.csv",help="Annotation output filename, default is annotate_out.csv")
     
     #compare results
     #parser.add_argument("compare_fname",type=str,help="GWS result file")

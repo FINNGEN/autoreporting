@@ -40,10 +40,11 @@ def create_rename_dict(list_of_names, prefix):
     return d
 
 def annotate(args):
-    #TODO
-    """Annotation function info
+    """
     Annotates variants with allele frequencies, 
     enrichment numbers, and most severe gene/consequence data
+    Annotations from gnomad exome data, gnomad genome data,
+    finngen annotation file 
     """
     
     #columns that we want to take from gnomad and finngen annotations
@@ -135,7 +136,7 @@ def annotate(args):
     
     df=df.merge(fg_df,how="left",on="#variant")
 
-    df.to_csv(path_or_buf=args.out_fname,sep="\t",index=False)
+    df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Annotate results using gnoMAD and additional annotations")
@@ -144,6 +145,6 @@ if __name__=="__main__":
     parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
-    parser.add_argument("-o","--out-fname",dest="out_fname",type=str,default="out.csv",help="Output filename, default is out.csv")
+    parser.add_argument("--annotate_out",dest="out_fname",type=str,default="annotate_out.csv",help="Output filename, default is out.csv")
     args=parser.parse_args()
     annotate(args)

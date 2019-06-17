@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 
-import argparse,shlex,subprocess
+import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
@@ -133,17 +133,15 @@ def compare(args):
         #get unique chromosomes in the results
         unique_chrom_list=df["#chrom"].unique()
         c1="mkdir temp"
-        Popen(shlex.split(c1),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        Popen(shlex.split(c1),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
         c2="ln -s ../{}.bed ./temp/temp.bed".format(args.ld_panel_path)
         c3="ln -s ../{}.fam ./temp/temp.fam".format(args.ld_panel_path)
-        print(c2)
-        print(c3)
         
-        Popen(shlex.split(c2),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        Popen(shlex.split(c3),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        Popen(shlex.split(c2),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
+        Popen(shlex.split(c3),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
         ld_df=pd.DataFrame()
         for chromosome in unique_chrom_list:
-            pass
+            print("Chromosome {} ld computation".format(chromosome))
             #build bim file, containing both the variants in df and summary_df
             bim_lst=var_lst_df[var_lst_df["chromosome"]==chromosome]
             bim_lst["cm"]=0
@@ -180,9 +178,10 @@ def compare(args):
             ld_df=pd.concat((ld_df,ld_df_),axis=0)
 
         c4="rm -r temp/"
-        c5="rm temp_corr.bcor* ld_table.table"
+        c5="rm ld_table.table "
+        corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c4),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        Popen(shlex.split(c5),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
         ld_df=ld_df.merge(summary_df[["#variant","pval"]],left_on="RSID2",right_on="#variant",how="inner")
         ld_df=ld_df.drop(columns=["RSID2","index1","index2"])
         ld_df=ld_df.rename({"RSID_1":"gws_variant"})

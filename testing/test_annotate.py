@@ -48,7 +48,7 @@ class TestAnnotate(unittest.TestCase):
         args.gnomad_genome_path="annotate_resources/gnomad_genomes.tsv.gz"
         args.gnomad_exome_path="annotate_resources/gnomad_exomes.tsv.gz"
         args.finngen_path="annotate_resources/finngen_anno.tsv.gz"
-        args.out_fname="annotate_resources/test_out.csv"
+        args.annotate_out="annotate_resources/test_out.csv"
         args.batch_freq=False
         try:
             with open("annotate_resources/annotate_df.tsv","r") as f:
@@ -61,7 +61,7 @@ class TestAnnotate(unittest.TestCase):
                     tmp="".join(test_lines)
                     with io.StringIO(tmp) as args.annotate_fpath:
                         annotate.annotate(args)
-                        with open(args.out_fname,"r") as f:
+                        with open(args.annotate_out,"r") as f:
                             df=pd.read_csv(f,sep="\t")
                             #TODO: check whether the file is correct
         except:
