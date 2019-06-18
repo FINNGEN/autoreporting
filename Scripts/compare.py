@@ -55,6 +55,7 @@ def compare(args):
         if os.path.exists("gwas_out_mapping.csv"):
             gwas_df=pd.read_csv("gwas_out_mapping.csv",sep="\t")
         else:
+            #NOTE: change range to be the same that was defined in fetching, either the width or first and last variant in the group if ld
             #create ranges that contain all of the SNPs
             range_df=df.loc[:,["#chrom","pos"]].copy(deep=True)
             range_df.loc[:,"pos2"]=range_df.loc[:,"pos"]
@@ -88,6 +89,7 @@ def compare(args):
         #gwas_df.loc[:,"code_column"].update(gwas_df.loc[:,"hm_code"])
         tmp_df=gwas_df[["#chrom","pos","ref","alt","pval","code","beta","af","trait"]]
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
+        tmp_df.to_csv("unfiltered.csv",sep="\t",index=False)
         filter_out_codes=[9, 14, 15, 16, 17, 18]
         tmp_df=tmp_df.loc[~tmp_df.loc[:,"code"].isin(filter_out_codes)]
         tmp_df.loc[:,"#variant"]=create_variant_column(tmp_df,chrom="#chrom",pos="pos",ref="ref",alt="alt")
@@ -116,18 +118,17 @@ def compare(args):
     
     summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
     df.loc[:,"map_variant"]=create_variant_column(df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
-    tmp=pd.merge(df,summary_df,how="inner",on="map_variant")
-    #TODO: make options for ld, i.e. if ld_check parameter is supplied, for each of our hits we check if there are any summary stat variants 
-    #in ld with them
+    tmp=pd.merge(df,summary_df,how="left",on="map_variant")
+    print(tmp.columns)
     if args.ld_check:
         #raise NotImplementedError("LD comparison not yet implemented".format(args.compare_style))
         #preprocess found variants, i.e. divide variants in both our and gwascatalog results to chromosomes
         #Then, we need to build the bim files, I guess, or I could just process some ld panels ready and push them into a bucket
         #Then, for each chromosome set, we want to separate the clear ranges from each other, I guess
         #then, we run ldstore, export correlations, and see if any of the gwascatalog variants are in ld with the gws variants
-        #NOTE: ldstore only takes bim file into account if we use range.
+        #NOTE: ldstore only seems to take bim file into account if we use range.
 
-        #get variant list, i.e. the list of variants that consists of gws results and summary reuslts
+        #get variant list, i.e. the list of variants that consists of gws results and summary results
         var_cols=["#variant","pos","#chrom","ref","alt"]
         var_rename={"#variant":"RSID","pos":"position","#chrom":"chromosome","ref":"A_allele","alt":"B_allele"}
         var_lst_df=pd.concat([summary_df.loc[:,var_cols].rename(columns=var_rename),df.loc[:,var_cols].rename(columns=var_rename)  ])
@@ -145,48 +146,65 @@ def compare(args):
         for chromosome in unique_chrom_list:
             print("Chromosome {} ld computation".format(chromosome))
             #build bim file, containing both the variants in df and summary_df
-            bim_lst=var_lst_df[var_lst_df["chromosome"]==chromosome]
-            bim_lst["cm"]=0
-            bim_lst=bim_lst[["chromosome","RSID","cm","position","A_allele","B_allele"]]
+            bim_lst=None
+            bim_lst=var_lst_df.loc[var_lst_df["chromosome"]==chromosome,:].copy()
+            bim_lst.loc[:,"cm"]=0
+            bim_lst=bim_lst.loc[:,["chromosome","RSID","cm","position","A_allele","B_allele"]]
             #temporary solution: create temp folder, create symbolic links to other files, write bim file to temp folder,
             #do the magic, and delete temp folder afterwards. No modification to existing files, and not a lot of disk space usage
             #still ugly, but at least we don't modify data that is supplied to this script
             range_upper=np.max(bim_lst["position"])
             range_lower=np.min(bim_lst["position"])
+            print("Variant amount: {}".format(bim_lst.shape[0]))
+            #if bim_lst.shape[0]<10:
+            #    print(bim_lst)
             bim_lst.to_csv("temp/temp.bim",sep="\t",index=False,header=False)
-
+            #threads set to 1 because it seems our playing around with bim files does not seems to like threads
             #then, calculate ld
             ldstore_command="ldstore --bplink temp/temp --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
             args.ld_treshold,
             range_lower,
             range_upper,
-            args.ldstore_threads)
+            1)
+            #args.ldstore_threads)
             ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
-            ldstore_extract_info="ldstore --bcor temp_corr.bcor --table ld_table.table "
-            subprocess.call(shlex.split(ldstore_command), stderr=subprocess.DEVNULL )
-            subprocess.call(shlex.split(ldstore_merge_command),stderr=subprocess.DEVNULL )
-            subprocess.call(shlex.split(ldstore_extract_info), stderr=subprocess.DEVNULL )
+            ldstore_extract_info="ldstore --bcor temp_corr.bcor_1 --table ld_table.table "
+            retval=subprocess.call(shlex.split(ldstore_command),stdout=subprocess.DEVNULL )
+            if retval!= 0:
+                continue
+            print("return value for process ldstore returned {}".format(retval))
+            #subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL )
+            retval=subprocess.call(shlex.split(ldstore_extract_info),stdout=subprocess.DEVNULL )
+            print("return value for process ldstore --table returned {}".format(retval))
             #read ld_table.table in
             ld_df_=pd.read_csv("ld_table.table",sep="\s+")
             #let's do this policy:
             #   id1 is the one from our results, i.e. keep only those where id1 is our variants
             #   id2 is the catalog entries, i.e. keep only those
             #   Then, announce the results 
-            ld_df_=ld_df_[["chromosome", "index1", "RSID1", "position1", "index2", "RSID2", "position2", "correlation"]]
+            ld_df_=ld_df_.loc[:,["chromosome", "index1", "RSID1", "position1", "index2", "RSID2", "position2", "correlation"]]
             ld_df_=ld_df_.merge(df["#variant"],how="inner",left_on="RSID1",right_on="#variant")
             ld_df_=ld_df_.merge(summary_df["#variant"],how="inner",left_on="RSID2",right_on="#variant")
-            #print(ld_df_.columns)
             ld_df_=ld_df_.drop(columns=["#variant_x","#variant_y"])
             ld_df=pd.concat((ld_df,ld_df_),axis=0)
-
         c4="rm -r temp/"
         c5="rm ld_table.table "
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c4),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
-        ld_df=ld_df.merge(summary_df[["#variant","pval"]],left_on="RSID2",right_on="#variant",how="inner")
-        ld_df=ld_df.drop(columns=["RSID2","index1","index2"])
-        ld_df=ld_df.rename({"RSID_1":"gws_variant"})
+        #NOTE: only matching with variant does not work, as the trait also affects the p-value
+        #instead, it might be better to: for each of our SNPs that were in ld with some of the summary variants,
+        #list all the phenotypes and p-values that they were in ld with.
+        #TODO: list all variants that are in LD with the variants
+        #what do we need: summary df, ld df, and variant df
+        #first, pick all pairs where one of the pairs is our variant, then from these pairs pick ones where the other is in summary df
+        #then, list the phenotype for each of these from summary df
+
+        #first, do this with e.g. just writing it to a file, but it will need some sort of structured output
+
+        #ld_df=ld_df.merge(summary_df[["#variant","pval"]],left_on="RSID2",right_on="#variant",how="inner")
+        #ld_df=ld_df.drop(columns=["RSID2","index1","index2"])
+        #ld_df=ld_df.rename({"RSID_1":"gws_variant"})
         ld_df.to_csv("ld_raport_out.csv",sep="\t",index=False)
     #TODO: make a better representation from the data
     tmp.to_csv(args.raport_out,sep="\t",index=False)
