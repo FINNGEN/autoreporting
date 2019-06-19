@@ -75,7 +75,7 @@ def compare(args):
             range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
             regions=prune_regions(range_df)
             #use api to get all gwascatalog hits
-            print(regions)
+            #print(regions)
             result_lst=[]
             for _,region in regions.iterrows():
                 val=gwcatalog_api.get_all_associations(chromosome=region["#chrom"],
@@ -97,7 +97,7 @@ def compare(args):
         #gwas_df.loc[:,"code_column"].update(gwas_df.loc[:,"hm_code"])
         tmp_df=gwas_df[["#chrom","pos","ref","alt","pval","code","beta","af","trait"]]
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
-        tmp_df.to_csv("unfiltered.csv",sep="\t",index=False)
+        #tmp_df.to_csv("unfiltered.csv",sep="\t",index=False)
         filter_out_codes=[9, 14, 15, 16, 17, 18]
         tmp_df=tmp_df.loc[~tmp_df.loc[:,"code"].isin(filter_out_codes)]
         tmp_df.loc[:,"#variant"]=create_variant_column(tmp_df,chrom="#chrom",pos="pos",ref="ref",alt="alt")
@@ -129,7 +129,7 @@ def compare(args):
     
     summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
     df.loc[:,"map_variant"]=create_variant_column(df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
-    df.to_csv("df.csv",sep="\t",index=False)
+    #df.to_csv("df.csv",sep="\t",index=False)
     tmp=pd.merge(df,summary_df.loc[:,["#variant","map_variant","pval","trait","trait_name"]],how="left",on="map_variant")
     tmp=tmp.drop(columns=["map_variant","map_ref","map_alt"])
     tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":"pval","pval_y":"pval_trait"})
@@ -168,9 +168,7 @@ def compare(args):
             print("Chromosome {}, group {} ld computation".format(chromosome,locus))
             #build bim file, containing both the variants in df and summary_df
             bim_lst=None
-            #get only the 
-
-
+            #get only variants in that group
 
             bim_lst=var_lst_df.loc[var_lst_df["chromosome"]==chromosome,:].copy()
             #filter those that are in the group
@@ -186,6 +184,8 @@ def compare(args):
             range_upper=np.max(bim_lst["position"])
             range_lower=np.min(bim_lst["position"])
             print("Variant amount: {}".format(bim_lst.shape[0]))
+            if (range_upper==range_lower) or bim_lst.shape[0]<=1:
+                continue
             bim_lst.to_csv("temp/temp.bim",sep="\t",index=False,header=False)
             #threads set to 1 because it seems our playing around with bim files does not seems to like threads
             #then, calculate ld
@@ -195,15 +195,13 @@ def compare(args):
             range_upper,
             1)
             #args.ldstore_threads)
-            ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
+            #ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
             ldstore_extract_info="ldstore --bcor temp_corr.bcor_1 --table ld_table.table "
             retval=subprocess.call(shlex.split(ldstore_command),stdout=subprocess.DEVNULL )
             if retval!= 0:
                 continue
-            #print("return value for process ldstore returned {}".format(retval))
             #subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL )
             retval=subprocess.call(shlex.split(ldstore_extract_info),stdout=subprocess.DEVNULL )
-            #print("return value for process ldstore --table returned {}".format(retval))
             #read ld_table.table in
             ld_df_=pd.read_csv("ld_table.table",sep="\s+")
             ld_df_=ld_df_.loc[:,["RSID1", "RSID2", "correlation"]]
@@ -229,7 +227,7 @@ if __name__ == "__main__":
     parser.add_argument("--compare-style",type=str,help="use 'file' or 'gwascatalog'")
     parser.add_argument("--summary-fpath",dest="summary_files",metavar="FILE",nargs="+",help="comparison summary filepaths")
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
-    parser.add_argument("--build-38",dest="build_38",action="store_true",help="Whether is in GRCh38")
+    parser.add_argument("--build-38",dest="build_38",action="store_true",help="Whether supplied comparison summary files are in GRCh38")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",help="The path for the LD panel to determine what samples are in LD with each other")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_output.csv",help="Raport output path")

@@ -7,11 +7,10 @@ This pipeline is used to
 2) Perform finemapping on the filtered SNPs
 3) Annotate the SNPs using gnoMAD and FINNGEN annotations
 4) Cross-reference the SNPs to previous results, e.g. online databases and/or hand-picked results from studies
+Currently, steps 1,3 and 4 are operational. 
 
 ## 1: Filtering and clumping GWS variants: gws_fetch.py
 The first part of the tool filters in genome-wide-significant variants (treshold configurable) and optionally groups them according to the command line settings. The grouping can be done using either grouping based on an area around top gws variants, or using PLINK's ld clumping. An alternate signifigance treshold for including variants in the groups can be specified.
-
-
 
 ## 2: Finemapping the GWS variants
 TBD
@@ -21,3 +20,13 @@ The third part of the tool annotates GWS variants using annotations both from gn
 
 ## 4: Comparing GWS variants to previous findings
 The fourth part of the tool compares GWS variants to either external summary statistics or summary statistics in databases such as GWASCatalog.
+
+## Dependencies
+
+packages:python 3, plink 1.9, ldstore \\
+python 3 libraries: requests, numpy, pandas, pytabix 
+
+## Usage
+
+Individual scripts can ran separately, or the whole pipeline can be run through main.py
+TBD

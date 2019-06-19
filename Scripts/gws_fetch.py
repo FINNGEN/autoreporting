@@ -4,7 +4,7 @@ import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 import sys,os
 import pandas as pd, numpy as np
-import tabix
+#import tabix
 from autoreporting_utils import *
 
 def parse_plink_output(df):
@@ -89,8 +89,11 @@ def fetch_gws(args):
             temp_variants="temp_plink.variants.csv"
             df.loc[:,["#variant","#chrom","pos","ref","alt","pval"]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
             plink_fname="temp_plink"
+            allow_overlap=""
+            if args.overlap==True:
+                allow_overlap="--clump-allow-overlap"
             plink_command="plink --allow-extra-chr --bfile {} --clump {} --clump-field {} --clump-snp-field '{}'  --clump-r2 {}"\
-                " --clump-kb {} --clump-p1 {} --clump-p2 {} --out {} --memory {} --clump-allow-overlap".format(
+                " --clump-kb {} --clump-p1 {} --clump-p2 {} --out {} --memory {} {}".format(
                 args.ld_panel_path,
                 temp_variants,
                 "pval",
@@ -100,7 +103,8 @@ def fetch_gws(args):
                 args.sig_treshold,
                 args.sig_treshold_2,
                 plink_fname,
-                args.plink_mem)
+                args.plink_mem,
+                allow_overlap)
             #call plink
             subprocess.call(shlex.split(plink_command), stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
             #parse output file, find locus width
@@ -167,28 +171,31 @@ def fetch_gws(args):
                 #convergence: remove the indexes from result_dframe
                 dropidx=(df["pos"]<=ms_snp["pos_rmax"])&(df["pos"]>=ms_snp["pos_rmin"])
                 df=df.loc[~dropidx,:]
+                if not args.overlap:
+                    t_dropidx=(tabixdf["pos"]<=ms_snp["pos_rmax"])&(tabixdf["pos"]>=ms_snp["pos_rmin"])
+                    tabixdf=tabixdf.loc[~t_dropidx,:]
                 if i%100==0:
                     print("iter: {}, SNPs remaining:{}/{}".format(i,df.shape[0],total))
                 i+=1
-        new_df=new_df.sort_values("#variant")
+        new_df=new_df.sort_values(["locus_id","#variant"])
         new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     else:
         df.loc[:,["#chrom","pos","ref","alt","rsids",
                     "nearest_genes","pval","beta","sebeta","maf",
-                    "maf_cases","maf_controls","#variant","locus_id"]].sort_values("#variant").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+                    "maf_cases","maf_controls","#variant","locus_id"]].sort_values(["locus_id","#variant"]).to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     
 if __name__=="__main__":
-    parser=argparse.ArgumentParser(description="Fetch and group gws SNPs from summary statistic")
-    parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed tsv")
-    parser.add_argument("-s","--signifigance-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
+    parser=argparse.ArgumentParser(description="Fetch and group genome-wide significant variants from summary statistic")
+    parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed summary statistic")
+    parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("--fetch_out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
-    parser.add_argument("-g", "--group", dest="grouping",action='store_true',help="Whether to group SNPs")
+    parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
-    parser.add_argument("-w","--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
-    parser.add_argument("-s2","--alternate-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
+    parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
+    parser.add_argument("--alt-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
     parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
-    
+    parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     args=parser.parse_args()
     fetch_gws(args)
