@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse,shlex,subprocess
+import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 import sys,os
 import pandas as pd, numpy as np
@@ -42,6 +42,14 @@ def solve_groups(result_dframe,group_data,tabixdf):
         tmp.loc[:,"locus_id"]=t.SNP
         result_dframe=pd.concat([result_dframe,tmp],axis=0)
     return result_dframe
+
+
+def get_group_range(dframe,group_variant):
+    #find min and max position from group, return them
+    temp_df=dframe.loc[dframe["locus_id"]==group_variant]
+    min_=np.min(temp_df["pos"])
+    max_=np.max(temp_df["pos"])
+    return {"min":min_,"max":max_}
 
 def fetch_gws(args):
     fname=args.gws_fpath
@@ -116,6 +124,13 @@ def fetch_gws(args):
             #add tabix info to groups and write to file
             df=pd.DataFrame(columns=tbxheader+["#variant","locus_id"])
             df=solve_groups(df,group_data,tabixdf)
+            #TODO: get group ranges
+            for var in df["locus_id"].unique():
+                r=get_group_range(df,var)
+                df.loc[df["locus_id"]==var,"pos_rmin"]=r["min"]
+                df.loc[df["locus_id"]==var,"pos_rmax"]=r["max"]
+            df.loc[:,"pos_rmin"]=df.loc[:,"pos_rmin"].astype(np.int32)
+            df.loc[:,"pos_rmax"]=df.loc[:,"pos_rmax"].astype(np.int32)
             df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
 
         else:
@@ -136,7 +151,7 @@ def fetch_gws(args):
 
             tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
             tabixdf=tabixdf.drop_duplicates(subset=["#chrom","pos","ref","alt"],keep="first")
-            new_df=pd.DataFrame(columns=df.columns).drop(["pos_rmin","pos_rmax"],axis=1)
+            new_df=pd.DataFrame(columns=df.columns)#.drop(["pos_rmin","pos_rmax"],axis=1)
             i=1
             total=df.shape[0]
             while not df.empty:
@@ -145,12 +160,14 @@ def fetch_gws(args):
                 tmp=tabixdf.loc[rowidx,:].copy()
                 tmp.loc[:,"locus_id"]=ms_snp["#variant"]
                 tmp.loc[:,"#variant"]=create_variant_column(tmp)
+                tmp.loc[:,"pos_rmin"]=ms_snp["pos_rmin"]
+                tmp.loc[:,"pos_rmax"]=ms_snp["pos_rmax"]
                 new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
                 #convergence: remove the indexes from result_dframe
                 dropidx=(df["pos"]<=ms_snp["pos_rmax"])&(df["pos"]>=ms_snp["pos_rmin"])
                 df=df.loc[~dropidx,:]
                 if i%100==0:
-                    print("iter: {}, SNPs remaining:{}/{}".format(i,result_dframe.shape[0],total))
+                    print("iter: {}, SNPs remaining:{}/{}".format(i,df.shape[0],total))
                 i+=1
             new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     else:

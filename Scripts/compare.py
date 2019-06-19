@@ -10,7 +10,7 @@ import os
 
 def map_alleles(a1,a2):
     """
-    Flips alleles to the A strand if neccessary and orders them lexicogaphically
+    Flips alleles to the A strand if necessary and orders them lexicogaphically
     Author: Pietro?
     """
     allele_dict={}
@@ -31,6 +31,10 @@ def compare(args):
     """
     #load original file
     df=pd.read_csv(args.compare_fname,sep="\t")
+    necessary_columns=["#chrom","pos","ref","alt","pval","#variant","locus_id","pos_rmin","pos_rmax"]
+    df_cols=df.columns.to_list()
+    if not all(nec_col in df_cols for nec_col in necessary_columns):
+        Exception("GWS variant file {} did not contain all of the necessary columns:\n{} ".format(args.compare_fname,necessary_columns))
     
     #if using summary file
     if args.compare_style=="file":
@@ -41,14 +45,18 @@ def compare(args):
             #make sure the variant column exists
             summary_cols=s_df.columns
             if "#variant" not in summary_cols:
-                s_df.loc[:, "summary_#variant"]=create_variant_column(summary_df)
+                s_df.loc[:, "#variant"]=create_variant_column(summary_df)
             
             s_df.loc[:,"trait"] = args.endpoints[idx]
+            s_df.loc[:,"trait_name"] = args.endpoints[idx]
             if not args.build_38:
                 raise NotImplementedError("Non-build 38 raports are not supported.")
-            summary_df=pd.concat([summary_df,s_df],axis=0)
-
-        #TODO: make sure necessary columns are available 
+            cols=s_df.columns.to_list()
+            necessary_columns=["#chrom","pos","ref","alt","pval","#variant"]
+            if not all(nec_col in cols for nec_col in (necessary_columns+["trait","trait_name"])):
+                Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
+            #s_df=s_df.loc[:,necessary_columns+["trait","trait_name"]]
+            summary_df=pd.concat([summary_df,s_df],axis=0)        
                     
     elif args.compare_style=="gwascatalog":
         gwas_df=None
@@ -102,10 +110,13 @@ def compare(args):
             trait_name_map[key]=gwcatalog_api.get_trait_name(key)
         
         summary_df.loc[:,"trait_name"]=summary_df.loc[:,"trait"].apply(lambda x: trait_name_map[x])
-        
     else:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
     #now we should have df and summary_df
+    necessary_columns=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
+    summary_df=summary_df.loc[:,necessary_columns]
+    summary_df.to_csv("summary_df.csv",sep="\t",index=False)
+
     for _,row in summary_df.iterrows():
         [alt,ref]=map_alleles(row["alt"],row["ref"])
         summary_df.loc[_,"map_ref"]=ref
@@ -118,8 +129,11 @@ def compare(args):
     
     summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
     df.loc[:,"map_variant"]=create_variant_column(df,chrom="#chrom",pos="pos",ref="map_ref",alt="map_alt")
-    tmp=pd.merge(df,summary_df,how="left",on="map_variant")
-    print(tmp.columns)
+    df.to_csv("df.csv",sep="\t",index=False)
+    tmp=pd.merge(df,summary_df.loc[:,["#variant","map_variant","pval","trait","trait_name"]],how="left",on="map_variant")
+    tmp=tmp.drop(columns=["map_variant","map_ref","map_alt"])
+    tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":"pval","pval_y":"pval_trait"})
+    tmp=tmp.sort_values(by=["#chrom","pos","ref","alt","#variant"])
     if args.ld_check:
         #raise NotImplementedError("LD comparison not yet implemented".format(args.compare_style))
         #preprocess found variants, i.e. divide variants in both our and gwascatalog results to chromosomes
@@ -156,8 +170,6 @@ def compare(args):
             range_upper=np.max(bim_lst["position"])
             range_lower=np.min(bim_lst["position"])
             print("Variant amount: {}".format(bim_lst.shape[0]))
-            #if bim_lst.shape[0]<10:
-            #    print(bim_lst)
             bim_lst.to_csv("temp/temp.bim",sep="\t",index=False,header=False)
             #threads set to 1 because it seems our playing around with bim files does not seems to like threads
             #then, calculate ld
@@ -178,34 +190,22 @@ def compare(args):
             print("return value for process ldstore --table returned {}".format(retval))
             #read ld_table.table in
             ld_df_=pd.read_csv("ld_table.table",sep="\s+")
-            #let's do this policy:
-            #   id1 is the one from our results, i.e. keep only those where id1 is our variants
-            #   id2 is the catalog entries, i.e. keep only those
-            #   Then, announce the results 
-            ld_df_=ld_df_.loc[:,["chromosome", "index1", "RSID1", "position1", "index2", "RSID2", "position2", "correlation"]]
-            ld_df_=ld_df_.merge(df["#variant"],how="inner",left_on="RSID1",right_on="#variant")
-            ld_df_=ld_df_.merge(summary_df["#variant"],how="inner",left_on="RSID2",right_on="#variant")
+            ld_df_=ld_df_.loc[:,["RSID1", "RSID2", "correlation"]]
+            #constrain id1 to only contain our variants, and id2 to only contain gwascatalog variants
+            ld_df_=ld_df_.merge(df["#variant"].drop_duplicates(),how="inner",left_on="RSID1",right_on="#variant")
+            ld_df_=ld_df_.merge(summary_df.loc[:,["#variant","pval","trait","trait_name"]],how="inner",left_on="RSID2",right_on="#variant")
             ld_df_=ld_df_.drop(columns=["#variant_x","#variant_y"])
+            
             ld_df=pd.concat((ld_df,ld_df_),axis=0)
         c4="rm -r temp/"
         c5="rm ld_table.table "
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c4),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
-        #NOTE: only matching with variant does not work, as the trait also affects the p-value
-        #instead, it might be better to: for each of our SNPs that were in ld with some of the summary variants,
-        #list all the phenotypes and p-values that they were in ld with.
-        #TODO: list all variants that are in LD with the variants
-        #what do we need: summary df, ld df, and variant df
-        #first, pick all pairs where one of the pairs is our variant, then from these pairs pick ones where the other is in summary df
-        #then, list the phenotype for each of these from summary df
-
-        #first, do this with e.g. just writing it to a file, but it will need some sort of structured output
-
-        #ld_df=ld_df.merge(summary_df[["#variant","pval"]],left_on="RSID2",right_on="#variant",how="inner")
-        #ld_df=ld_df.drop(columns=["RSID2","index1","index2"])
-        #ld_df=ld_df.rename({"RSID_1":"gws_variant"})
-        ld_df.to_csv("ld_raport_out.csv",sep="\t",index=False)
+        
+        ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
+        ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"pval_x":"pval","pval_y":"pval_trait","RSID2":"#variant_hit"})
+        ld_out.to_csv("ld_raport_out.csv",sep="\t",index=False)
     #TODO: make a better representation from the data
     tmp.to_csv(args.raport_out,sep="\t",index=False)
 
