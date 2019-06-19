@@ -81,13 +81,12 @@ def fetch_gws(args):
     df=df.reset_index(drop=True)
     df.loc[:,"#variant"]=create_variant_column(df)
     df.loc[:,"locus_id"]=df.loc[:,"#variant"]
-    result_dframe=df
     new_df=None
 
     if args.grouping:
         if args.grouping_method=="ld":
             #write current SNPs to file
-            temp_variants="ld_variants.csv"
+            temp_variants="temp_plink.variants.csv"
             df.loc[:,["#variant","#chrom","pos","ref","alt","pval"]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
             plink_fname="temp_plink"
             plink_command="plink --allow-extra-chr --bfile {} --clump {} --clump-field {} --clump-snp-field '{}'  --clump-r2 {}"\
@@ -122,17 +121,19 @@ def fetch_gws(args):
             tabixdf=tabixdf[tabixdf["pval"]<args.sig_treshold_2]
             tabixdf.loc[:,"#variant"]=create_variant_column(tabixdf)
             #add tabix info to groups and write to file
-            df=pd.DataFrame(columns=tbxheader+["#variant","locus_id"])
-            df=solve_groups(df,group_data,tabixdf)
+            new_df=pd.DataFrame(columns=tbxheader+["#variant","locus_id"])
+            new_df=solve_groups(new_df,group_data,tabixdf)
             #TODO: get group ranges
-            for var in df["locus_id"].unique():
-                r=get_group_range(df,var)
-                df.loc[df["locus_id"]==var,"pos_rmin"]=r["min"]
-                df.loc[df["locus_id"]==var,"pos_rmax"]=r["max"]
-            df.loc[:,"pos_rmin"]=df.loc[:,"pos_rmin"].astype(np.int32)
-            df.loc[:,"pos_rmax"]=df.loc[:,"pos_rmax"].astype(np.int32)
-            df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
-
+            for var in new_df["locus_id"].unique():
+                r=get_group_range(new_df,var)
+                new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=r["min"]
+                new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=r["max"]
+            new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
+            new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
+            #new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+            #cleanup plink files
+            plink_files=glob.glob("temp_plink.*")
+            subprocess.call(["rm"]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         else:
             #simple grouping
             df.loc[:,"pos_rmin"]=df.loc[:,"pos"]-r
@@ -169,11 +170,12 @@ def fetch_gws(args):
                 if i%100==0:
                     print("iter: {}, SNPs remaining:{}/{}".format(i,df.shape[0],total))
                 i+=1
-            new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+        new_df=new_df.sort_values("#variant")
+        new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     else:
         df.loc[:,["#chrom","pos","ref","alt","rsids",
                     "nearest_genes","pval","beta","sebeta","maf",
-                    "maf_cases","maf_controls","#variant","locus_id"]].to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+                    "maf_cases","maf_controls","#variant","locus_id"]].sort_values("#variant").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetch and group gws SNPs from summary statistic")

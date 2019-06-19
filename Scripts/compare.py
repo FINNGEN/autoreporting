@@ -134,8 +134,13 @@ def compare(args):
     tmp=tmp.drop(columns=["map_variant","map_ref","map_alt"])
     tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":"pval","pval_y":"pval_trait"})
     tmp=tmp.sort_values(by=["#chrom","pos","ref","alt","#variant"])
+    tmp.to_csv(args.raport_out,sep="\t",index=False)
+    
     if args.ld_check:
-        #raise NotImplementedError("LD comparison not yet implemented".format(args.compare_style))
+        #if no groups in base data
+        if ("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list()):
+            Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
+
         #preprocess found variants, i.e. divide variants in both our and gwascatalog results to chromosomes
         #Then, we need to build the bim files, I guess, or I could just process some ld panels ready and push them into a bucket
         #Then, for each chromosome set, we want to separate the clear ranges from each other, I guess
@@ -149,6 +154,7 @@ def compare(args):
         var_lst_df=var_lst_df.drop_duplicates(subset=["RSID"])
         #get unique chromosomes in the results
         unique_chrom_list=df["#chrom"].unique()
+        unique_locus_list=df["locus_id"].unique()
         c1="mkdir temp"
         Popen(shlex.split(c1),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         c2="ln -s ../{}.bed ./temp/temp.bed".format(args.ld_panel_path)
@@ -157,11 +163,21 @@ def compare(args):
         Popen(shlex.split(c2),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         Popen(shlex.split(c3),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         ld_df=pd.DataFrame()
-        for chromosome in unique_chrom_list:
-            print("Chromosome {} ld computation".format(chromosome))
+        for locus in unique_locus_list:
+            chromosome=df.loc[df["#variant"]==locus,"#chrom"].unique()[0]
+            print("Chromosome {}, group {} ld computation".format(chromosome,locus))
             #build bim file, containing both the variants in df and summary_df
             bim_lst=None
+            #get only the 
+
+
+
             bim_lst=var_lst_df.loc[var_lst_df["chromosome"]==chromosome,:].copy()
+            #filter those that are in the group
+            r_max=df.loc[df["#variant"]==locus,"pos_rmax"].values[0]
+            r_min=df.loc[df["#variant"]==locus,"pos_rmin"].values[0]
+            bim_lst=bim_lst.loc[(bim_lst["position"]>=r_min)&(bim_lst["position"]<=r_max),:]
+
             bim_lst.loc[:,"cm"]=0
             bim_lst=bim_lst.loc[:,["chromosome","RSID","cm","position","A_allele","B_allele"]]
             #temporary solution: create temp folder, create symbolic links to other files, write bim file to temp folder,
@@ -184,10 +200,10 @@ def compare(args):
             retval=subprocess.call(shlex.split(ldstore_command),stdout=subprocess.DEVNULL )
             if retval!= 0:
                 continue
-            print("return value for process ldstore returned {}".format(retval))
+            #print("return value for process ldstore returned {}".format(retval))
             #subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL )
             retval=subprocess.call(shlex.split(ldstore_extract_info),stdout=subprocess.DEVNULL )
-            print("return value for process ldstore --table returned {}".format(retval))
+            #print("return value for process ldstore --table returned {}".format(retval))
             #read ld_table.table in
             ld_df_=pd.read_csv("ld_table.table",sep="\s+")
             ld_df_=ld_df_.loc[:,["RSID1", "RSID2", "correlation"]]
@@ -206,8 +222,6 @@ def compare(args):
         ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
         ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"pval_x":"pval","pval_y":"pval_trait","RSID2":"#variant_hit"})
         ld_out.to_csv("ld_raport_out.csv",sep="\t",index=False)
-    #TODO: make a better representation from the data
-    tmp.to_csv(args.raport_out,sep="\t",index=False)
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
