@@ -59,6 +59,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch_out FETCH_OUT]
 ```
 
 Command-line arguments:
+
 Argument   |  Meaning   |   Example | Original script
 --- | --- | --- | ---
 --sign-treshold | signifigance treshold for variants | --sign-treshold 5e-8 | gws_fetch.py
