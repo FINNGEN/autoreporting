@@ -9,6 +9,8 @@ This pipeline is used to
 4) Cross-reference the variants to previous results, e.g. gwascatalog summary statistic database or hand-picked results from studies 
 Currently, steps 1,3 and 4 are operational. 
 
+__NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files__  
+
 ## Dependencies
 
 packages:python 3, pip, plink 1.9, ldstore (tested on 1.1), zlib development libraries for pytabix
@@ -50,7 +52,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch_out FETCH_OUT]
                [--finngen-path FINNGEN_PATH] [--annotate-out ANNOTATE_OUT]
                [--compare-style COMPARE_STYLE]
                [--summary-fpath FILE [FILE ...]]
-               [--endpoints ENDPOINTS [ENDPOINTS ...]] [--build-38]
+               [--endpoints ENDPOINTS [ENDPOINTS ...]]
                [--check-for-ld] [--raport-out RAPORT_OUT]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
@@ -81,7 +83,6 @@ Argument   |  Meaning   |   Example | Original script
 --compare-style | Whether to use gwascatalog or additional summary statistics to compare findings to literature. Use values 'file' or 'gwascatalog', default 'gwascatalog' | --compare-style 'gwascatalog' | compare<span></span>.py
 --summary-fpath | filepaths to external summary statistic files. Must be in GRCh38. Must be same amount as endpoints. Do not supply gws_path directly after this one. | --summary-fpath first_summary.tsv second_summary.tsv third_summary.tsv | compare<span></span>.py
 --endpoints | Phenotypes/endpoints for the supplied summary statistics. Must be in same order as summary statistics. Do not supply gws_path directly after this one. | --endpoints first_endpoint second_endpoint third_endpoint | compare<span></span>.py
---build-38 | Supply if summary statistics are in GRCh38. Currently required for external summary statistics. | --build-38 | compare<span></span>.py
 --check-for-ld | When supplied, gws variants and summary statistics (from file or gwascatalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
 --gwascatalog-pval | P-value to use for filtering results from gwascatalog's summary statistic API. default 5e-8 | --gwascatalog-pval 5e-6 | compare<span></span>.py
 --gwascatalog-width-kb | Buffer outside gws variants that is searched from gwascatalog, in kb. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
@@ -111,12 +112,34 @@ usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD]
                     [--plink-memory PLINK_MEM] [--overlap]
                     gws_fpath
 ```
- The gws_fetch.py-script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, either based on a range around top hits, or by using plink's --clump functionality. The arguments used are the same as the ones in main<span></span>.py. For example, to just filter variants according to a p-value, the script can be called by
- ```
- python3 gws_fetch.py --sign-treshold 2.5e-8 path_to_ss/summary_statistic.tsv.gz
- ```
+The gws_fetch.py-script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, either based on a range around top hits, or by using plink's --clump functionality. The arguments used are the same as the ones in main<span></span>.py. For example, to just filter variants according to a p-value, the script can be called by
+```
+python3 gws_fetch.py --sign-treshold 2.5e-8 path_to_ss/summary_statistic.tsv.gz
+```
 
- ### annotate<span></span>.py:
+#### A more detailed description of the script:  
+__Input__:  
+gws_fpath: a FINNGEN summary statistic that is gzipped and tabixed.  
+ld_panel_path (optional): a plink .bed file that is used to calculate linkage disequilibrium for the variants.  
+__Output__:  
+fetch_out: a .tsv-file, with one genome-wide significant variant per row. The variants can optionally be grouped into possible signals, based on either width around group variants or width and linkage disequilibrium between variants.  
+
+__Script function__:  
+First, the summary statistic, a tabixed and gzipped tsv, is loaded into the script, and all variants with p-values under signifigance treshold are selected. In case no grouping is performed, they are written to a file. If grouping is performed, these variants receive an id, under column 'locus_id' in the result file, that designates which group they belong to. Grouping can be done in two ways: The variants can be simply grouped by setting a group width, or by using linkage disequilibrium to determine, how the variants are grouped. Pseudocode for the grouping by width:  
+```
+let group of variants G
+let radius/width/distance r
+while |G| > 0:
+    select variant v in G with lowest p-value
+    select variants v' from G, for which |v.position - v'.position| < r
+    set group of v and v' to be v
+    remove variants v and v' from G
+```
+Optionally, the groups can be set to overlap, i.e. a single variant can be included in one or more groups, if it is inside the range of the group. However, variants that are already included in a group can not form groups.  
+The grouping based on linkage disequilibrium is based on plink 1.9's --clump option, which is similar in its function. Based on plink documentation, the groups are formed by taking all of the variants that are not clumped and that are inside the group's range, as well as those variants that are in ld with the group variant.[1] As such, it only differs from the simple grouping by including variants that are in ld with the group variant in the group.  
+[1]http://zzz.bwh.harvard.edu/plink/clump.shtml
+
+### annotate<span></span>.py:
 
 ```
 usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
@@ -136,7 +159,7 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 ```
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath FILE [FILE ...]]
-                  [--endpoints ENDPOINTS [ENDPOINTS ...]] [--build-38]
+                  [--endpoints ENDPOINTS [ENDPOINTS ...]]
                   [--check-for-ld] [--ld-panel-path LD_PANEL_PATH]
                   [--raport-out RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
@@ -150,6 +173,19 @@ The compare<span></span>.py-script is used to compare the genome-wide significan
 python3 Scripts/compare.py variant_file.tsv --compare-style gwascatalog --gwascatalog-pval 5e-8 --raport-out output_raport.tsv
 ```
 Additional flags, such as `--check-for-ld`, can be used to check if the summary statistics are in ld with the variants, and to report them if they are.
+
+A more detailed description of the script:  
+__Input__:  
+compare_fname: genome-wide significant variants that are filtered & grouped by gws_fetch.py and annotated by annotate<span></span>.py.  
+ld_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog).  
+summary_fpath: a number of summary statistics that will be used for comparison with genome-wide significant variants by the script. Must be in build 38.  
+__Output__:  
+raport_out: a tsv raport of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also raported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
+
+__Script function__:
+The comparison script takes in a filtered and annotated variant tsv file, and raports if those variants have been announced in earlier studies. In case GWAScatalog is used, the script forms chromosome &  basepair ranges, such as 1:200000-300000 for 1st chromosome and all variants through 200000 to 300000, and the GWAScatalog summary statistic API is then queried for all hits inside this range that have a p-value under a designated p-value treshold. In case of external summary statistic files, the variants are just combined from these files. The filtered and aannotated FINNGEN summary statistic variants are then compared against this group of variants, and for each variant all exact matches are reported. Optionally, genome-wide significant variants are also tested for ld with these variants for earlier studies, and variants for which the ld value is larger than `--ld-treshold` value are reported.
+
+
 
 
 
