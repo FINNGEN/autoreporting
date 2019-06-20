@@ -224,7 +224,7 @@ def compare(args):
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
     parser.add_argument("compare_fname",type=str,help="GWS result file")
-    parser.add_argument("--compare-style",type=str,help="use 'file' or 'gwascatalog'")
+    parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file' or 'gwascatalog'")
     parser.add_argument("--summary-fpath",dest="summary_files",metavar="FILE",nargs="+",help="comparison summary filepaths")
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
     parser.add_argument("--build-38",dest="build_38",action="store_true",help="Whether supplied comparison summary files are in GRCh38")
