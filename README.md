@@ -55,6 +55,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch_out FETCH_OUT]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
+               [--cache-gwas]
                gws_fpath
 ```
 
@@ -141,7 +142,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--ldstore-threads LDSTORE_THREADS]
-                  [--ld-treshold LD_TRESHOLD]
+                  [--ld-treshold LD_TRESHOLD] [--cache-gwas]
                   compare_fname
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
