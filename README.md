@@ -11,7 +11,8 @@ Currently, steps 1,3 and 4 are operational.
 
 ## Dependencies
 
-packages:python 3, plink 1.9, ldstore (tested on 1.1) \\
+packages:python 3, plink 1.9, ldstore (tested on 1.1)
+
 python 3 libraries: requests, numpy, pandas, pytabix 
 
 ## Installation
