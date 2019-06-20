@@ -11,7 +11,7 @@ Currently, steps 1,3 and 4 are operational.
 
 ## Dependencies
 
-packages:python 3, plink 1.9, ldstore (tested on 1.1)
+packages:python 3, pip, plink 1.9, ldstore (tested on 1.1), zlib development libraries for pytabix
 
 python 3 libraries: requests, numpy, pandas, pytabix 
 
@@ -20,7 +20,7 @@ python 3 libraries: requests, numpy, pandas, pytabix
 Install dependencies
 
 ```
-sudo apt install tabix python3 pip plink1.9
+sudo apt install tabix python3 python3-pip plink1.9 zlib1g-dev
 wget http://www.christianbenner.com/ldstore_v1.1_x86_64.tgz
 tar xvf ldstore_v1.1_x86_64.tgz
 sudo cp ldstore_v1.1_x86_64/ldstore /usr/local/bin/ldstore
