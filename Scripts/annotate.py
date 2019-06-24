@@ -9,10 +9,10 @@ from autoreporting_utils import *
 #TODO: make a system for making sure we can calculate all necessary fields,
 #e.g by checking that the columns exist
 
-def load_tb_df(df,tb,fpath,chrom_prefix="",na_value="."):
+def load_tb_df(df,tb,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"}):
     tbxlst=[]
     for _,row in df.iterrows():
-        tbxlst=tbxlst+list(pytabix(tb,"{}{}".format(chrom_prefix,row["#chrom"]),int(row["pos"]),int(row["pos"]) ) )
+        tbxlst=tbxlst+list(pytabix(tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) ) )
     header=get_gzip_header(fpath)
     out_df=pd.DataFrame(tbxlst,columns=header )
     out_df=out_df.replace(na_value,np.nan)
@@ -46,7 +46,7 @@ def annotate(args):
     Annotations from gnomad exome data, gnomad genome data,
     finngen annotation file 
     """
-    
+    columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
     #columns that we want to take from gnomad and finngen annotations
     gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
     gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
@@ -55,23 +55,22 @@ def annotate(args):
 
     #load main file
     df=pd.read_csv(args.annotate_fpath,sep="\t")
-    #original_cols=df.columns.values.tolist()
     #load gnomad_genomes
     tb_g=tabix.open(args.gnomad_genome_path)
-    gnomad_genomes=load_tb_df(df,tb_g,args.gnomad_genome_path)
+    gnomad_genomes=load_tb_df(df,tb_g,args.gnomad_genome_path,columns=columns)
 
     #load gnomad_exomes
     tb_e=tabix.open(args.gnomad_exome_path)
-    gnomad_exomes=load_tb_df(df,tb_e,args.gnomad_exome_path)
+    gnomad_exomes=load_tb_df(df,tb_e,args.gnomad_exome_path,columns=columns)
 
     #load finngen annotations
     tb_f=tabix.open(args.finngen_path)
-    fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA")
+    fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
     fg_df=fg_df.drop_duplicates(subset=["#variant"])
 
     if not gnomad_genomes.empty:
-        gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":"#chrom","POS":"pos","REF":"ref","ALT":"alt"})
-        gnomad_genomes.loc[:,"#variant"]=create_variant_column(gnomad_genomes)
+        gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+        gnomad_genomes.loc[:,"#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomad genomes, nfe, nfe without est
         gn_gen_nfe_counts=["AC_nfe","AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
         gn_gen_nfe_nums=["AN_nfe","AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
@@ -86,8 +85,8 @@ def annotate(args):
             gnomad_genomes[val]=None
     
     if not gnomad_exomes.empty:
-        gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":"#chrom","POS":"pos","REF":"ref","ALT":"alt"})
-        gnomad_exomes.loc[:,"#variant"]=create_variant_column(gnomad_exomes)
+        gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+        gnomad_exomes.loc[:,"#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
         gn_exo_nfe_counts=["AC_nfe","AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
         gn_exo_nfe_nums=["AN_nfe","AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
@@ -111,8 +110,8 @@ def annotate(args):
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
     gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
     gnomad_genomes=gnomad_genomes.rename(columns=gn_gen_rename_d)
-    gnomad_exomes=gnomad_exomes.loc[:,["#variant"]+gnomad_exo_cols]
 
+    gnomad_exomes=gnomad_exomes.loc[:,["#variant"]+gnomad_exo_cols]
     gn_exo_rename_d=create_rename_dict(gnomad_exo_cols,"EXOME_")
     gnomad_exomes=gnomad_exomes.rename(columns=gn_exo_rename_d)
     
@@ -133,7 +132,6 @@ def annotate(args):
     #merge the wanted columns into df
     df=df.merge(gnomad_genomes,how="left",on="#variant")
     df=df.merge(gnomad_exomes,how="left",on="#variant")
-    
     df=df.merge(fg_df,how="left",on="#variant")
 
     df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
@@ -146,6 +144,7 @@ if __name__=="__main__":
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.csv",help="Output filename, default is out.csv")
+    parser.add_argument("--column-labels",dest="column_labels",nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     args=parser.parse_args()
     if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
         print("Annotation files missing, aborting...")

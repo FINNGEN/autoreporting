@@ -37,7 +37,7 @@ def get_gzip_header(fname):
                 out.append(line.decode().strip().split("\t"))
     return out[0]
 
-def prune_regions(df):
+def prune_regions(df,columns={"chrom":"#chrom"}):
     """Prune overlapping tabix regions so that no duplicate calls are made
     In: dataframe with the regions
     Out:dataframe with pruned regions
@@ -47,7 +47,7 @@ def prune_regions(df):
         if regions:
             found=False
             for region in regions:
-                if ((t.pos_rmax<region["min"]) or (t.pos_rmin>region["max"]) ) or (t._1!=region["#chrom"]):
+                if ((t.pos_rmax<region["min"]) or (t.pos_rmin>region["max"]) ) or (t._1!=region[ columns["chrom"] ]):
                     continue
                 elif t.pos_rmin>=region["min"] and t.pos_rmax<=region["max"]:
                     found=True
@@ -60,7 +60,7 @@ def prune_regions(df):
                     found=True
                     break
             if not found:
-                regions.append({"#chrom":t._1,"min":t.pos_rmin,"max":t.pos_rmax})
+                regions.append({columns["chrom"]:t._1,"min":t.pos_rmin,"max":t.pos_rmax})
         else:
-            regions.append({"#chrom":t._1,"min":t.pos_rmin,"max":t.pos_rmax})
+            regions.append({columns["chrom"]:t._1,"min":t.pos_rmin,"max":t.pos_rmax})
     return pd.DataFrame(regions)

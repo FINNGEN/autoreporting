@@ -50,6 +50,7 @@ class TestAnnotate(unittest.TestCase):
         args.finngen_path="annotate_resources/finngen_anno.tsv.gz"
         args.annotate_out="annotate_resources/test_out.csv"
         args.batch_freq=False
+        args.column_labels=["#chrom", "pos", "ref", "alt", "pval"]
         try:
             with open("annotate_resources/annotate_df.tsv","r") as f:
                 #test case lines
