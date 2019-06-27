@@ -1,5 +1,5 @@
 {
-    "autoreporting.report.docker":"eu.gcr.io/phewas-development/autorep:0.001",
+    "autoreporting.report.docker":"eu.gcr.io/phewas-development/autorep:0.002",
     "autoreporting.report.summ_stat":"gs://arto/finngen-r3-summaries/K11_APPENDIX.gz",
     "autoreporting.report.gnomad_exome":"gs://arto/cromwell_test/gnomad_data/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
     "autoreporting.report.gnomad_genome":"gs://arto/cromwell_test/gnomad_data/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
@@ -15,8 +15,6 @@
     "autoreporting.report.overlap":false,
     "autoreporting.report.batch_freq":false,
     "autoreporting.report.compare_style":"gwascatalog",
-    "autoreporting.report.compare_summary_stats":[""],
-    "autoreporting.report.compare_endpoints":[""],
     "autoreporting.report.check_for_ld":"--check-for-ld",
     "autoreporting.report.gw_pval":5e-8,
     "autoreporting.report.gw_width":25,

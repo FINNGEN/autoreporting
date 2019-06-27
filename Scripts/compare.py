@@ -99,7 +99,6 @@ def compare(args):
         #gwas_df.loc[:,"code_column"].update(gwas_df.loc[:,"hm_code"])
         tmp_df=gwas_df[["#chrom","pos","ref","alt","pval","code","beta","af","trait"]]
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
-        #tmp_df.to_csv("unfiltered.csv",sep="\t",index=False)
         filter_out_codes=[9, 14, 15, 16, 17, 18]
         tmp_df=tmp_df.loc[~tmp_df.loc[:,"code"].isin(filter_out_codes)]
         tmp_df.loc[:,"#variant"]=create_variant_column(tmp_df,chrom="#chrom",pos="pos",ref="ref",alt="alt")
@@ -157,11 +156,8 @@ def compare(args):
         #get unique chromosomes in the results
         unique_chrom_list=df["#chrom"].unique()
         unique_locus_list=df["locus_id"].unique()
-        c1="mkdir temp"
-        Popen(shlex.split(c1),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        c2="ln -s ../{}.bed ./temp/temp.bed".format(args.ld_panel_path)
-        c3="ln -s ../{}.fam ./temp/temp.fam".format(args.ld_panel_path)
-        
+        c2="ln -s {}.bed temp.bed".format(args.ld_panel_path)
+        c3="ln -s {}.fam temp.fam".format(args.ld_panel_path)
         Popen(shlex.split(c2),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         Popen(shlex.split(c3),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         ld_df=pd.DataFrame()
@@ -188,18 +184,22 @@ def compare(args):
             print("Variant amount: {}".format(bim_lst.shape[0]))
             if (range_upper==range_lower) or bim_lst.shape[0]<=1:
                 continue
-            bim_lst.to_csv("temp/temp.bim",sep="\t",index=False,header=False)
+            bim_lst.to_csv("temp.bim",sep="\t",index=False,header=False)
             #threads set to 1 because it seems our playing around with bim files does not seems to like threads
-            #then, calculate ld
-            ldstore_command="ldstore --bplink temp/temp --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
+            ls_proc=Popen(shlex.split("ls -l "),stdout=PIPE)
+            ls_val=ls_proc.wait()
+            ldstore_command="ldstore --bplink temp --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
             args.ld_treshold,
             range_lower,
             range_upper,
             1)
+            #print(ldstore_command)
             #args.ldstore_threads)
             #ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
             ldstore_extract_info="ldstore --bcor temp_corr.bcor_1 --table ld_table.table "
-            retval=subprocess.call(shlex.split(ldstore_command),stdout=subprocess.DEVNULL )
+            ld_proc=subprocess.Popen(shlex.split(ldstore_command),stdout=PIPE,stderr=PIPE )
+            retval=ld_proc.wait()
+            print(ld_proc.stderr.readlines())
             if retval!= 0:
                 continue
             #subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL )
@@ -213,10 +213,8 @@ def compare(args):
             ld_df_=ld_df_.drop(columns=["#variant_x","#variant_y"])
             
             ld_df=pd.concat((ld_df,ld_df_),axis=0)
-        c4="rm -r temp/"
         c5="rm ld_table.table "
         corr_files=glob.glob("temp_corr.*")
-        Popen(shlex.split(c4),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
         if not ld_df.empty:
             ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
