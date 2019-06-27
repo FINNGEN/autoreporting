@@ -41,7 +41,7 @@ In the project folder, the script can be used by either calling the whole script
 ### main:
 
 ```
-usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch_out FETCH_OUT]
+usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--group] [--grouping-method GROUPING_METHOD]
                [--locus-width-kb LOC_WIDTH]
                [--alt-sign-treshold SIG_TRESHOLD_2]
@@ -104,7 +104,7 @@ Additional features, such as result grouping, can be added through the use of th
 
 ```
 usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD]
-                    [--fetch_out FETCH_OUT] [--group]
+                    [--fetch-out FETCH_OUT] [--group]
                     [--grouping-method GROUPING_METHOD]
                     [--locus-width-kb LOC_WIDTH]
                     [--alt-sign-treshold SIG_TRESHOLD_2]

@@ -39,7 +39,7 @@ if __name__=="__main__":
     #gws_fetch
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed summary statistic file to be processed")
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
-    parser.add_argument("--fetch_out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
+    parser.add_argument("--fetch-out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
     parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
