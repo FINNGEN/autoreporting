@@ -18,5 +18,8 @@
     "autoreporting.report.check_for_ld":"--check-for-ld",
     "autoreporting.report.gw_pval":5e-8,
     "autoreporting.report.gw_width":25,
-    "autoreporting.report.ld_treshold":0.9
+    "autoreporting.report.ld_treshold":0.9,
+    "autoreporting.report.fetch_out":"fetch_out.csv",
+    "autoreporting.report.annotate_out":"annotate_out.csv",
+    "autoreporting.report.raport_out":"raport_out.csv"
 }

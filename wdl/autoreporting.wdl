@@ -23,6 +23,11 @@ task report {
     Boolean overlap
     Boolean batch_freq
     String compare_style
+
+    #output file names
+    String fetch_out
+    String annotate_out
+    String raport_out
     #Array[File] compare_summary_stats
     #Array[String] compare_endpoints
     String check_for_ld
@@ -40,13 +45,14 @@ task report {
         --ld-r2 ${ld_r2} --plink-memory ${plink_mem} ${true='--overlap' false='' overlap} --gnomad-genome-path ${gnomad_genome} \
         --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' batch_freq} --finngen-path ${finngen_annotation} \
         --compare-style ${compare_style} ${check_for_ld} --gwascatalog-pval ${gw_pval} \
-        --gwascatalog-width-kb ${gw_width} --ld-treshold ${ld_treshold}
+        --gwascatalog-width-kb ${gw_width} --ld-treshold ${ld_treshold} --fetch-out ${fetch_out} --annotate-out ${annotate_out} \
+        --raport-out ${raport_out} 
     }
     #output
     output {
-        File gws_out = "fetch_out.csv"
-        File annotate_out = "annotate_out.csv"
-        File raport_out = "raport_output.csv"
+        File gws_out_ = fetch_out
+        File annotate_out_ = annotate_out
+        File raport_out_ = raport_out
         File ld_out = "ld_raport_out.csv"
     }
     runtime {
