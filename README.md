@@ -92,7 +92,7 @@ Argument   |  Meaning   |   Example | Original script
 --ldstore-threads | Number of threads to use with LDstore. Currently not used. | --ldstore-threads 1 | compare<span></span>.py
 --ld-treshold | LD treshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
 --cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
---column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval only). Default is '#chrom pos ref alt pval'. | --column-labels "chromosome" position alternate_allele reference_allele p_value | all scripts
+--column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval only). Default is '#chrom pos ref alt pval'. | --column-labels chromosome position alternate_allele reference_allele p_value | all scripts
 gws_path |  Path to the tabixed and gzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
 
 The same arguments are used in the smaller scripts that the main script uses.
