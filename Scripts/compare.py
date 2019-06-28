@@ -199,7 +199,7 @@ def compare(args):
             ldstore_extract_info="ldstore --bcor temp_corr.bcor_1 --table ld_table.table "
             ld_proc=subprocess.Popen(shlex.split(ldstore_command),stdout=PIPE,stderr=PIPE )
             retval=ld_proc.wait()
-            print(ld_proc.stderr.readlines())
+            #print(ld_proc.stderr.readlines())
             if retval!= 0:
                 continue
             #subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL )
@@ -213,7 +213,7 @@ def compare(args):
             ld_df_=ld_df_.drop(columns=["#variant_x","#variant_y"])
             
             ld_df=pd.concat((ld_df,ld_df_),axis=0)
-        c5="rm ld_table.table "
+        c5="rm ld_table.table temp.bim temp.fam temp.bed"
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
         if not ld_df.empty:
