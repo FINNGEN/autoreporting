@@ -121,7 +121,7 @@ def fetch_gws(args):
             tabixdf=pd.DataFrame(tbxlst,columns=tbxheader )
             tabixdf=tabixdf.astype(dtype=dtype)
             if tabixdf.empty  and  not res.empty:
-                print( ("Tabix did not find any variants, whereas our script did. Make sure that the data files are valid"
+                print( ("Tabix did not find any variants, whereas the script did. Make sure that the data files are valid"
                     ", i.e. the gzipped file is sorted, the index file is built from that file, and that tabix successfully works with the data files.") )
                 raise Exception("Tabix row amount does not match previous amount! Rows from plink: {}. Rows from tabix: {}. Make sure data files are valid".format(res.shape[0],tabixdf.shape[0]))
             #filter, create variant column
