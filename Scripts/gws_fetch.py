@@ -206,6 +206,6 @@ if __name__=="__main__":
     parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
-    parser.add_argument("--column-labels",dest="column_labels",nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     args=parser.parse_args()
     fetch_gws(args)

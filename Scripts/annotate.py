@@ -144,7 +144,7 @@ if __name__=="__main__":
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.csv",help="Output filename, default is out.csv")
-    parser.add_argument("--column-labels",dest="column_labels",nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     args=parser.parse_args()
     if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
         print("Annotation files missing, aborting...")

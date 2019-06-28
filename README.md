@@ -57,8 +57,9 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
-               [--cache-gwas]
+               [--cache-gwas] [--column-labels CHROM POS REF ALT PVAL]
                gws_fpath
+
 ```
 
 Command-line arguments:
@@ -91,6 +92,7 @@ Argument   |  Meaning   |   Example | Original script
 --ldstore-threads | Number of threads to use with LDstore. Currently not used. | --ldstore-threads 1 | compare<span></span>.py
 --ld-treshold | LD treshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
 --cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
+--column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval only). Default is '#chrom pos ref alt pval'. | --column-labels "chromosome" position alternate_allele reference_allele p_value | all scripts
 gws_path |  Path to the tabixed and gzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
 
 The same arguments are used in the smaller scripts that the main script uses.
@@ -112,6 +114,7 @@ usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD]
                     [--alt-sign-treshold SIG_TRESHOLD_2]
                     [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
                     [--plink-memory PLINK_MEM] [--overlap]
+                    [--column-labels CHROM POS REF ALT PVAL]
                     gws_fpath
 ```
 The gws_fetch.py-script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, either based on a range around top hits, or by using plink's --clump functionality. The arguments used are the same as the ones in main<span></span>.py. For example, to just filter variants according to a p-value, the script can be called by
@@ -148,6 +151,7 @@ usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--gnomad-exome-path GNOMAD_EXOME_PATH]
                    [--include-batch-freq] [--finngen-path FINNGEN_PATH]
                    [--annotate-out ANNOTATE_OUT]
+                   [--column-labels CHROM POS REF ALT PVAL]
                    annotate_fpath
 ```
 
@@ -168,6 +172,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--ldstore-threads LDSTORE_THREADS]
                   [--ld-treshold LD_TRESHOLD] [--cache-gwas]
+                  [--column-labels CHROM POS REF ALT PVAL]
                   compare_fname
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
