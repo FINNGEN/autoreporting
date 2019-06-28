@@ -21,5 +21,6 @@
     "autoreporting.report.ld_treshold":0.9,
     "autoreporting.report.fetch_out":"fetch_out.csv",
     "autoreporting.report.annotate_out":"annotate_out.csv",
-    "autoreporting.report.raport_out":"raport_out.csv"
+    "autoreporting.report.raport_out":"raport_out.csv",
+    "autoreporting.report.ld_raport_out":"ld_raport_out.csv"
 }

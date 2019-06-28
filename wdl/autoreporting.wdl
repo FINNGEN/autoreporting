@@ -28,6 +28,7 @@ task report {
     String fetch_out
     String annotate_out
     String raport_out
+    String ld_raport_out
     #Array[File] compare_summary_stats
     #Array[String] compare_endpoints
     String check_for_ld
@@ -53,7 +54,7 @@ task report {
         File gws_out_ = fetch_out
         File annotate_out_ = annotate_out
         File raport_out_ = raport_out
-        File ld_out = "ld_raport_out.csv"
+        File ld_out = ld_raport_out
     }
     runtime {
         docker: "${docker}"
