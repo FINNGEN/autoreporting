@@ -52,8 +52,8 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--finngen-path FINNGEN_PATH] [--annotate-out ANNOTATE_OUT]
                [--compare-style COMPARE_STYLE]
                [--summary-fpath FILE [FILE ...]]
-               [--endpoints ENDPOINTS [ENDPOINTS ...]]
-               [--check-for-ld] [--raport-out RAPORT_OUT]
+               [--endpoints ENDPOINTS [ENDPOINTS ...]] [--check-for-ld]
+               [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
@@ -84,6 +84,8 @@ Argument   |  Meaning   |   Example | Original script
 --summary-fpath | filepaths to external summary statistic files. Must be in GRCh38. Must be same amount as endpoints. Do not supply gws_path directly after this one. | --summary-fpath first_summary.tsv second_summary.tsv third_summary.tsv | compare<span></span>.py
 --endpoints | Phenotypes/endpoints for the supplied summary statistics. Must be in same order as summary statistics. Do not supply gws_path directly after this one. | --endpoints first_endpoint second_endpoint third_endpoint | compare<span></span>.py
 --check-for-ld | When supplied, gws variants and summary statistics (from file or gwascatalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
+--raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if aske  for. | --raport-out raport_out.tsv | compare<span></span>.py
+--ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
 --gwascatalog-pval | P-value to use for filtering results from gwascatalog's summary statistic API. default 5e-8 | --gwascatalog-pval 5e-6 | compare<span></span>.py
 --gwascatalog-width-kb | Buffer outside gws variants that is searched from gwascatalog, in kb. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
 --ldstore-threads | Number of threads to use with LDstore. Currently not used. | --ldstore-threads 1 | compare<span></span>.py
@@ -159,9 +161,9 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 ```
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath FILE [FILE ...]]
-                  [--endpoints ENDPOINTS [ENDPOINTS ...]]
-                  [--check-for-ld] [--ld-panel-path LD_PANEL_PATH]
-                  [--raport-out RAPORT_OUT]
+                  [--endpoints ENDPOINTS [ENDPOINTS ...]] [--check-for-ld]
+                  [--ld-panel-path LD_PANEL_PATH] [--raport-out RAPORT_OUT]
+                  [--ld-raport-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--ldstore-threads LDSTORE_THREADS]

@@ -19,6 +19,8 @@ def create_variant_column(df,chrom="#chrom",pos="pos",ref="ref",alt="alt"):
     In: dataframe, with potentially defined column names
     Out: Variant column as pd.Series
     """
+    if df.empty:
+        return None
     return df.apply( lambda x: "chr{}_{}_{}_{}".format(x[chrom],x[pos],x[ref],x[alt]) ,axis=1)
 
 def get_gzip_header(fname):

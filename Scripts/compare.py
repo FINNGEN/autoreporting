@@ -218,10 +218,12 @@ def compare(args):
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c4),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
-        
-        ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
-        ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"pval_x":"pval","pval_y":"pval_trait","RSID2":"#variant_hit"})
-        ld_out.to_csv("ld_raport_out.csv",sep="\t",index=False)
+        if not ld_df.empty:
+            ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
+            ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"pval_x":"pval","pval_y":"pval_trait","RSID2":"#variant_hit"})
+            ld_out.to_csv(args.ld_raport_out,sep="\t",index=False)
+        else:
+            print("No variants in ld found, no {} produced.".format(args.ld_raport_out))
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
@@ -231,7 +233,8 @@ if __name__ == "__main__":
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",help="The path for the LD panel to determine what samples are in LD with each other")
-    parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_output.csv",help="Raport output path")
+    parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
+    parser.add_argument("--ld-raport-out",dest="ld_raport_out",type=str,default="ld_raport_out.csv",help="LD check raport output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore")
