@@ -85,6 +85,8 @@ def fetch_gws(args):
     df=df.reset_index(drop=True)
     df.loc[:,"#variant"]=create_variant_column(df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     df.loc[:,"locus_id"]=df.loc[:,"#variant"]
+    df.loc[:,"pos_rmax"]=df.loc[:,columns["pos"]]
+    df.loc[:,"pos_rmin"]=df.loc[:,columns["pos"]]
     new_df=None
 
     if args.grouping:
