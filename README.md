@@ -56,6 +56,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
+               [--gwascatalog-threads GWASCATALOG_THREADS]
                [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
                [--cache-gwas] [--column-labels CHROM POS REF ALT PVAL]
                gws_fpath
@@ -89,6 +90,7 @@ Argument   |  Meaning   |   Example | Original script
 --ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
 --gwascatalog-pval | P-value to use for filtering results from gwascatalog's summary statistic API. default 5e-8 | --gwascatalog-pval 5e-6 | compare<span></span>.py
 --gwascatalog-width-kb | Buffer outside gws variants that is searched from gwascatalog, in kb. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
+--gwascatalog-threads | Number of concurrent queries to gwasgatalog API. Default 4. Increase to speed up gwascatalog comparison. | --gwascatalog-threads 8 | compare<span></span>.py
 --ldstore-threads | Number of threads to use with LDstore. Currently not used. | --ldstore-threads 1 | compare<span></span>.py
 --ld-treshold | LD treshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
 --cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
@@ -170,6 +172,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--ld-raport-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
+                  [--gwascatalog-threads GWASCATALOG_THREADS]
                   [--ldstore-threads LDSTORE_THREADS]
                   [--ld-treshold LD_TRESHOLD] [--cache-gwas]
                   [--column-labels CHROM POS REF ALT PVAL]
