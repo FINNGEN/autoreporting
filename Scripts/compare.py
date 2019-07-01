@@ -7,6 +7,7 @@ import numpy as np
 from autoreporting_utils import *
 import gwcatalog_api
 import os
+from multiprocessing.dummy import Pool as ThreadPool
 
 def map_alleles(a1,a2):
     """
@@ -24,6 +25,12 @@ def map_alleles(a1,a2):
     # further sorting
     return sorted([a1,a2])
     
+def gwcatalog_call_helper(chrom,bp_lower,bp_upper,p_upper):
+    val=gwcatalog_api.get_all_associations(chromosome=chrom,
+                    bp_lower=bp_lower,bp_upper=bp_upper,p_upper=p_upper)
+    if val:
+        return gwcatalog_api.parse_output(val)
+    return
 
 def compare(args):
     """
@@ -79,14 +86,26 @@ def compare(args):
             range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
             regions=prune_regions(range_df,columns=columns)
             #use api to get all gwascatalog hits
-            #print(regions)
-            result_lst=[]
+            #create call data list
+            data_lst=[]
             for _,region in regions.iterrows():
-                val=gwcatalog_api.get_all_associations(chromosome=region[ columns["chrom"] ],
-                    bp_lower=region["min"],bp_upper=region["max"],p_upper=args.gwascatalog_pval)
-                if val:
-                    result_lst+=gwcatalog_api.parse_output(val)
-            gwas_df=pd.DataFrame(result_lst)
+                data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],args.gwascatalog_pval])
+            #create worker pool for multithreaded api calls
+            r_lst=None
+            with ThreadPool(args.gwascatalog_threads) as pool:
+                r_lst=pool.starmap(gwcatalog_call_helper,data_lst)
+            #remove empties
+            r_lst=[r for r in r_lst if r != None]
+            result_lst=[]
+            for sublst in r_lst:
+                result_lst=result_lst+sublst
+            #for _,region in regions.iterrows():
+            #    val=gwcatalog_api.get_all_associations(chromosome=region[ columns["chrom"] ],
+            #        bp_lower=region["min"],bp_upper=region["max"],p_upper=args.gwascatalog_pval)
+            #    if val:
+            #        result_lst+=gwcatalog_api.parse_output(val)
+            #gwas_df=pd.DataFrame(result_lst)
+            #gwas_df.to_csv("multithreaded_result.csv",index=False,sep="\t")
             gwas_df["trait"]=gwas_df["trait"].apply(lambda x:x[0])
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t")
         #parse hits to a proper form, drop unnecessary information
@@ -193,8 +212,6 @@ def compare(args):
             range_lower,
             range_upper,
             1)
-            #print(ldstore_command)
-            #args.ldstore_threads)
             #ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
             ldstore_extract_info="ldstore --bcor temp_corr.bcor_1 --table ld_table.table "
             ld_proc=subprocess.Popen(shlex.split(ldstore_command),stdout=PIPE,stderr=PIPE )
@@ -235,6 +252,7 @@ if __name__ == "__main__":
     parser.add_argument("--ld-raport-out",dest="ld_raport_out",type=str,default="ld_raport_out.csv",help="LD check raport output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
+    parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore")
     parser.add_argument("--ld-treshold",type=float,default=0.4,help="ld treshold")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
