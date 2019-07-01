@@ -43,7 +43,6 @@ def solve_groups(result_dframe,group_data,tabixdf):
         result_dframe=pd.concat([result_dframe,tmp],axis=0)
     return result_dframe
 
-
 def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
     #find min and max position from group, return them
     temp_df=dframe.loc[dframe["locus_id"]==group_variant]
@@ -54,7 +53,6 @@ def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
 def fetch_gws(args):
     #column names
     columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
-
 
     fname=args.gws_fpath
     sig_tresh=args.sig_treshold
@@ -190,9 +188,6 @@ def fetch_gws(args):
         new_df=new_df.sort_values(["locus_id","#variant"])
         new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     else:
-        #df.loc[:,["#chrom","pos","ref","alt","rsids",
-        #            "nearest_genes","pval","beta","sebeta","maf",
-        #            "maf_cases","maf_controls","#variant","locus_id"]]
         df.sort_values(["locus_id","#variant"]).to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     
 if __name__=="__main__":

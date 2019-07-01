@@ -104,7 +104,6 @@ def annotate(args):
     else:
         for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe","#variant"]:
             gnomad_exomes[val]=None
-        
     
     #rename gnomad_exomes and gnomad_genomes
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]

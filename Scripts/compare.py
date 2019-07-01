@@ -55,7 +55,6 @@ def compare(args):
             summary_cols=s_df.columns
             if "#variant" not in summary_cols:
                 s_df.loc[:, "#variant"]=create_variant_column(summary_df)
-            
             s_df.loc[:,"trait"] = args.endpoints[idx]
             s_df.loc[:,"trait_name"] = args.endpoints[idx]
             cols=s_df.columns.to_list()
@@ -186,7 +185,6 @@ def compare(args):
             #build bim file, containing both the variants in df and summary_df
             bim_lst=None
             #get only variants in that group
-
             bim_lst=var_lst_df.loc[var_lst_df["chromosome"]==chromosome,:].copy()
             #filter those that are in the group
             r_max=df.loc[df["#variant"]==locus,"pos_rmax"].values[0]
@@ -195,9 +193,7 @@ def compare(args):
 
             bim_lst.loc[:,"cm"]=0
             bim_lst=bim_lst.loc[:,["chromosome","RSID","cm","position","A_allele","B_allele"]]
-            #temporary solution: create temp folder, create symbolic links to other files, write bim file to temp folder,
-            #do the magic, and delete temp folder afterwards. No modification to existing files, and not a lot of disk space usage
-            #still ugly, but at least we don't modify data that is supplied to this script
+
             range_upper=np.max(bim_lst["position"])
             range_lower=np.min(bim_lst["position"])
             print("Variant amount: {}".format(bim_lst.shape[0]))
