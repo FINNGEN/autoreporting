@@ -1,0 +1,7 @@
+#chrom	pos	ref	alt	locus_id
+1	1111	A	C	chr1_1111_A_C
+1	1234	C	A	chr1_1111_A_C
+1	4321	T	A	chr1_1111_A_C
+2	3456	C	G	chr2_3456_C_G
+2	5432	G	C	chr2_3456_C_G
+X	1111	A	T	chrX_1111_A_T

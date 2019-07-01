@@ -46,6 +46,8 @@ def solve_groups(result_dframe,group_data,tabixdf):
 def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
     #find min and max position from group, return them
     temp_df=dframe.loc[dframe["locus_id"]==group_variant]
+    if temp_df.empty:
+        return None
     min_=np.min(temp_df[columns["pos"]])
     max_=np.max(temp_df[columns["pos"]])
     return {"min":min_,"max":max_}

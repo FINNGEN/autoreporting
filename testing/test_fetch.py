@@ -5,6 +5,7 @@ sys.path.append("./")
 sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import gws_fetch
+from Scripts import autoreporting_utils as autils
 
 
 class TestGws(unittest.TestCase):
@@ -39,6 +40,41 @@ class TestGws(unittest.TestCase):
         self.assertTrue(df.equals(df2))
         pass
 
+    def test_group_range(self):
+        #input possibilities: df with no entries, df with one entry, df with multiple entries of one group
+        #column names: since they are specified in the function call, no need to test them
+        # Case 1: No entries in df
+        # Function should return None
+        df=pd.DataFrame(columns=["#chrom","pos","ref","alt","locus_id"])
+        gr_var="chr1_100_A_T"
+        retval=gws_fetch.get_group_range(df,gr_var,{"pos":"pos"})
+        self.assertEqual(retval, None)
+        # Case 2: df with one entry, matching gr_var
+        # Function should return {"min":pos,"max":pos}
+        pos=12345
+        df=pd.DataFrame([["1",pos,"A","T"]],columns=["#chrom","pos","ref","alt"])
+        df.loc[:,"locus_id"]=autils.create_variant_column(df)
+        gr_var="chr1_12345_A_T"
+        retval=gws_fetch.get_group_range(df,gr_var,{"pos":"pos"})
+        self.assertTrue(retval["min"]==pos & retval["max"] == pos)
+        # Case 3: df with one entry, no matching gr_var
+        #function should return None
+        pos=12345
+        df=pd.DataFrame([["1",pos,"A","T"]],columns=["#chrom","pos","ref","alt"])
+        df.loc[:,"locus_id"]=autils.create_variant_column(df)
+        gr_var="chr1_11111_G_C"
+        retval=gws_fetch.get_group_range(df,gr_var,{"pos":"pos"})
+        self.assertEqual(retval, None)
+        # Case 4: df with multiple entries, matching gr_var
+        #function should return group range min and max
+        df=pd.read_csv("fetch_resources/group_range_df.tsv",sep="\t",dtype={"pos":np.int32,"#chrom":str})
+        gr_var="chr1_1111_A_C"
+        min_=1111
+        max_=4321
+        retval=gws_fetch.get_group_range(df, gr_var, columns={"pos":"pos"})
+        self.assertEqual(min_,retval["min"])
+        self.assertEqual(max_,retval["max"])
+        pass
 
 if __name__=="__main__":
     os.chdir("./testing")
