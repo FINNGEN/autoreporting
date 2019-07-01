@@ -103,8 +103,8 @@ def compare(args):
             #        bp_lower=region["min"],bp_upper=region["max"],p_upper=args.gwascatalog_pval)
             #    if val:
             #        result_lst+=gwcatalog_api.parse_output(val)
-            #gwas_df=pd.DataFrame(result_lst)
             #gwas_df.to_csv("multithreaded_result.csv",index=False,sep="\t")
+            gwas_df=pd.DataFrame(result_lst)
             gwas_df["trait"]=gwas_df["trait"].apply(lambda x:x[0])
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t")
         #parse hits to a proper form, drop unnecessary information
