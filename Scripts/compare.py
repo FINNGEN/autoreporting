@@ -156,6 +156,7 @@ def compare(args):
     tmp.to_csv(args.raport_out,sep="\t",index=False)
     
     if args.ld_check:
+        raise NotImplementedError("LD calculation between our variants and external variants not implemented correctly. Please do not use this option.")
         #if no groups in base data
         if ("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list()):
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
@@ -190,7 +191,6 @@ def compare(args):
             r_max=df.loc[df["#variant"]==locus,"pos_rmax"].values[0]
             r_min=df.loc[df["#variant"]==locus,"pos_rmin"].values[0]
             bim_lst=bim_lst.loc[(bim_lst["position"]>=r_min)&(bim_lst["position"]<=r_max),:]
-
             bim_lst.loc[:,"cm"]=0
             bim_lst=bim_lst.loc[:,["chromosome","RSID","cm","position","A_allele","B_allele"]]
 
@@ -203,7 +203,7 @@ def compare(args):
             #threads set to 1 because it seems our playing around with bim files does not seems to like threads
             ls_proc=Popen(shlex.split("ls -l "),stdout=PIPE)
             ls_val=ls_proc.wait()
-            ldstore_command="ldstore --bplink temp --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
+            ldstore_command="ldstore --bplink {} --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
             args.ld_treshold,
             range_lower,
             range_upper,
@@ -212,7 +212,7 @@ def compare(args):
             ldstore_extract_info="ldstore --bcor temp_corr.bcor_1 --table ld_table.table "
             ld_proc=subprocess.Popen(shlex.split(ldstore_command),stdout=PIPE,stderr=PIPE )
             retval=ld_proc.wait()
-            #print(ld_proc.stderr.readlines())
+            print(ld_proc.stderr.readlines())
             if retval!= 0:
                 continue
             #subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL )

@@ -99,7 +99,7 @@ def fetch_gws(args):
                 args.plink_mem,
                 allow_overlap)
             #call plink
-            subprocess.call(shlex.split(plink_command))#, stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
+            subprocess.call(shlex.split(plink_command), stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
             #parse output file, find locus width
             group_data=pd.read_csv(plink_fname+".clumped",sep="\s+")
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]

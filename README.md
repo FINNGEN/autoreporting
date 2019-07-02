@@ -9,7 +9,8 @@ This pipeline is used to
 4) Cross-reference the variants to previous results, e.g. gwascatalog summary statistic database or hand-picked results from studies 
 Currently, steps 1,3 and 4 are operational. 
 
-__NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files__  
+__NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files__
+__NOTE: currently, LD comparison between summary stats and gws variants does not work.__  
 
 ## Dependencies
 
