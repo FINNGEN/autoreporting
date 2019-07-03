@@ -37,7 +37,6 @@ def compare(args):
     Compares our findings to gwascatalog results or supplied summary statistic files
     """
     columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
-
     #load original file
     df=pd.read_csv(args.compare_fname,sep="\t")
     necessary_columns=[ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","locus_id","pos_rmin","pos_rmax"]
@@ -98,12 +97,6 @@ def compare(args):
             result_lst=[]
             for sublst in r_lst:
                 result_lst=result_lst+sublst
-            #for _,region in regions.iterrows():
-            #    val=gwcatalog_api.get_all_associations(chromosome=region[ columns["chrom"] ],
-            #        bp_lower=region["min"],bp_upper=region["max"],p_upper=args.gwascatalog_pval)
-            #    if val:
-            #        result_lst+=gwcatalog_api.parse_output(val)
-            #gwas_df.to_csv("multithreaded_result.csv",index=False,sep="\t")
             gwas_df=pd.DataFrame(result_lst)
             gwas_df["trait"]=gwas_df["trait"].apply(lambda x:x[0])
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t")
@@ -129,6 +122,7 @@ def compare(args):
             trait_name_map[key]=gwcatalog_api.get_trait_name(key)
         
         summary_df.loc[:,"trait_name"]=summary_df.loc[:,"trait"].apply(lambda x: trait_name_map[x])
+        summary_df=summary_df.drop_duplicates(subset=["#variant","trait"])
     else:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
     #now we should have df and summary_df
@@ -156,16 +150,10 @@ def compare(args):
     tmp.to_csv(args.raport_out,sep="\t",index=False)
     
     if args.ld_check:
-        raise NotImplementedError("LD calculation between our variants and external variants not implemented correctly. Please do not use this option.")
+        #raise NotImplementedError("LD calculation between our variants and external variants not implemented correctly. Please do not use this option.")
         #if no groups in base data
         if ("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list()):
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
-
-        #preprocess found variants, i.e. divide variants in both our and gwascatalog results to chromosomes
-        #Then, we need to build the bim files, I guess, or I could just process some ld panels ready and push them into a bucket
-        #Then, for each chromosome set, we want to separate the clear ranges from each other, I guess
-        #then, we run ldstore, export correlations, and see if any of the gwascatalog variants are in ld with the gws variants
-        #NOTE: ldstore only seems to take bim file into account if we use range.
 
         #get variant list, i.e. the list of variants that consists of gws results and summary results
         var_cols=["#variant",columns["pos"],columns["chrom"],columns["ref"],columns["alt"]]
@@ -173,62 +161,64 @@ def compare(args):
         var_lst_df=pd.concat([summary_df.loc[:,var_cols].rename(columns=var_rename),df.loc[:,var_cols].rename(columns=var_rename)  ])
         var_lst_df=var_lst_df.drop_duplicates(subset=["RSID"])
         #get unique chromosomes in the results
-        unique_chrom_list=df[columns["chrom"]].unique()
+        #unique_chrom_list=df[columns["chrom"]].unique()
         unique_locus_list=df["locus_id"].unique()
-        c2="ln -s {}.bed temp.bed".format(args.ld_panel_path)
-        c3="ln -s {}.fam temp.fam".format(args.ld_panel_path)
-        Popen(shlex.split(c2),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        Popen(shlex.split(c3),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         ld_df=pd.DataFrame()
         for locus in unique_locus_list:
+            
             chromosome=df.loc[df["#variant"]==locus,columns["chrom"] ].unique()[0]
             print("Chromosome {}, group {} ld computation".format(chromosome,locus))
-            #build bim file, containing both the variants in df and summary_df
-            bim_lst=None
-            #get only variants in that group
-            bim_lst=var_lst_df.loc[var_lst_df["chromosome"]==chromosome,:].copy()
-            #filter those that are in the group
+            #get group range
             r_max=df.loc[df["#variant"]==locus,"pos_rmax"].values[0]
             r_min=df.loc[df["#variant"]==locus,"pos_rmin"].values[0]
-            bim_lst=bim_lst.loc[(bim_lst["position"]>=r_min)&(bim_lst["position"]<=r_max),:]
-            bim_lst.loc[:,"cm"]=0
-            bim_lst=bim_lst.loc[:,["chromosome","RSID","cm","position","A_allele","B_allele"]]
-
-            range_upper=np.max(bim_lst["position"])
-            range_lower=np.min(bim_lst["position"])
-            print("Variant amount: {}".format(bim_lst.shape[0]))
-            if (range_upper==range_lower) or bim_lst.shape[0]<=1:
+            if r_max == r_min:
                 continue
-            bim_lst.to_csv("temp.bim",sep="\t",index=False,header=False)
-            #threads set to 1 because it seems our playing around with bim files does not seems to like threads
-            ls_proc=Popen(shlex.split("ls -l "),stdout=PIPE)
-            ls_val=ls_proc.wait()
-            ldstore_command="ldstore --bplink {} --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
-            args.ld_treshold,
-            range_lower,
-            range_upper,
-            1)
-            #ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
-            ldstore_extract_info="ldstore --bcor temp_corr.bcor_1 --table ld_table.table "
-            ld_proc=subprocess.Popen(shlex.split(ldstore_command),stdout=PIPE,stderr=PIPE )
-            retval=ld_proc.wait()
-            print(ld_proc.stderr.readlines())
-            if retval!= 0:
+            #calculate ld for that group
+            ldstore_command="ldstore --bplink {}_{} --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
+            args.ld_chromosome_panel,
+            chromosome,
+            args.ld_treshold**0.5,#due to ldstore taking in |r|, not r2
+            r_min,
+            r_max,
+            args.ldstore_threads)
+            rval=subprocess.call(shlex.split(ldstore_command) ,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            if rval != 0:
+                print("Error in ldstore, continuing...")
                 continue
-            #subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL )
-            retval=subprocess.call(shlex.split(ldstore_extract_info),stdout=subprocess.DEVNULL )
-            #read ld_table.table in
-            ld_df_=pd.read_csv("ld_table.table",sep="\s+")
-            ld_df_=ld_df_.loc[:,["RSID1", "RSID2", "correlation"]]
-            #constrain id1 to only contain our variants, and id2 to only contain gwascatalog variants
-            ld_df_=ld_df_.merge(df["#variant"].drop_duplicates(),how="inner",left_on="RSID1",right_on="#variant")
-            ld_df_=ld_df_.merge(summary_df.loc[:,["#variant",columns["pval"],"trait","trait_name"]],how="inner",left_on="RSID2",right_on="#variant")
-            ld_df_=ld_df_.drop(columns=["#variant_x","#variant_y"])
-            
-            ld_df=pd.concat((ld_df,ld_df_),axis=0)
-        c5="rm ld_table.table temp.bim temp.fam temp.bed"
+            #merge the file
+            ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
+            subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
+            #create list of variants of interest.
+            #First, create list of variants that we want to etract the correlations for.
+            #This should be all of the variants in the summary df inside the correct range, and the group variants.
+            extract_df_1=df.loc[df["locus_id"]==locus,:].copy()
+            extract_df_2=summary_df.loc[(summary_df[columns["pos"]] <=r_max) & (summary_df[columns["pos"]] >=r_min)  ,:].copy()
+            extract_df=pd.concat([extract_df_1,extract_df_2],sort=True).loc[:,var_cols].rename(columns=var_rename)
+            extract_df.to_csv("var_lst",sep=" ",index=False)
+            #extract variants of interest 
+            ldstore_extract_command="ldstore --bcor temp_corr.bcor --table ld_table.table --incl-variants var_lst"
+            subprocess.call(shlex.split(ldstore_extract_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
+            #read ld_table, make it so rsid1 is for our variants and rsid2 for summary variants
+            ld_table=pd.read_csv("ld_table.table",sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
+            ld_table2=ld_table.copy()
+            ld_table2=ld_table2.rename(columns={"RSID1":"temp_rsid2","RSID2":"temp_rsid1"})
+            ld_table2=ld_table2.rename(columns={"temp_rsid2":"RSID2","temp_rsid1":"RSID1"})
+            ld=pd.concat([ld_table,ld_table2],sort=True)
+            #filter
+            ld=ld.loc[ld["RSID1"].isin(extract_df_1["#variant"].values),:]
+            ld=ld.loc[ld["RSID2"].isin(extract_df_2["#variant"].values),:]
+            ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
+            ld=ld.drop(columns=["correlation"])
+            ld_df=pd.concat([ld_df,ld],sort=True)
+        print("ld_df columns:{}".format(ld_df.columns))
+        print("summary_df columns:{}".format(summary_df.columns))
+        c5="rm ld_table.table "
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
+        ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
+        ld_df=ld_df.merge(summary_df.loc[:,["#variant","trait","trait_name"]].rename(columns={"#variant":"RSID2"}),how="inner",on="RSID2")
+        ld_df=ld_df.loc[ld_df["RSID1"].isin(df["#variant"].values),:]
+        ld_df.to_csv("ld_out.csv",sep="\t",index=False)
         if not ld_df.empty:
             ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
             ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
@@ -244,6 +234,7 @@ if __name__ == "__main__":
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",help="The path for the LD panel to determine what samples are in LD with each other")
+    parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
     parser.add_argument("--ld-raport-out",dest="ld_raport_out",type=str,default="ld_raport_out.csv",help="LD check raport output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")

@@ -67,6 +67,7 @@ if __name__=="__main__":
     #parser.add_argument("--ld-panel-path",dest="ld_panel_path",help="The path for the LD panel to determine what samples are in LD with each other")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Comparison raport output path")
     parser.add_argument("--ld-raport-out",dest="ld_raport_out",type=str,default="ld_raport_out.csv",help="LD check raport output path")
+    parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
