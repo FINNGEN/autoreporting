@@ -10,7 +10,6 @@ This pipeline is used to
 Currently, steps 1,3 and 4 are operational. 
 
 __NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files__
-__NOTE: currently, LD comparison between summary stats and gws variants does not work.__  
 
 ## Dependencies
 
@@ -55,6 +54,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--summary-fpath FILE [FILE ...]]
                [--endpoints ENDPOINTS [ENDPOINTS ...]] [--check-for-ld]
                [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
+               [--ld-chromosome-panel-path LD_CHROMOSOME_PANEL]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--gwascatalog-threads GWASCATALOG_THREADS]
@@ -89,8 +89,9 @@ Argument   |  Meaning   |   Example | Original script
 --check-for-ld | When supplied, gws variants and summary statistics (from file or gwascatalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
 --raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if aske  for. | --raport-out raport_out.tsv | compare<span></span>.py
 --ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
+--ld-chromosome-panel-path | Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' | --ld-chromosome-panel-path path/ld_panel | compare<span></span>.py
 --gwascatalog-pval | P-value to use for filtering results from gwascatalog's summary statistic API. default 5e-8 | --gwascatalog-pval 5e-6 | compare<span></span>.py
---gwascatalog-width-kb | Buffer outside gws variants that is searched from gwascatalog, in kb. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
+--gwascatalog-width-kb | Buffer outside gws variants that is searched from gwascatalog, in kilobases. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
 --gwascatalog-threads | Number of concurrent queries to gwasgatalog API. Default 4. Increase to speed up gwascatalog comparison. | --gwascatalog-threads 8 | compare<span></span>.py
 --ldstore-threads | Number of threads to use with LDstore. Currently not used. | --ldstore-threads 1 | compare<span></span>.py
 --ld-treshold | LD treshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
@@ -169,8 +170,9 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath FILE [FILE ...]]
                   [--endpoints ENDPOINTS [ENDPOINTS ...]] [--check-for-ld]
-                  [--ld-panel-path LD_PANEL_PATH] [--raport-out RAPORT_OUT]
-                  [--ld-raport-out LD_RAPORT_OUT]
+                  [--ld-panel-path LD_PANEL_PATH]
+                  [--ld-chromosome-panel-path LD_CHROMOSOME_PANEL]
+                  [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--gwascatalog-threads GWASCATALOG_THREADS]
@@ -178,6 +180,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--ld-treshold LD_TRESHOLD] [--cache-gwas]
                   [--column-labels CHROM POS REF ALT PVAL]
                   compare_fname
+
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
 ```
