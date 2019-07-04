@@ -32,6 +32,57 @@ def gwcatalog_call_helper(chrom,bp_lower,bp_upper,p_upper):
         return gwcatalog_api.parse_output(val)
     return
 
+def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
+    """
+    Create a top level report from which it is easy to see which loci are novel
+    In: df, gwascatalog summary df, traits that appear in matching_pheno_gwas_catalog_hits, column names
+    Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
+    """ 
+    #copy dfs to make sure that the original dataframes are NOT modified 
+    df=input_df.copy()
+    summary_df=input_summary_df.copy()
+
+    #create mapping column
+    for _,row in summary_df.iterrows():
+        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
+        summary_df.loc[_,"map_ref"]=ref
+        summary_df.loc[_,"map_alt"]=alt
+    for _,row in df.iterrows():
+        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
+        df.loc[_,"map_ref"]=ref
+        df.loc[_,"map_alt"]=alt
+    summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
+    df.loc[:,"map_variant"]=create_variant_column(df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
+    summary_columns=["map_variant","trait","trait_name"]
+    summary_df=summary_df.loc[:,summary_columns]
+    merged=df.merge(summary_df,on="map_variant",how="left")
+    list_of_loci=list(df["locus_id"].unique())
+    #compile new simple top level dataframe
+    top_level_columns=["locus_id","chr","start","end","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
+    top_level_df=pd.DataFrame(columns=top_level_columns)
+    for locus_id in list_of_loci:
+        #get variants of this locus
+        loc_variants=merged.loc[merged["locus_id"]==locus_id,:]
+        #chr,start, end
+        chrom=loc_variants[columns["chrom"]].values[0]
+        start=np.amin(loc_variants[columns["pos"]])
+        end=np.amax(loc_variants[columns["pos"]])
+        #find all of the traits that have hits
+        all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
+        trait_dict={}
+        for _,row in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().iterrows():
+            if row["trait_name"]=="NA":
+                trait_dict[row["trait"]]=row["trait"]
+            else:
+                trait_dict[row["trait"]]=row["trait_name"]
+        matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
+        other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
+        top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":",".join(matching_traits),
+        "other_gwas_hits":",".join(other_traits)},ignore_index=True)
+    return top_level_df
+         
+        
+
 def compare(args):
     """
     Compares our findings to gwascatalog results or supplied summary statistic files
@@ -125,6 +176,10 @@ def compare(args):
     else:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
     summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
+    #top level df
+    top_df=create_top_level_report(df,summary_df_2,args.efo_traits,columns)
+    top_df.to_csv(args.top_report_out,sep="\t",index=False)
+
     #now we should have df and summary_df
     necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
     summary_df=summary_df.loc[:,necessary_columns]
@@ -207,8 +262,8 @@ def compare(args):
             ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
             ld=ld.drop(columns=["correlation"])
             ld_df=pd.concat([ld_df,ld],sort=True)
-        print("ld_df columns:{}".format(ld_df.columns))
-        print("summary_df columns:{}".format(summary_df.columns))
+        #print("ld_df columns:{}".format(ld_df.columns))
+        #print("summary_df columns:{}".format(summary_df.columns))
         c5="rm ld_table.table "
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
@@ -230,7 +285,6 @@ if __name__ == "__main__":
     parser.add_argument("--summary-fpath",dest="summary_files",metavar="FILE",nargs="+",help="comparison summary filepaths")
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
-    parser.add_argument("--ld-panel-path",dest="ld_panel_path",help="The path for the LD panel to determine what samples are in LD with each other")
     parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
     parser.add_argument("--ld-raport-out",dest="ld_raport_out",type=str,default="ld_raport_out.csv",help="LD check raport output path")
@@ -241,5 +295,7 @@ if __name__ == "__main__":
     parser.add_argument("--ld-treshold",type=float,default=0.4,help="ld treshold")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
+    parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
+    parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level raport")
     args=parser.parse_args()
     compare(args)

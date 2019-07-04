@@ -60,6 +60,8 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--gwascatalog-threads GWASCATALOG_THREADS]
                [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
                [--cache-gwas] [--column-labels CHROM POS REF ALT PVAL]
+               [--top-report-out TOP_REPORT_OUT]
+               [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
                gws_fpath
 
 ```
@@ -97,6 +99,8 @@ Argument   |  Meaning   |   Example | Original script
 --ld-treshold | LD treshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
 --cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
 --column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval only). Default is '#chrom pos ref alt pval'. | --column-labels chromosome position alternate_allele reference_allele p_value | all scripts
+--top-report-out | Name of top-level report, that reports traits from GWAScatalog hits per group. | --top-report-out top_report.csv | compare<span></span>.py
+--efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Oncology codes. | --efo-traits EFO_0006336 EFO_0009270 EFO_0006335 EFO_0007985 | compare<span></span>.py
 gws_path |  Path to the tabixed and gzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
 
 The same arguments are used in the smaller scripts that the main script uses.
@@ -170,7 +174,6 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath FILE [FILE ...]]
                   [--endpoints ENDPOINTS [ENDPOINTS ...]] [--check-for-ld]
-                  [--ld-panel-path LD_PANEL_PATH]
                   [--ld-chromosome-panel-path LD_CHROMOSOME_PANEL]
                   [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
@@ -179,6 +182,8 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--ldstore-threads LDSTORE_THREADS]
                   [--ld-treshold LD_TRESHOLD] [--cache-gwas]
                   [--column-labels CHROM POS REF ALT PVAL]
+                  [--top-report-out TOP_REPORT_OUT]
+                  [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
                   compare_fname
 
 ```
@@ -191,10 +196,12 @@ Additional flags, such as `--check-for-ld`, can be used to check if the summary 
 A more detailed description of the script:  
 __Input__:  
 compare_fname: genome-wide significant variants that are filtered & grouped by gws_fetch.py and annotated by annotate<span></span>.py.  
-ld_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog).  
+ld_chromosome_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). The file must be separated into separate files by chromosome.
 summary_fpath: a number of summary statistics that will be used for comparison with genome-wide significant variants by the script. Must be in build 38.  
 __Output__:  
 raport_out: a tsv raport of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also raported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
+ld_raport_out: A tsv raport of those variants that are in LD with external summary statistic/gwascatalog variants.  
+top_report_out: A tsv raport of variant groups and their gwascatalog matched phenotypes. More specific match information is presented in raport_out.   
 
 __Script function__:
 The comparison script takes in a filtered and annotated variant tsv file, and raports if those variants have been announced in earlier studies. In case GWAScatalog is used, the script forms chromosome &  basepair ranges, such as 1:200000-300000 for 1st chromosome and all variants through 200000 to 300000, and the GWAScatalog summary statistic API is then queried for all hits inside this range that have a p-value under a designated p-value treshold. In case of external summary statistic files, the variants are just combined from these files. The filtered and annotated FINNGEN summary statistic variants are then compared against this group of variants, and for each variant all exact matches are reported. Optionally, genome-wide significant variants are also tested for ld with these variants for earlier studies, and variants for which the ld value is larger than `--ld-treshold` value are reported.
