@@ -45,9 +45,11 @@ def compare(args):
         Exception("GWS variant file {} did not contain all of the necessary columns:\n{} ".format(args.compare_fname,necessary_columns))
     
     #if using summary file
-    if args.compare_style=="file":
+    summary_df_1=pd.DataFrame()
+    summary_df_2=pd.DataFrame()
+    if args.compare_style in ["file","both"]:
         #load summary files
-        summary_df=pd.DataFrame()
+        #summary_df=pd.DataFrame()
         for idx in range(0,len(args.summary_files) ):
             s_df=pd.read_csv(args.summary_files[idx],sep="\t")
             #make sure the variant column exists
@@ -61,10 +63,8 @@ def compare(args):
             if not all(nec_col in cols for nec_col in (necessary_columns+["trait","trait_name"])):
                 Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
             #s_df=s_df.loc[:,necessary_columns+["trait","trait_name"]]
-            summary_df=pd.concat([summary_df,s_df],axis=0)        
-                    
-    elif args.compare_style=="gwascatalog":
-
+            summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)        
+    if args.compare_style in ["gwascatalog","both"]:
         gwas_df=None
         if os.path.exists("gwas_out_mapping.csv") and args.cache_gwas:
             print("reading gwas results from gwas_out_mapping.csv...")
@@ -114,17 +114,17 @@ def compare(args):
         tmp_df=tmp_df.loc[~tmp_df.loc[:,"code"].isin(filter_out_codes)]
         tmp_df.loc[:,"#variant"]=create_variant_column(tmp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #change alleles to a strand using the code from commons
-        summary_df=tmp_df
+        summary_df_2=tmp_df
         #create list of unique traits
-        unique_efos=list(summary_df["trait"].unique())
+        unique_efos=list(summary_df_2["trait"].unique())
         trait_name_map={}
         for key in unique_efos:
             trait_name_map[key]=gwcatalog_api.get_trait_name(key)
-        
-        summary_df.loc[:,"trait_name"]=summary_df.loc[:,"trait"].apply(lambda x: trait_name_map[x])
-        summary_df=summary_df.drop_duplicates(subset=["#variant","trait"])
+        summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
+        summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
     else:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
+    summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
     #now we should have df and summary_df
     necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
     summary_df=summary_df.loc[:,necessary_columns]
@@ -150,7 +150,6 @@ def compare(args):
     tmp.to_csv(args.raport_out,sep="\t",index=False)
     
     if args.ld_check:
-        #raise NotImplementedError("LD calculation between our variants and external variants not implemented correctly. Please do not use this option.")
         #if no groups in base data
         if ("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list()):
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
@@ -160,8 +159,6 @@ def compare(args):
         var_rename={"#variant":"RSID",columns["pos"]:"position",columns["chrom"]:"chromosome",columns["ref"]:"A_allele",columns["alt"]:"B_allele"}
         var_lst_df=pd.concat([summary_df.loc[:,var_cols].rename(columns=var_rename),df.loc[:,var_cols].rename(columns=var_rename)  ])
         var_lst_df=var_lst_df.drop_duplicates(subset=["RSID"])
-        #get unique chromosomes in the results
-        #unique_chrom_list=df[columns["chrom"]].unique()
         unique_locus_list=df["locus_id"].unique()
         ld_df=pd.DataFrame()
         for locus in unique_locus_list:
@@ -229,7 +226,7 @@ def compare(args):
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
     parser.add_argument("compare_fname",type=str,help="GWS result file")
-    parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file' or 'gwascatalog'")
+    parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_files",metavar="FILE",nargs="+",help="comparison summary filepaths")
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
@@ -240,7 +237,7 @@ if __name__ == "__main__":
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
-    parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore")
+    parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.4,help="ld treshold")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")

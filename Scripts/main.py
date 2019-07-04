@@ -60,7 +60,7 @@ if __name__=="__main__":
     
     #compare results
     #parser.add_argument("compare_fname",type=str,help="GWS result file")
-    parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file' or 'gwascatalog'")
+    parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_files",metavar="FILE",nargs="+",help="comparison summary filepaths")
     parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
@@ -71,7 +71,7 @@ if __name__=="__main__":
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
-    parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore")
+    parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.4,help="ld treshold")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
