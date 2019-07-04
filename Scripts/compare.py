@@ -233,13 +233,19 @@ def compare(args):
             r_min,
             r_max,
             args.ldstore_threads)
-            rval=subprocess.call(shlex.split(ldstore_command) ,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            if rval != 0:
-                print("Error in ldstore, continuing...")
-                continue
+            pr = subprocess.run(shlex.split(ldstore_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
+            if pr.returncode!=0:
+                print("LDSTORE FAILURE for locus {}".format(locus)  )
+                print(pr.stdout)
+                continue 
             #merge the file
             ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
             subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
+            pr = subprocess.run(shlex.split(ldstore_merge_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
+            if pr.returncode!=0:
+                print("LDSTORE FAILURE for locus {}".format(locus)  )
+                print(pr.stdout)
+                continue
             #create list of variants of interest.
             #First, create list of variants that we want to etract the correlations for.
             #This should be all of the variants in the summary df inside the correct range, and the group variants.
@@ -249,7 +255,11 @@ def compare(args):
             extract_df.to_csv("var_lst",sep=" ",index=False)
             #extract variants of interest 
             ldstore_extract_command="ldstore --bcor temp_corr.bcor --table ld_table.table --incl-variants var_lst"
-            subprocess.call(shlex.split(ldstore_extract_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
+            pr = subprocess.run(shlex.split(ldstore_extract_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
+            if pr.returncode!=0:
+                print("LDSTORE FAILURE for locus {}".format(locus)  )
+                print(pr.stdout)
+                continue
             #read ld_table, make it so rsid1 is for our variants and rsid2 for summary variants
             ld_table=pd.read_csv("ld_table.table",sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
             ld_table2=ld_table.copy()
