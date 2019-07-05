@@ -77,8 +77,8 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
                 trait_dict[row["trait"]]=row["trait_name"]
         matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
         other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
-        top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":",".join(matching_traits),
-        "other_gwas_hits":",".join(other_traits)},ignore_index=True)
+        top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
+        "other_gwas_hits":";".join(other_traits)},ignore_index=True)
     return top_level_df
          
         
