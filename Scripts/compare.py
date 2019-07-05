@@ -32,6 +32,13 @@ def gwcatalog_call_helper(chrom,bp_lower,bp_upper,p_upper):
         return gwcatalog_api.parse_output(val)
     return
 
+def map_dataframe(df,columns):
+    for _, row in df.iterrows():
+        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
+        df.loc[_,"map_ref"]=ref
+        df.loc[_,"map_alt"]=alt
+    return df
+
 def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     """
     Create a top level report from which it is easy to see which loci are novel
@@ -43,14 +50,9 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     summary_df=input_summary_df.copy()
 
     #create mapping column
-    for _,row in summary_df.iterrows():
-        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
-        summary_df.loc[_,"map_ref"]=ref
-        summary_df.loc[_,"map_alt"]=alt
-    for _,row in df.iterrows():
-        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
-        df.loc[_,"map_ref"]=ref
-        df.loc[_,"map_alt"]=alt
+    summary_df=map_dataframe(summary_df,columns)
+    df=map_dataframe(df,columns)
+
     summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
     df.loc[:,"map_variant"]=create_variant_column(df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
     summary_columns=["map_variant","trait","trait_name"]
@@ -183,18 +185,11 @@ def compare(args):
     #now we should have df and summary_df
     necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
     summary_df=summary_df.loc[:,necessary_columns]
-    summary_df.to_csv("summary_df.csv",sep="\t",index=False)
+    #summary_df.to_csv("summary_df.csv",sep="\t",index=False)
 
-    for _,row in summary_df.iterrows():
-        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
-        summary_df.loc[_,"map_ref"]=ref
-        summary_df.loc[_,"map_alt"]=alt
+    summary_df=map_dataframe(summary_df,columns)
+    df=map_dataframe(df,columns)
 
-    for _,row in df.iterrows():
-        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
-        df.loc[_,"map_ref"]=ref
-        df.loc[_,"map_alt"]=alt
-    
     summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
     df.loc[:,"map_variant"]=create_variant_column(df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
     #df.to_csv("df.csv",sep="\t",index=False)
@@ -274,13 +269,13 @@ def compare(args):
             ld_df=pd.concat([ld_df,ld],sort=True)
         #print("ld_df columns:{}".format(ld_df.columns))
         #print("summary_df columns:{}".format(summary_df.columns))
-        c5="rm ld_table.table "
+        c5="rm ld_table.table var_lst"
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
         ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
         ld_df=ld_df.merge(summary_df.loc[:,["#variant","trait","trait_name"]].rename(columns={"#variant":"RSID2"}),how="inner",on="RSID2")
         ld_df=ld_df.loc[ld_df["RSID1"].isin(df["#variant"].values),:]
-        ld_df.to_csv("ld_out.csv",sep="\t",index=False)
+        #ld_df.to_csv("ld_out.csv",sep="\t",index=False)
         if not ld_df.empty:
             ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
             ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
