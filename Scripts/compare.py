@@ -247,6 +247,10 @@ def compare(args):
             extract_df_1=df.loc[df["locus_id"]==locus,:].copy()
             extract_df_2=summary_df.loc[(summary_df[columns["pos"]] <=r_max) & (summary_df[columns["pos"]] >=r_min)  ,:].copy()
             extract_df=pd.concat([extract_df_1,extract_df_2],sort=True).loc[:,var_cols].rename(columns=var_rename).drop_duplicates().sort_values(by="position")
+            
+            ### different datatypes caused drop duplicates to not recognize duplicates and ldstore failed in the next step
+            extract_df =  extract_df.astype(str)
+            extract_df = extract_df.drop_duplicates()
             extract_df.to_csv("var_lst",sep=" ",index=False)
             #extract variants of interest 
             ldstore_extract_command="ldstore --bcor temp_corr.bcor --table ld_table.table --incl-variants var_lst"
