@@ -32,6 +32,7 @@ def gwcatalog_call_helper(chrom,bp_lower,bp_upper,p_upper):
         return gwcatalog_api.parse_output(val)
     return
 
+
 def map_dataframe(df,columns):
     for _, row in df.iterrows():
         [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
@@ -143,26 +144,29 @@ def compare(args):
                 data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],args.gwascatalog_pval])
             #create worker pool for multithreaded api calls
             r_lst=None
+            gwapi=gwcatalog_api.GwasApi()
             with ThreadPool(args.gwascatalog_threads) as pool:
-                r_lst=pool.starmap(gwcatalog_call_helper,data_lst)
+                r_lst=pool.starmap(gwapi.get_associations,data_lst)
             #remove empties
             r_lst=[r for r in r_lst if r != None]
             result_lst=[]
             for sublst in r_lst:
                 result_lst=result_lst+sublst
             gwas_df=pd.DataFrame(result_lst)
-            gwas_df["trait"]=gwas_df["trait"].apply(lambda x:x[0])
-            gwas_df.to_csv("gwas_out_mapping.csv",sep="\t")
+            #gwas_df["trait"]=gwas_df["trait"].apply(lambda x:x[0])
+            gwas_df.to_csv("gwas_out_mapping.csv",sep="\t",index=False)
         #parse hits to a proper form, drop unnecessary information
-        gwas_cols=["base_pair_location","chromosome","p_value","hm_effect_allele","hm_other_allele",
-            "trait","study_accession","hm_code","hm_beta","hm_effect_allele_frequency"]
-        gwas_df=gwas_df.loc[:,gwas_cols]
-        gwas_rename={"base_pair_location":columns["pos"],"chromosome":columns["chrom"],"hm_beta":"beta",
-            "p_value":columns["pval"],"hm_code":"code","hm_effect_allele":columns["alt"],"hm_other_allele":columns["ref"],"hm_effect_allele_frequency":"af"}
-        gwas_df=gwas_df.rename(columns=gwas_rename)
+        #gwas_cols=["base_pair_location","chromosome","p_value","hm_effect_allele","hm_other_allele",
+        #    "trait","study_accession","hm_code","hm_beta","hm_effect_allele_frequency"]
+        #gwas_df=gwas_df.loc[:,gwas_cols]
+        #gwas_rename={"base_pair_location":columns["pos"],"chromosome":columns["chrom"],"hm_beta":"beta",
+        #    "p_value":columns["pval"],"hm_code":"code","hm_effect_allele":columns["alt"],"hm_other_allele":columns["ref"],"hm_effect_allele_frequency":"af"}
+        #gwas_df=gwas_df.rename(columns=gwas_rename)
         
-        tmp_df=gwas_df[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"code","beta","af","trait"]]
+        #tmp_df=gwas_df[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"code","beta","af","trait"]]
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
+        gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
+        tmp_df=gwas_df.rename(columns=gwas_rename)
         filter_out_codes=[9, 14, 15, 16, 17, 18]
         tmp_df=tmp_df.loc[~tmp_df.loc[:,"code"].isin(filter_out_codes)]
         tmp_df.loc[:,"#variant"]=create_variant_column(tmp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
@@ -185,7 +189,7 @@ def compare(args):
     #now we should have df and summary_df
     necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
     summary_df=summary_df.loc[:,necessary_columns]
-    #summary_df.to_csv("summary_df.csv",sep="\t",index=False)
+    summary_df.to_csv("summary_df.csv",sep="\t",index=False)
 
     summary_df=map_dataframe(summary_df,columns)
     df=map_dataframe(df,columns)
@@ -201,7 +205,7 @@ def compare(args):
     
     if args.ld_check:
         #if no groups in base data
-        if ("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list()):
+        if (("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list())):
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
 
         #get variant list, i.e. the list of variants that consists of gws results and summary results
@@ -211,13 +215,14 @@ def compare(args):
         var_lst_df=var_lst_df.drop_duplicates(subset=["RSID"])
         unique_locus_list=df["locus_id"].unique()
         ld_df=pd.DataFrame()
+        df.to_csv("df.csv",index=False,sep="\t")
         for locus in unique_locus_list:
             
             chromosome=df.loc[df["#variant"]==locus,columns["chrom"] ].unique()[0]
-            print("Chromosome {}, group {} ld computation".format(chromosome,locus))
+            print("Chromosome {}, group {} ld computation, variant amount {}".format(chromosome,locus,df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]))
             #get group range
-            r_max=df.loc[df["#variant"]==locus,"pos_rmax"].values[0]
-            r_min=df.loc[df["#variant"]==locus,"pos_rmin"].values[0]
+            r_max=df.loc[df["locus_id"]==locus,"pos_rmax"].values[0]
+            r_min=df.loc[df["locus_id"]==locus,"pos_rmin"].values[0]
             if r_max == r_min:
                 continue
             #calculate ld for that group
