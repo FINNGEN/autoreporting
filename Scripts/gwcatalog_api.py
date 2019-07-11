@@ -115,11 +115,8 @@ class SummaryApi(ExtDB):
 
 def parse_efo(code):
     if type(code) != type("asd"):
+        print("INVALID TYPE OF EFO CODE with code {}, type {}".format(code,type(code)))
         return "NAN"
-    elif "," in code:
-        tmp=code.split(",")
-        tmp=[x.strip().split("/").pop() for x in tmp]
-        return ",".join(tmp) 
     else: 
         return code.split("/").pop()
 
@@ -184,8 +181,6 @@ class GwasApi(ExtDB):
                     retval=retval.append(row)
             else:
                 retval=retval.append(row)
-        #print(retval.shape)
-        #print(tmpdf.shape)
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
@@ -193,8 +188,6 @@ class GwasApi(ExtDB):
         retval=retval.rename(columns=rename)
         retval=retval.astype(dtype={"chrom":int})
         retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
-        print(retval.dtypes)
-        print(retval)
         retcols=["chrom","pos","ref","alt","pval","trait","code"]
         return retval.loc[:,retcols].to_dict("records")
 

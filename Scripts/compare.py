@@ -40,6 +40,16 @@ def map_dataframe(df,columns):
         df.loc[_,"map_alt"]=alt
     return df
 
+def map_column(df,col_name,columns):
+    df_=df.copy()
+    for _, row in df.iterrows():
+        [ref_,alt_]=map_alleles(row[ columns["ref"] ],row[ columns["alt"] ])
+        df_.loc[_,"temp_map_ref"]=ref_
+        df_.loc[_,"temp_map_alt"]=alt_
+    df_[col_name]=create_variant_column(df_,chrom=columns["chrom"],pos=columns["pos"],ref="temp_map_ref",alt="temp_map_alt")
+    df_=df_.drop(columns=["temp_map_ref","temp_map_alt"])
+    return df_
+
 def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     """
     Create a top level report from which it is easy to see which loci are novel
@@ -138,11 +148,9 @@ def compare(args):
             range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
             regions=prune_regions(range_df,columns=columns)
             #use api to get all gwascatalog hits
-            #create call data list
             data_lst=[]
             for _,region in regions.iterrows():
                 data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],args.gwascatalog_pval])
-            #create worker pool for multithreaded api calls
             r_lst=None
             gwapi=gwcatalog_api.GwasApi()
             with ThreadPool(args.gwascatalog_threads) as pool:
@@ -153,17 +161,10 @@ def compare(args):
             for sublst in r_lst:
                 result_lst=result_lst+sublst
             gwas_df=pd.DataFrame(result_lst)
-            #gwas_df["trait"]=gwas_df["trait"].apply(lambda x:x[0])
+            #drop variants with - in alleles
+            drop_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
+            gwas_df=gwas_df.loc[~drop_idx,:]
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t",index=False)
-        #parse hits to a proper form, drop unnecessary information
-        #gwas_cols=["base_pair_location","chromosome","p_value","hm_effect_allele","hm_other_allele",
-        #    "trait","study_accession","hm_code","hm_beta","hm_effect_allele_frequency"]
-        #gwas_df=gwas_df.loc[:,gwas_cols]
-        #gwas_rename={"base_pair_location":columns["pos"],"chromosome":columns["chrom"],"hm_beta":"beta",
-        #    "p_value":columns["pval"],"hm_code":"code","hm_effect_allele":columns["alt"],"hm_other_allele":columns["ref"],"hm_effect_allele_frequency":"af"}
-        #gwas_df=gwas_df.rename(columns=gwas_rename)
-        
-        #tmp_df=gwas_df[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"code","beta","af","trait"]]
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
         tmp_df=gwas_df.rename(columns=gwas_rename)
@@ -266,27 +267,29 @@ def compare(args):
                 continue
             #read ld_table, make it so rsid1 is for our variants and rsid2 for summary variants
             ld_table=pd.read_csv("ld_table.table",sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
+            if ld_table.empty:
+                continue
             ld_table2=ld_table.copy()
             ld_table2=ld_table2.rename(columns={"RSID1":"temp_rsid2","RSID2":"temp_rsid1"})
             ld_table2=ld_table2.rename(columns={"temp_rsid2":"RSID2","temp_rsid1":"RSID1"})
-            ld=pd.concat([ld_table,ld_table2],sort=True)
+            ld=pd.concat([ld_table,ld_table2],sort=True).reset_index()
+            ld[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]=ld["RSID2"].apply(lambda x:pd.Series( x.strip("chr").split("_") ,index=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]))
             #filter
             ld=ld.loc[ld["RSID1"].isin(extract_df_1["#variant"].values),:]
-            ld=ld.loc[ld["RSID2"].isin(extract_df_2["#variant"].values),:]
+            ld=map_column(ld,"RSID2_map",columns)
+            ld=ld.loc[ld["RSID2_map"].isin(extract_df_2["#variant"].values),:]
             ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
-            ld=ld.drop(columns=["correlation"])
+            ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
             ld_df=pd.concat([ld_df,ld],sort=True)
-        #print("ld_df columns:{}".format(ld_df.columns))
-        #print("summary_df columns:{}".format(summary_df.columns))
         c5="rm ld_table.table var_lst"
         corr_files=glob.glob("temp_corr.*")
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
         ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
-        ld_df=ld_df.merge(summary_df.loc[:,["#variant","trait","trait_name"]].rename(columns={"#variant":"RSID2"}),how="inner",on="RSID2")
-        ld_df=ld_df.loc[ld_df["RSID1"].isin(df["#variant"].values),:]
+        ld_df=ld_df.merge(summary_df.loc[:,["#variant","trait","trait_name"]].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
+        #ld_df=ld_df.loc[ld_df["RSID1"].isin(df["#variant"].values),:]
         #ld_df.to_csv("ld_out.csv",sep="\t",index=False)
         if not ld_df.empty:
-            ld_out=df.merge(ld_df,how="left",left_on="#variant",right_on="RSID1")
+            ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
             ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
             ld_out.to_csv(args.ld_raport_out,sep="\t",index=False)
         else:
