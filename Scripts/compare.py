@@ -112,22 +112,26 @@ def compare(args):
     summary_df_1=pd.DataFrame()
     summary_df_2=pd.DataFrame()
     if args.compare_style in ["file","both"]:
-        #load summary files
-        #summary_df=pd.DataFrame()
-        for idx in range(0,len(args.summary_files) ):
-            s_df=pd.read_csv(args.summary_files[idx],sep="\t")
+        summary_files=pd.read_csv(args.summary_fpath,sep="\t")
+        s_paths=list(summary_files["summary_path"])
+        endpoints=list(summary_files["endpoint"])
+        for idx in range(0,len(s_paths) ):
+            s_path=s_paths[idx]
+            endpoint=endpoints[idx]
+            s_df=pd.read_csv(s_path,sep="\t")
             #make sure the variant column exists
             summary_cols=s_df.columns
             if "#variant" not in summary_cols:
                 s_df.loc[:, "#variant"]=create_variant_column(summary_df)
-            s_df.loc[:,"trait"] = args.endpoints[idx]
-            s_df.loc[:,"trait_name"] = args.endpoints[idx]
+            s_df.loc[:,"trait"] = endpoint
+            s_df.loc[:,"trait_name"] = endpoint
             cols=s_df.columns.to_list()
             necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant"]
             if not all(nec_col in cols for nec_col in (necessary_columns+["trait","trait_name"])):
                 Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
             #s_df=s_df.loc[:,necessary_columns+["trait","trait_name"]]
-            summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)        
+            summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)     
+        summary_df_1=summary_df_1.loc[:,necessary_columns+["trait","trait_name"]].reindex()
     if args.compare_style in ["gwascatalog","both"]:
         gwas_df=None
         if os.path.exists("gwas_out_mapping.csv") and args.cache_gwas:
@@ -180,13 +184,15 @@ def compare(args):
             trait_name_map[key]=gwcatalog_api.get_trait_name(key)
         summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
         summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
-    else:
+    if args.compare_style not in ["file","gwascatalog","both"]:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
     summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
     #top level df
-    top_df=create_top_level_report(df,summary_df_2,args.efo_traits,columns)
-    top_df.to_csv(args.top_report_out,sep="\t",index=False)
-
+    if not summary_df_2.empty:
+        top_df=create_top_level_report(df,summary_df_2,args.efo_traits,columns)
+        top_df.to_csv(args.top_report_out,sep="\t",index=False)
+    else:
+        print("No gwascatalog used, no top level report made")
     #now we should have df and summary_df
     necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
     summary_df=summary_df.loc[:,necessary_columns]
@@ -299,8 +305,7 @@ if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
     parser.add_argument("compare_fname",type=str,help="GWS result file")
     parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
-    parser.add_argument("--summary-fpath",dest="summary_files",metavar="FILE",nargs="+",help="comparison summary filepaths")
-    parser.add_argument("--endpoints",type=str,nargs="+",help="biological endpoint, as many as summaries")
+    parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
