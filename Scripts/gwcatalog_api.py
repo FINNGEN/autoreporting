@@ -116,10 +116,96 @@ class SummaryApi(ExtDB):
 
 def parse_efo(code):
     if type(code) != type("asd"):
-        print("INVALID TYPE OF EFO CODE with code {}, type {}".format(code,type(code)))
+        #print("INVALID TYPE OF EFO CODE with code {}, type {}".format(code,type(code)))
         return "NAN"
     else: 
         return code.split("/").pop()
+
+class LocalDB(ExtDB):
+
+    def __in_chunks(self,lst, chunk_size):
+        return (lst[pos:pos + chunk_size] for pos in range(0, len(lst), chunk_size))
+
+    def __parse_ensembl(self,json_data):
+        out=[]
+        for key in json_data.keys():
+            #minor_allele=json_data[key]["minor_allele"]
+            #other_allele=json_data[key]["ancestral_allele"]
+            alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
+            other_allele=alleles[0]
+            minor_allele=alleles[1]
+            rsid=key
+            out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele})
+        return out
+
+    def __init__(self,db_path):
+        self.df=pd.read_csv(db_path,sep="\t")
+        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID"])
+        self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains(";") ,:]
+        self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains("x") ,:]
+        self.df=self.df.astype(dtype={"CHR_POS":int,"P-VALUE":float})
+    
+    def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
+        #filter based on chromosome, start, end, pval
+        df=self.df.loc[self.df["CHR_ID"]==str(chromosome),:].copy()
+        df=df.astype({"CHR_POS":int,"P-VALUE":float})
+        df=df.loc[ (df["CHR_POS"] >=int(start))& (df["CHR_POS"] <=int(end) ) ,:]
+        df=df.loc[df["P-VALUE"]<=float(pval) ,:]
+        rsids=list(df["SNPS"])
+        rsids=[a for a in rsids if ' x ' not in a] 
+        ensembl_url="https://rest.ensembl.org/variation/human"
+        out=[]
+        headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
+        for rsid_chunk in self.__in_chunks(rsids,200):
+            list_str='["{}"]'.format('", "'.join(rsid_chunk))
+            data='{{ "ids":{} }}'.format(list_str) #{"ids":rsid_chunk}
+            ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
+            if ensembl_response.status_code != 200:
+                print(ensembl_response.text)
+            out=out+ self.__parse_ensembl(ensembl_response.json()) 
+        rsid_df=pd.DataFrame(out)
+        if rsid_df.empty:
+            return
+        df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
+        cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
+        tmpdf=df_out.loc[:,cols].copy()
+        #deal with multiple efo codes in retval trait uri column
+        retval=pd.DataFrame()
+        for _,row in tmpdf.iterrows():
+            if type(row["MAPPED_TRAIT_URI"]) == type("string"):
+                if "," in row["MAPPED_TRAIT_URI"]:
+                    efos=row["MAPPED_TRAIT_URI"].split(",")
+                    efos=[e.strip() for e in efos]
+                    for efo in efos:
+                        new_row=row.copy()
+                        new_row["MAPPED_TRAIT_URI"]=efo
+                        retval=retval.append(new_row)
+                else:
+                    retval=retval.append(row)
+            else:
+                retval=retval.append(row)
+        retval=retval.reset_index()
+        retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
+        retval.loc[:,"code"]=20
+        rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
+        retval=retval.rename(columns=rename)
+        retval=retval.astype(dtype={"chrom":int})
+        retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
+        retcols=["chrom","pos","ref","alt","pval","trait","code"]
+        return retval.loc[:,retcols].to_dict("records")
+    
+    def get_trait(self, trait_code):
+        base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
+        trait_=trait_code.upper()
+        r=requests.get(url=base_url+trait_)
+        if r.status_code == 404:
+            print("Trait {} not found in GWASCatalog".format(trait))
+            return trait_code
+        elif r.status_code != 200:
+            print("Request for trait {} returned status code {}".format(trait,r.status_code))
+            return trait_code
+        else:
+            return r.json()["trait"]
 
 class GwasApi(ExtDB):
     """ 
@@ -146,6 +232,9 @@ class GwasApi(ExtDB):
             "]&pvalfilter={}&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
             chromosome,start,end,pval)
         gwcat_response=requests.get(url)
+        while gwcat_response.status_code!=200:
+            time.sleep(1)
+            gwcat_response=requests.get(url)
         s_io=StringIO(gwcat_response.text)
         df=pd.read_csv(s_io,sep="\t")
         if df.empty:

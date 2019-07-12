@@ -50,6 +50,39 @@ def map_column(df,col_name,columns):
     df_=df_.drop(columns=["temp_map_ref","temp_map_alt"])
     return df_
 
+def solve_indels(indel_df,df,columns):
+    """ Solve exact matches for indels where they are missing one basepair 
+    """
+    out_df=[]
+    for _, row in indel_df.iterrows():
+        #check if our dataframe has an exact match.
+        rowpos=int(row["pos"])-1
+        rowchrom=str(row["chrom"])
+        possible_matches=df.loc[(df[columns["chrom"]].astype(str) == rowchrom)&(df[columns["pos"]] == rowpos )  ,:].copy()
+        for __, row2 in possible_matches.iterrows():
+            #if alleles are a match s.t. -/TCGA == T/TTCGA, add that to output df and break from the loop            
+            a1=row["ref"]
+            a2=row["alt"]
+            b1=row2[columns["ref"]]
+            b2=row2[columns["alt"]]
+            if a1=="-":
+                if len(b1)==1 and b2[1:] == a2:
+                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b1,"alt":b2,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    break
+                elif len(b2)==1 and b1[1:] == a2:
+                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b2,"alt":b1,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    break
+            elif a2=="-":
+                if len(b1)==1 and b2[1:] == a1:
+                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b1,"alt":b2,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    break
+                elif len(b2)==1 and b1[1:] == a1:
+                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b2,"alt":b1,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    break
+            #else, continue
+    out_df=pd.DataFrame(out_df)
+    return out_df
+
 def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     """
     Create a top level report from which it is easy to see which loci are novel
@@ -156,7 +189,12 @@ def compare(args):
             for _,region in regions.iterrows():
                 data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],args.gwascatalog_pval])
             r_lst=None
-            gwapi=gwcatalog_api.GwasApi()
+            if args.database_choice=="gwas":
+                gwapi=gwcatalog_api.GwasApi()
+            elif args.database_choice=="local":
+                gwapi=gwcatalog_api.LocalDB(args.localdb_path)
+            else:
+                gwapi=gwcatalog_api.SummaryApi()
             with ThreadPool(args.gwascatalog_threads) as pool:
                 r_lst=pool.starmap(gwapi.get_associations,data_lst)
             #remove empties
@@ -166,8 +204,10 @@ def compare(args):
                 result_lst=result_lst+sublst
             gwas_df=pd.DataFrame(result_lst)
             #drop variants with - in alleles
-            drop_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
-            gwas_df=gwas_df.loc[~drop_idx,:]
+            indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
+            indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
+            gwas_df=gwas_df.loc[~indel_idx,:]
+            gwas_df=pd.concat([gwas_df,indels]).reset_index()
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t",index=False)
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
@@ -319,5 +359,7 @@ if __name__ == "__main__":
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level raport")
+    parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
+    parser.add_argument("--db",dest="database_choice",type=str,default="gwascatalog",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
     compare(args)
