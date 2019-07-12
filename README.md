@@ -61,6 +61,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--cache-gwas] [--column-labels CHROM POS REF ALT PVAL]
                [--top-report-out TOP_REPORT_OUT]
                [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
+               [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
                gws_fpath
 
 ```
@@ -99,6 +100,8 @@ Argument   |  Meaning   |   Example | Original script
 --column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval only). Default is '#chrom pos ref alt pval'. | --column-labels chromosome position alternate_allele reference_allele p_value | all scripts
 --top-report-out | Name of top-level report, that reports traits from GWAScatalog hits per group. | --top-report-out top_report.csv | compare<span></span>.py
 --efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Oncology codes. | --efo-traits EFO_0006336 EFO_0009270 EFO_0006335 EFO_0007985 | compare<span></span>.py
+--local-gwascatalog | File path to gwas catalog downloadable associations with mapped ontologies. | --local-gwascatalog gwascatalog-associations-with-ontologies.tsv | compare<span></span>.py
+--db | Choose which comparison database to use, gwas catalog proper, gwas catalog's summary statistic api, or a local copy of gwas catalog. With local copy, you need to supply the --local-gwascatalog filepath | --db gwas \| summary_stats \| local | compare<span></span>.py
 gws_path |  Path to the tabixed and gzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
 
 The same arguments are used in the smaller scripts that the main script uses.
@@ -181,6 +184,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--column-labels CHROM POS REF ALT PVAL]
                   [--top-report-out TOP_REPORT_OUT]
                   [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
+                  [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
                   compare_fname
 
 ```
