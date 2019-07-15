@@ -20,6 +20,8 @@
     "autoreporting.report.gw_pval":5e-8,
     "autoreporting.report.gw_width":25,
     "autoreporting.report.ld_treshold":0.9,
+    "autoreporting.report.summary_stat_listing":"gs://arto/sign_results/listing",
+    "autoreporting.report.endpoint_listing":"gs://arto/sign_results/endpoint_listing",
     "autoreporting.report.efo_codes":"",
     "autoreporting.report.db_choice":"gwas",
     "autoreporting.report.fetch_out":"fetch_out.csv",
