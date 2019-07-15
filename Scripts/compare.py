@@ -145,7 +145,7 @@ def compare(args):
     summary_df_1=pd.DataFrame()
     summary_df_2=pd.DataFrame()
     if args.compare_style in ["file","both"]:
-        summary_files=pd.read_csv(args.summary_fpath,sep="\t")
+        summary_files=pd.read_csv(args.summary_fpath,sep="\t",names=["summary_path","endpoint"])
         s_paths=list(summary_files["summary_path"])
         endpoints=list(summary_files["endpoint"])
         for idx in range(0,len(s_paths) ):

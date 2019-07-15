@@ -86,7 +86,7 @@ Argument   |  Meaning   |   Example | Original script
 --finngen-path | Path to finngen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
 --compare-style | Whether to use gwascatalog and/or additional summary statistics to compare findings to literature. Use values 'file', 'gwascatalog' or 'both', default 'gwascatalog' | --compare-style 'gwascatalog' | compare<span></span>.py
---summary-fpath | path to tsv containing filepaths to external summary statistic files and their endpoints. Entries in the file are filepath-endpoint pairs separated by a single tab character. | --summary-fpath summary_file_list.tsv | compare<span></span>.py
+--summary-fpath | path to tsv containing filepaths to external summary statistic files and their endpoints. Entries in the file are filepath-endpoint pairs separated by a single tab character. There is no header in this file. | --summary-fpath summary_file_list.tsv | compare<span></span>.py
 --check-for-ld | When supplied, gws variants and summary statistics (from file or gwascatalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
 --raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if asked for. | --raport-out raport_out.tsv | compare<span></span>.py
 --ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
@@ -198,7 +198,7 @@ A more detailed description of the script:
 __Input__:  
 compare_fname: genome-wide significant variants that are filtered & grouped by gws_fetch.py and annotated by annotate<span></span>.py.  
 ld_chromosome_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). The file must be separated into separate files by chromosome.
-summary_fpath (optional): A tab-separated value (tsv) file containing the summary file paths and their endpoints. Header is formatted like 'summary_fpath\tendpoint'. Actual summary statistics must be tab-separated value files, and in build 38.  
+summary_fpath (optional): A tab-separated value (tsv) file containing the summary file paths and their endpoints. There is no header in this file, only filepath-endpoint pairs. Actual summary statistics must be tab-separated value files and in build 38.  
 __Output__:  
 raport_out: a tsv raport of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also raported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
 ld_raport_out: A tsv raport of those variants that are in LD with external summary statistic/gwascatalog variants.  
