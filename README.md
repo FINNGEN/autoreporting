@@ -51,8 +51,8 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--gnomad-exome-path GNOMAD_EXOME_PATH] [--include-batch-freq]
                [--finngen-path FINNGEN_PATH] [--annotate-out ANNOTATE_OUT]
                [--compare-style COMPARE_STYLE] [--summary-fpath SUMMARY_FPATH]
-               [--check-for-ld] [--raport-out RAPORT_OUT]
-               [--ld-raport-out LD_RAPORT_OUT]
+               [--endpoint-fpath ENDPOINTS] [--check-for-ld]
+               [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
                [--ld-chromosome-panel-path LD_CHROMOSOME_PANEL]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
@@ -86,7 +86,8 @@ Argument   |  Meaning   |   Example | Original script
 --finngen-path | Path to finngen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
 --compare-style | Whether to use gwascatalog and/or additional summary statistics to compare findings to literature. Use values 'file', 'gwascatalog' or 'both', default 'gwascatalog' | --compare-style 'gwascatalog' | compare<span></span>.py
---summary-fpath | path to tsv containing filepaths to external summary statistic files and their endpoints. Entries in the file are filepath-endpoint pairs separated by a single tab character. There is no header in this file. | --summary-fpath summary_file_list.tsv | compare<span></span>.py
+--summary-fpath | path to a file containing external summary statistic file paths. List one summary file per line. | --summary-fpath summary_file_list | compare<span></span>.py
+--endpoint-fpath | path to a file containing endpoints for summary statistic files. List one endpoint per line. The endpoints should be in the same order as the summary files in --summary-fpath file | --endpoint-fpath endpoint_list | compare<span></span>.py
 --check-for-ld | When supplied, gws variants and summary statistics (from file or gwascatalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
 --raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if asked for. | --raport-out raport_out.tsv | compare<span></span>.py
 --ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
@@ -173,7 +174,8 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 
 ```
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
-                  [--summary-fpath SUMMARY_FPATH] [--check-for-ld]
+                  [--summary-fpath SUMMARY_FPATH] [--endpoint-fpath ENDPOINTS]
+                  [--check-for-ld]
                   [--ld-chromosome-panel-path LD_CHROMOSOME_PANEL]
                   [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
@@ -187,6 +189,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
                   compare_fname
 
+
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
 ```
@@ -198,7 +201,8 @@ A more detailed description of the script:
 __Input__:  
 compare_fname: genome-wide significant variants that are filtered & grouped by gws_fetch.py and annotated by annotate<span></span>.py.  
 ld_chromosome_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). The file must be separated into separate files by chromosome.
-summary_fpath (optional): A tab-separated value (tsv) file containing the summary file paths and their endpoints. There is no header in this file, only filepath-endpoint pairs. Actual summary statistics must be tab-separated value files and in build 38.  
+summary_fpath (optional): A file containing the summary file paths. List one file path per line. Actual summary statistics must be tab-separated value files and in build 38.
+endpoint_fpath (optional):  A file containing endpoints for the summary files listed in summary_fpath. List one endpoint per line. 
 __Output__:  
 raport_out: a tsv raport of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also raported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
 ld_raport_out: A tsv raport of those variants that are in LD with external summary statistic/gwascatalog variants.  

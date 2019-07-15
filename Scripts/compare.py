@@ -145,9 +145,15 @@ def compare(args):
     summary_df_1=pd.DataFrame()
     summary_df_2=pd.DataFrame()
     if args.compare_style in ["file","both"]:
-        summary_files=pd.read_csv(args.summary_fpath,sep="\t",names=["summary_path","endpoint"])
-        s_paths=list(summary_files["summary_path"])
-        endpoints=list(summary_files["endpoint"])
+        with open(args.summary_fpath,"r") as f:
+            s_paths=f.readlines()
+            s_paths=[s.strip("\n").strip() for s in s_paths]
+        with open(args.endpoints,"r") as f:
+            endpoints=f.readlines()
+            endpoints=[s.strip("\n").strip() for s in endpoints]
+        #summary_files=pd.read_csv(args.summary_fpath,sep="\t",names=["summary_path","endpoint"])
+        #s_paths=list(summary_files["summary_path"])
+        #endpoints=list(summary_files["endpoint"])
         for idx in range(0,len(s_paths) ):
             s_path=s_paths[idx]
             endpoint=endpoints[idx]
@@ -346,6 +352,7 @@ if __name__ == "__main__":
     parser.add_argument("compare_fname",type=str,help="GWS result file")
     parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
+    parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
