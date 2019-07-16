@@ -74,10 +74,10 @@ def solve_indels(indel_df,df,columns):
                     break
             elif a2=="-":
                 if len(b1)==1 and b2[1:] == a1:
-                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b1,"alt":b2,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b2,"alt":b1,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
                     break
                 elif len(b2)==1 and b1[1:] == a1:
-                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b2,"alt":b1,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b1,"alt":b2,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
                     break
             #else, continue
     out_df=pd.DataFrame(out_df)
