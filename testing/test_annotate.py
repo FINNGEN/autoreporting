@@ -49,6 +49,7 @@ class TestAnnotate(unittest.TestCase):
         args.gnomad_exome_path="annotate_resources/gnomad_exomes.tsv.gz"
         args.finngen_path="annotate_resources/finngen_anno.tsv.gz"
         args.annotate_out="annotate_resources/test_out.csv"
+        correct_value_path="annotate_resources/ann_validate"
         args.batch_freq=False
         args.column_labels=["#chrom", "pos", "ref", "alt", "pval"]
         try:
@@ -56,7 +57,7 @@ class TestAnnotate(unittest.TestCase):
                 #test case lines
                 lines=f.readlines()
                 test_cases=[[0,1,2,3,4],[0,3,4,5,6],[0,1,2,5,6],[0,1,2,3,4,5,6]]
-                for tcase in test_cases:
+                for i, tcase in enumerate(test_cases):
                     #load the lines that appear in test case
                     test_lines=[lines[x] for x in tcase]
                     tmp="".join(test_lines)
@@ -64,7 +65,8 @@ class TestAnnotate(unittest.TestCase):
                         annotate.annotate(args)
                         with open(args.annotate_out,"r") as f:
                             df=pd.read_csv(f,sep="\t")
-                            #TODO: check whether the file is correct
+                            df2=pd.read_csv("{}_{}.csv".format(correct_value_path,i+1),sep="\t")
+                            pd.testing.assert_frame_equal(df,df2)
         except:
             self.assertTrue(False)
 

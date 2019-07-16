@@ -1,0 +1,7 @@
+#chrom	pos	ref	alt	rsids	nearest_genes	pval	beta	sebeta	maf	maf_cases	maf_controls	#variant	locus_id	GENOME_AF_fin	GENOME_AF_nfe	GENOME_AF_nfe_est	GENOME_AF_nfe_nwe	GENOME_AF_nfe_onf	GENOME_AF_nfe_seu	GENOME_FI_enrichment_nfe	GENOME_FI_enrichment_nfe_est	EXOME_AF_nfe_bgr	EXOME_AF_fin	EXOME_AF_nfe	EXOME_AF_nfe_est	EXOME_AF_nfe_swe	EXOME_AF_nfe_nwe	EXOME_AF_nfe_onf	EXOME_AF_nfe_seu	EXOME_FI_enrichment_nfe	EXOME_FI_enrichment_nfe_est	EXOME_FI_enrichment_nfe_swe	EXOME_FI_enrichment_nfe_est_swe	most_severe_gene	most_severe_consequence
+1	1	A	G	rs1111	GENE1	0.1	0.1	0.1	0.1	0.2	0.1	chr1_1_A_G	chr1_1_A_G	0.07	0.09	0.1	0.11	0.12	0.13	0.6363636363636364	0.6222222222222223														
+1	10	T	C	rs1112	GENE1	0.1	0.1	0.1	1.1	0.2	0.1	chr1_10_T_C	chr1_10_T_C	0.17	0.19	0.2	0.21	0.22	0.23	0.8095238095238095	0.8														
+4	4	C	T	rs1113	GENE2	1e-06	0.2	0.1	2.1	0.3	0.1	chr4_4_C_T	chr4_4_C_T									0.13	0.1	0.12	0.14	0.18	0.15	0.16	0.17	0.6666666666666666	0.6578947368421053	0.6944444444444444	0.6896551724137931		
+4	40	G	A	rs1114	GENE2	1e-06	0.2	0.1	3.1	0.3	0.1	chr4_40_G_A	chr4_40_G_A									0.23	0.2	0.22	0.24	0.28	0.25	0.26	0.27	0.8	0.7936507936507936	0.819672131147541	0.8163265306122449		
+X	23	G	C	rs1115	GENE3	1e-08	0.3	0.1	4.1	0.4	0.1	chrX_23_G_C	chrX_23_G_C																					GENE3	non_coding_transcript_exon_variant
+X	230	C	G	rs1116	GENE3	1e-08	0.3	0.1	5.1	0.4	0.1	chrX_230_C_G	chrX_230_C_G																					GENE3	missense_variant
