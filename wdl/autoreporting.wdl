@@ -35,8 +35,7 @@ task report {
     File? summary_stat_listing
     File? endpoint_listing
     Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
-    String summary_cmd=if defined(summary_stat_listing) then "--summary-fpath" else ""
-    String endpoint_cmd=if defined(endpoint_listing) then "--endpoint-fpath" else ""
+    String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
     String efo_codes
     String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
     String db_choice
@@ -52,14 +51,14 @@ task report {
     #command
     command {
         mod_ld=$( echo ${ld_panel_bed} | sed 's/.bed//g' )
-        ld_chrom=$( echo ${ld_chrom_files[0]} | sed's/0.bed//g' )
+        ld_chrom=$( echo ${ld_chrom_files[0]} | sed 's/_[0-9].[fb][aei][dm]//g' )
 
         main.py ${summ_stat} --sign-treshold ${s_tresh} --alt-sign-treshold ${s_tresh2}  \
         ${true='--group' false='' group} --grouping-method ${gr_method} --locus-width-kb ${grouping_locus_width} \
         --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_mem} ${true='--overlap' false='' overlap} \
         --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' batch_freq} --finngen-path ${finngen_annotation} \
         --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
-        ${summary_cmd} ${write_lines(ext_summary_stats)} ${endpoint_cmd} ${endpoint_listing} \
+        ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \
         --ld-chromosome-panel-path ${dollar}ld_chrom \
         --gwascatalog-pval ${gw_pval} --gwascatalog-width-kb ${gw_width} ${efo_cmd} ${efo_codes} --db ${db_choice} ${"--local-gwascatalog " + local_gwcatalog} \
         --fetch-out ${fetch_out} --annotate-out ${annotate_out} --raport-out ${raport_out} --top-report-out ${top_raport_out} 
