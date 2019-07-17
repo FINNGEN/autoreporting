@@ -78,6 +78,6 @@ if __name__=="__main__":
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level raport")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
-    parser.add_argument("--db",dest="database_choice",type=str,default="gwascatalog",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
+    parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
     main(args)

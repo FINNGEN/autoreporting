@@ -24,21 +24,6 @@ def map_alleles(a1,a2):
         a2 = ''.join([allele_dict[elem.upper()] for elem in a2])
     # further sorting
     return sorted([a1,a2])
-    
-def gwcatalog_call_helper(chrom,bp_lower,bp_upper,p_upper):
-    val=gwcatalog_api.get_all_associations(chromosome=chrom,
-                    bp_lower=bp_lower,bp_upper=bp_upper,p_upper=p_upper)
-    if val:
-        return gwcatalog_api.parse_output(val)
-    return
-
-
-def map_dataframe(df,columns):
-    for _, row in df.iterrows():
-        [alt,ref]=map_alleles(row[ columns["alt"] ],row[ columns["ref"] ])
-        df.loc[_,"map_ref"]=ref
-        df.loc[_,"map_alt"]=alt
-    return df
 
 def map_column(df,col_name,columns):
     df_=df.copy()
@@ -94,11 +79,8 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     summary_df=input_summary_df.copy()
 
     #create mapping column
-    summary_df=map_dataframe(summary_df,columns)
-    df=map_dataframe(df,columns)
-
-    summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
-    df.loc[:,"map_variant"]=create_variant_column(df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
+    summary_df=map_column(summary_df,"map_variant",columns)
+    df=map_column(df,"map_variant",columns)
     summary_columns=["map_variant","trait","trait_name"]
     summary_df=summary_df.loc[:,summary_columns]
     merged=df.merge(summary_df,on="map_variant",how="left")
@@ -127,8 +109,6 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         "other_gwas_hits":";".join(other_traits)},ignore_index=True)
     return top_level_df
          
-        
-
 def compare(args):
     """
     Compares our findings to gwascatalog results or supplied summary statistic files
@@ -151,9 +131,6 @@ def compare(args):
         with open(args.endpoints,"r") as f:
             endpoints=f.readlines()
             endpoints=[s.strip("\n").strip() for s in endpoints]
-        #summary_files=pd.read_csv(args.summary_fpath,sep="\t",names=["summary_path","endpoint"])
-        #s_paths=list(summary_files["summary_path"])
-        #endpoints=list(summary_files["endpoint"])
         for idx in range(0,len(s_paths) ):
             s_path=s_paths[idx]
             endpoint=endpoints[idx]
@@ -199,8 +176,10 @@ def compare(args):
                 gwapi=gwcatalog_api.GwasApi()
             elif args.database_choice=="local":
                 gwapi=gwcatalog_api.LocalDB(args.localdb_path)
-            else:
+            elif args.database_choice=="summary_stats":
                 gwapi=gwcatalog_api.SummaryApi()
+            else:
+                gwapi=gwcatalog_api.GwasApi()
             with ThreadPool(args.gwascatalog_threads) as pool:
                 r_lst=pool.starmap(gwapi.get_associations,data_lst)
             #remove empties
@@ -244,14 +223,10 @@ def compare(args):
     summary_df=summary_df.loc[:,necessary_columns]
     summary_df.to_csv("summary_df.csv",sep="\t",index=False)
 
-    summary_df=map_dataframe(summary_df,columns)
-    df=map_dataframe(df,columns)
-
-    summary_df.loc[:,"map_variant"]=create_variant_column(summary_df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
-    df.loc[:,"map_variant"]=create_variant_column(df,chrom=columns["chrom"],pos=columns["pos"],ref="map_ref",alt="map_alt")
-    #df.to_csv("df.csv",sep="\t",index=False)
+    summary_df=map_column(summary_df,"map_variant",columns)
+    df=map_column(df,"map_variant",columns)
     tmp=pd.merge(df,summary_df.loc[:,["#variant","map_variant",columns["pval"],"trait","trait_name"]],how="left",on="map_variant")
-    tmp=tmp.drop(columns=["map_variant","map_ref","map_alt"])
+    tmp=tmp.drop(columns=["map_variant"])#,"map_ref","map_alt"])
     tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
     tmp=tmp.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
     tmp.to_csv(args.raport_out,sep="\t",index=False)
@@ -367,6 +342,6 @@ if __name__ == "__main__":
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level raport")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
-    parser.add_argument("--db",dest="database_choice",type=str,default="gwascatalog",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
+    parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
     compare(args)
