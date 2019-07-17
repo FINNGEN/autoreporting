@@ -106,7 +106,6 @@ def fetch_gws(args):
             res=parse_plink_output(group_data,columns=columns)
             new_df=pd.DataFrame(columns=df_p2.columns)
             new_df=solve_groups(new_df,group_data,df_p2)
-            #TODO: get group ranges
             for var in new_df["locus_id"].unique():
                 r=get_group_range(new_df,var,columns=columns)
                 new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=r["min"]
@@ -114,8 +113,8 @@ def fetch_gws(args):
             new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
             new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
             #cleanup plink files
-            #plink_files=glob.glob("temp_plink.*")
-            #subprocess.call(["rm"]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            plink_files=glob.glob("temp_plink.*")
+            subprocess.call(["rm"]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         else:
             #simple grouping
             df=df_p1.copy()
@@ -131,7 +130,6 @@ def fetch_gws(args):
                 rowidx=(group_df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(group_df[ columns["pos"] ]>=ms_snp["pos_rmin"])&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
                 tmp=group_df.loc[rowidx,:].copy()
                 tmp.loc[:,"locus_id"]=ms_snp["#variant"]
-                #tmp.loc[:,"#variant"]=create_variant_column(tmp,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
                 tmp.loc[:,"pos_rmin"]=ms_snp["pos_rmin"]
                 tmp.loc[:,"pos_rmax"]=ms_snp["pos_rmax"]
                 new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')

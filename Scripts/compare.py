@@ -77,7 +77,6 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     #copy dfs to make sure that the original dataframes are NOT modified 
     df=input_df.copy()
     summary_df=input_summary_df.copy()
-
     #create mapping column
     summary_df=map_column(summary_df,"map_variant",columns)
     df=map_column(df,"map_variant",columns)
@@ -147,7 +146,7 @@ def compare(args):
                 Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
             #s_df=s_df.loc[:,necessary_columns+["trait","trait_name"]]
             summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)     
-        summary_df_1=summary_df_1.loc[:,necessary_columns+["trait","trait_name"]].reindex()
+        summary_df_1=summary_df_1.loc[:,necessary_columns+["trait","trait_name"]].reset_index(drop=True)
     if args.compare_style in ["gwascatalog","both"]:
         gwas_df=None
         if os.path.exists("gwas_out_mapping.csv") and args.cache_gwas:
@@ -192,7 +191,7 @@ def compare(args):
             indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
             indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
             gwas_df=gwas_df.loc[~indel_idx,:]
-            gwas_df=pd.concat([gwas_df,indels]).reset_index()
+            gwas_df=pd.concat([gwas_df,indels]).reset_index(drop=True)
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t",index=False)
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
@@ -226,7 +225,7 @@ def compare(args):
     summary_df=map_column(summary_df,"map_variant",columns)
     df=map_column(df,"map_variant",columns)
     tmp=pd.merge(df,summary_df.loc[:,["#variant","map_variant",columns["pval"],"trait","trait_name"]],how="left",on="map_variant")
-    tmp=tmp.drop(columns=["map_variant"])#,"map_ref","map_alt"])
+    tmp=tmp.drop(columns=["map_variant"])
     tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
     tmp=tmp.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
     tmp.to_csv(args.raport_out,sep="\t",index=False)
@@ -275,8 +274,6 @@ def compare(args):
                 print(pr.stdout)
                 continue
             #create list of variants of interest.
-            #First, create list of variants that we want to etract the correlations for.
-            #This should be all of the variants in the summary df inside the correct range, and the group variants.
             extract_df_1=df.loc[df["locus_id"]==locus,:].copy()
             extract_df_2=summary_df.loc[(summary_df[columns["pos"]] <=r_max) & (summary_df[columns["pos"]] >=r_min)  ,:].copy()
             extract_df=pd.concat([extract_df_1,extract_df_2],sort=True).loc[:,var_cols].rename(columns=var_rename).drop_duplicates().sort_values(by="position")
@@ -299,7 +296,7 @@ def compare(args):
             ld_table2=ld_table.copy()
             ld_table2=ld_table2.rename(columns={"RSID1":"temp_rsid2","RSID2":"temp_rsid1"})
             ld_table2=ld_table2.rename(columns={"temp_rsid2":"RSID2","temp_rsid1":"RSID1"})
-            ld=pd.concat([ld_table,ld_table2],sort=True).reset_index()
+            ld=pd.concat([ld_table,ld_table2],sort=True).reset_index(drop=True)
             ld[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]=ld["RSID2"].apply(lambda x:pd.Series( x.strip("chr").split("_") ,index=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]))
             #filter
             ld=ld.loc[ld["RSID1"].isin(extract_df_1["#variant"].values),:]
@@ -313,8 +310,6 @@ def compare(args):
         Popen(shlex.split(c5)+corr_files,stderr=subprocess.DEVNULL)
         ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
         ld_df=ld_df.merge(summary_df.loc[:,["#variant","trait","trait_name"]].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
-        #ld_df=ld_df.loc[ld_df["RSID1"].isin(df["#variant"].values),:]
-        #ld_df.to_csv("ld_out.csv",sep="\t",index=False)
         if not ld_df.empty:
             ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
             ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
