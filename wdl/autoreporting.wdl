@@ -65,11 +65,11 @@ task report {
     }
     #output
     output {
-        File gws_out_ = summ_stat+fetch_out
-        File annotate_out_ = summ_stat+annotate_out
-        File raport_out_ = summ_stat+raport_out
-        File top_raport_out_ = summ_stat+top_raport_out
-        File ld_out = summ_stat+ld_raport_out
+        File gws_out_ = fetch_out
+        File annotate_out_ = annotate_out
+        File raport_out_ = raport_out
+        File top_raport_out_ = top_raport_out
+        File ld_out = ld_raport_out
     }
     runtime {
         docker: "${docker}"
