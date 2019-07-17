@@ -6,7 +6,11 @@ sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import gws_fetch
 from Scripts import autoreporting_utils as autils
+from io import StringIO
 
+class Arg():
+    def __init__(self):
+        pass
 
 class TestGws(unittest.TestCase):
 
@@ -75,6 +79,53 @@ class TestGws(unittest.TestCase):
         self.assertEqual(min_,retval["min"])
         self.assertEqual(max_,retval["max"])
         pass
+
+    def test_simple_filtering(self):
+        #test simple filtering
+        input_="fetch_resources/filter_test.tsv.gz"
+        args=Arg()
+        args.gws_fpath=input_
+        args.sig_treshold=0.20
+        args.sig_treshold_2=0.20
+        args.loc_width=1
+        args.grouping=False
+        args.column_labels=["#chrom","pos","ref","alt","pval"]
+        args.fetch_out=StringIO()
+        gws_fetch.fetch_gws(args)
+        args.fetch_out.seek(0)
+        output=pd.read_csv(args.fetch_out,sep="\t")
+        validation=pd.read_csv("fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
+        validation=validation.loc[validation["pval"]<=args.sig_treshold,:]
+        validation["pos_rmin"]=validation["pos"]
+        validation["pos_rmax"]=validation["pos"]
+        validation["#variant"]=autils.create_variant_column(validation)
+        validation["locus_id"]=autils.create_variant_column(validation)
+        validation=validation.reset_index(drop=True).sort_values(by="#variant")
+        output=output.reset_index(drop=True)
+        for col in output.columns:
+            self.assertEqual( list(output[col]) , list(validation[col]) )
+
+    def test_simple_grouping(self):
+        #test simple grouping 
+        input_="fetch_resources/test_grouping.tsv.gz"
+        args=Arg()
+        args.gws_fpath=input_
+        args.sig_treshold=0.05
+        args.sig_treshold_2=0.05
+        args.column_labels=["#chrom","pos","ref","alt","pval"]
+        args.loc_width=1
+        args.grouping=True
+        args.grouping_method="simple"
+        args.overlap=False
+        args.fetch_out=StringIO()
+
+        gws_fetch.fetch_gws(args)
+        args.fetch_out.seek(0)
+        output=pd.read_csv(args.fetch_out,sep="\t")
+        val_path="fetch_resources/group_validate_width_1k.tsv"
+        validate=pd.read_csv(val_path,sep="\t")
+        for col in output.columns:
+            self.assertEqual(list(output[col]),list(validate[col]))
 
 if __name__=="__main__":
     os.chdir("./testing")

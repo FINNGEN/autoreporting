@@ -67,7 +67,7 @@ def fetch_gws(args):
     temp_df=pd.DataFrame()
     for dframe in pd.read_csv(args.gws_fpath,compression="gzip",sep="\t",dtype=dtype,engine="c",chunksize=c_size):
         #filter gws snps
-        temp_df=pd.concat([temp_df,dframe.loc[dframe[columns["pval"]]<sig_tresh,:]],axis="index",ignore_index=True)
+        temp_df=pd.concat([temp_df,dframe.loc[dframe[columns["pval"]]<=sig_tresh,:]],axis="index",ignore_index=True)
     temp_df=temp_df.reset_index(drop=True)
     temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
@@ -128,7 +128,7 @@ def fetch_gws(args):
             total=df.shape[0]
             while not df.empty:
                 ms_snp=df.loc[df[columns["pval"] ].idxmin(),:]
-                rowidx=(group_df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(group_df[ columns["pos"] ]>=ms_snp["pos_rmin"])
+                rowidx=(group_df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(group_df[ columns["pos"] ]>=ms_snp["pos_rmin"])&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
                 tmp=group_df.loc[rowidx,:].copy()
                 tmp.loc[:,"locus_id"]=ms_snp["#variant"]
                 #tmp.loc[:,"#variant"]=create_variant_column(tmp,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
@@ -136,10 +136,10 @@ def fetch_gws(args):
                 tmp.loc[:,"pos_rmax"]=ms_snp["pos_rmax"]
                 new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
                 #convergence: remove the indexes from result_dframe
-                dropidx=(df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(df[ columns["pos"] ]>=ms_snp["pos_rmin"])
+                dropidx=(df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(df[ columns["pos"] ]>=ms_snp["pos_rmin"])&(df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
                 df=df.loc[~dropidx,:]
                 if not args.overlap:
-                    t_dropidx=(group_df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(group_df[ columns["pos"] ]>=ms_snp["pos_rmin"])
+                    t_dropidx=(group_df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(group_df[ columns["pos"] ]>=ms_snp["pos_rmin"])&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
                     group_df=group_df.loc[~t_dropidx,:]
                 if i%100==0:
                     print("iter: {}, lead SNPs remaining:{}/{}".format(i,df.shape[0],total))
