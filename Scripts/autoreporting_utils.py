@@ -8,6 +8,10 @@ Utility functions that are used in the scripts, put here for keeping the code cl
 """
 
 def pytabix(tb,chrom,start,end):
+    """Get genomic region from tabixed file
+    In: pytabix handle, chromosome, start of region, end of region
+    Out: list of variants in region 
+    """
     try:
         retval=tb.querys("{}:{}-{}".format(chrom,start,end))
         return retval

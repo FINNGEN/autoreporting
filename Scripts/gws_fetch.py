@@ -58,7 +58,6 @@ def fetch_gws(args):
     sig_tresh=max(args.sig_treshold,args.sig_treshold_2)
     c_size=100000
     r=args.loc_width*1000#range for location width, originally in kb
-    #temp_df=None
     dtype={columns["chrom"]:str,
                 columns["pos"]:np.int32,
                 columns["ref"]:str,

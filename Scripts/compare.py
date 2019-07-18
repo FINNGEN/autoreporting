@@ -144,7 +144,6 @@ def compare(args):
             necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant"]
             if not all(nec_col in cols for nec_col in (necessary_columns+["trait","trait_name"])):
                 Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
-            #s_df=s_df.loc[:,necessary_columns+["trait","trait_name"]]
             summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)     
         summary_df_1=summary_df_1.loc[:,necessary_columns+["trait","trait_name"]].reset_index(drop=True)
     if args.compare_style in ["gwascatalog","both"]:
@@ -312,7 +311,7 @@ def compare(args):
         ld_df=ld_df.merge(summary_df.loc[:,["#variant","trait","trait_name"]].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
         if not ld_df.empty:
             ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
-            ld_out=ld_out.drop(columns=["RSID1","map_variant","map_ref","map_alt"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
+            ld_out=ld_out.drop(columns=["RSID1","map_variant"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
             ld_out.to_csv(args.ld_raport_out,sep="\t",index=False)
         else:
             print("No variants in ld found, no {} produced.".format(args.ld_raport_out))
