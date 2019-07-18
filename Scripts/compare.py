@@ -80,8 +80,7 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     #create mapping column
     summary_df=map_column(summary_df,"map_variant",columns)
     df=map_column(df,"map_variant",columns)
-    summary_columns=["map_variant","trait","trait_name"]
-    summary_df=summary_df.loc[:,summary_columns]
+    summary_df=summary_df.loc[:,["map_variant","trait","trait_name"]]
     merged=df.merge(summary_df,on="map_variant",how="left")
     list_of_loci=list(df["locus_id"].unique())
     #compile new simple top level dataframe
@@ -120,9 +119,9 @@ def compare(args):
     if not all(nec_col in df_cols for nec_col in necessary_columns):
         Exception("GWS variant file {} did not contain all of the necessary columns:\n{} ".format(args.compare_fname,necessary_columns))
     
-    #if using summary file
     summary_df_1=pd.DataFrame()
     summary_df_2=pd.DataFrame()
+    #building summaries, external files and/or gwascatalog
     if args.compare_style in ["file","both"]:
         with open(args.summary_fpath,"r") as f:
             s_paths=f.readlines()
@@ -216,7 +215,6 @@ def compare(args):
         top_df.to_csv(args.top_report_out,sep="\t",index=False)
     else:
         print("No gwascatalog used, no top level report made")
-    #now we should have df and summary_df
     necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
     summary_df=summary_df.loc[:,necessary_columns]
     summary_df.to_csv("summary_df.csv",sep="\t",index=False)
@@ -228,7 +226,7 @@ def compare(args):
     tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
     tmp=tmp.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
     tmp.to_csv(args.raport_out,sep="\t",index=False)
-    
+    #Calculate ld between our variants and external variants
     if args.ld_check:
         #if no groups in base data
         if (("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list())):

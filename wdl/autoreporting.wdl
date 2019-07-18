@@ -3,43 +3,47 @@ task report {
     String docker
     File summ_stat
     File summ_stat_tb=summ_stat+".tbi"
-    File gnomad_genome
-    File gnomad_genome_tb=gnomad_genome+".tbi"
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
-    File finngen_annotation
-    File finngen_annotation_tb=finngen_annotation+".tbi"
-    File ld_chrom_input_file
-    Array[File] ld_chrom_files = read_lines(ld_chrom_input_file)
-    
+    File gnomad_genome
+    File gnomad_genome_tb=gnomad_genome+".tbi"
     String ld_panel
     File ld_panel_bed=ld_panel+".bed"
     File ld_panel_bim=ld_panel+".bim"
     File ld_panel_fam=ld_panel+".fam"
+    File finngen_annotation
+    File finngen_annotation_tb=finngen_annotation+".tbi"
+    File ld_chrom_input_file
+    Array[File] ld_chrom_files = read_lines(ld_chrom_input_file)
+    File? summary_stat_listing
+    File? endpoint_listing
+    #trick wdl to write the external summary stats paths as a file
+    Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
+    File? local_gwcatalog
+
     Float s_tresh
     Float s_tresh2
-    Boolean group
-    String gr_method
     Int grouping_locus_width
     Float ld_r2
     Int plink_mem
-    Boolean overlap
-    Boolean batch_freq
-    String compare_style
-    Boolean check_for_ld
     Float gw_pval
     Int gw_width
     Float ld_treshold
-    String dollar = "$"
-    #trick wdl to write the external summary stats paths as a file
-    File? summary_stat_listing
-    File? endpoint_listing
-    Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
-    String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
+    Int cpus
+    Int gwas_threads
+
+    Boolean group
+    Boolean overlap
+    Boolean batch_freq
+    Boolean check_for_ld
+
+    String gr_method
     String efo_codes
-    String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
+    String compare_style
     String db_choice
-    File? local_gwcatalog
+    String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
+    String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
+    String dollar = "$"  
 
     #output file names
     String fetch_out
@@ -58,22 +62,18 @@ task report {
         --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_mem} ${true='--overlap' false='' overlap} \
         --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' batch_freq} --finngen-path ${finngen_annotation} \
         --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
+        --ld-chromosome-panel-path ${dollar}ld_chrom --ldstore-threads ${cpus} --gwascatalog-threads ${gwas_threads} \
         ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \
-        --ld-chromosome-panel-path ${dollar}ld_chrom \
         --gwascatalog-pval ${gw_pval} --gwascatalog-width-kb ${gw_width} ${efo_cmd} ${efo_codes} --db ${db_choice} ${"--local-gwascatalog " + local_gwcatalog} \
-        --fetch-out ${fetch_out} --annotate-out ${annotate_out} --raport-out ${raport_out} --top-report-out ${top_raport_out} 
+        --fetch-out ${fetch_out} --annotate-out ${annotate_out} --raport-out ${raport_out} --top-report-out ${top_raport_out} --ld-raport-out ${ld_raport_out}
     }
     #output
     output {
-        File gws_out_ = fetch_out
-        File annotate_out_ = annotate_out
-        File raport_out_ = raport_out
-        File top_raport_out_ = top_raport_out
-        File ld_out = ld_raport_out
+        Array[File] out=glob("*.out")
     }
     runtime {
         docker: "${docker}"
-        cpu: 3
+        cpu: "${cpus}"
         memory: "16 GB"
         disks: "local-disk 300 HDD"
         zones: "europe-west1-b"
