@@ -78,10 +78,13 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     df=input_df.copy()
     summary_df=input_summary_df.copy()
     #create mapping column
-    summary_df=map_column(summary_df,"map_variant",columns)
     df=map_column(df,"map_variant",columns)
-    summary_df=summary_df.loc[:,["map_variant","trait","trait_name"]]
-    merged=df.merge(summary_df,on="map_variant",how="left")
+    if not summary_df.empty:
+        summary_df=map_column(summary_df,"map_variant",columns)
+        summary_df=summary_df.loc[:,["map_variant","trait","trait_name"]]
+        merged=df.merge(summary_df,on="map_variant",how="left")
+    else:
+        merged=df.copy()
     list_of_loci=list(df["locus_id"].unique())
     #compile new simple top level dataframe
     top_level_columns=["locus_id","chr","start","end","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
@@ -94,17 +97,21 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         start=np.amin(loc_variants[columns["pos"]])
         end=np.amax(loc_variants[columns["pos"]])
         #find all of the traits that have hits
-        all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
-        trait_dict={}
-        for _,row in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().iterrows():
-            if row["trait_name"]=="NA":
-                trait_dict[row["trait"]]=row["trait"]
-            else:
-                trait_dict[row["trait"]]=row["trait_name"]
-        matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
-        other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
-        top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
-        "other_gwas_hits":";".join(other_traits)},ignore_index=True)
+        if not summary_df.empty:
+            all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
+            trait_dict={}
+            for _,row in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().iterrows():
+                if row["trait_name"]=="NA":
+                    trait_dict[row["trait"]]=row["trait"]
+                else:
+                    trait_dict[row["trait"]]=row["trait_name"]
+            matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
+            other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
+            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
+            "other_gwas_hits":";".join(other_traits)},ignore_index=True)
+        else:
+            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":"",
+            "other_gwas_hits":""},ignore_index=True)
     return top_level_df
          
 def compare(args):
@@ -185,49 +192,61 @@ def compare(args):
             for sublst in r_lst:
                 result_lst=result_lst+sublst
             gwas_df=pd.DataFrame(result_lst)
+            #NOTE: add functionality for no gwas results.
             #drop variants with - in alleles
-            indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
-            indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
-            gwas_df=gwas_df.loc[~indel_idx,:]
-            gwas_df=pd.concat([gwas_df,indels]).reset_index(drop=True)
+            if not gwas_df.empty:
+                indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
+                indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
+                gwas_df=gwas_df.loc[~indel_idx,:]
+                gwas_df=pd.concat([gwas_df,indels]).reset_index(drop=True)
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t",index=False)
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
-        tmp_df=gwas_df.rename(columns=gwas_rename)
-        filter_out_codes=[9, 14, 15, 16, 17, 18]
-        tmp_df=tmp_df.loc[~tmp_df.loc[:,"code"].isin(filter_out_codes)]
-        tmp_df.loc[:,"#variant"]=create_variant_column(tmp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        #change alleles to a strand using the code from commons
-        summary_df_2=tmp_df
-        #create list of unique traits
-        unique_efos=list(summary_df_2["trait"].unique())
-        trait_name_map={}
-        for key in unique_efos:
-            trait_name_map[key]=gwcatalog_api.get_trait_name(key)
-        summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
-        summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
+        gwas_df=gwas_df.rename(columns=gwas_rename)
+        if gwas_df.empty:
+            summary_df_2=gwas_df
+        else:    
+            filter_out_codes=[9, 14, 15, 16, 17, 18]
+            gwas_df=gwas_df.loc[~gwas_df.loc[:,"code"].isin(filter_out_codes)]
+            gwas_df.loc[:,"#variant"]=create_variant_column(gwas_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+            #change alleles to a strand using the code from commons
+            summary_df_2=gwas_df
+            #create list of unique traits
+            unique_efos=list(summary_df_2["trait"].unique())
+            trait_name_map={}
+            for key in unique_efos:
+                trait_name_map[key]=gwcatalog_api.get_trait_name(key)
+            summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
+            summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
     if args.compare_style not in ["file","gwascatalog","both"]:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
     summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
     #top level df
-    if not summary_df_2.empty:
-        top_df=create_top_level_report(df,summary_df_2,args.efo_traits,columns)
-        top_df.to_csv(args.top_report_out,sep="\t",index=False)
+    if summary_df_2.empty:
+        print("no hits from gwascatalog, therefore top report will NOT have any traits shown.")
+    top_df=create_top_level_report(df,summary_df_2,args.efo_traits,columns)
+    top_df.to_csv(args.top_report_out,sep="\t",index=False)
+    if summary_df.empty:
+        #just abort, output the top report but no merging summary df cause it doesn't exist
+        print("No summary variants, raport will be incomplete")
+        tmp=df.copy()
+        tmp["variant_hit"]="NA"
+        tmp["pval_trait"]="NA"
+        tmp["trait"]="NA"
+        tmp["trait_name"]="NA"
     else:
-        print("No gwascatalog used, no top level report made")
-    necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
-    summary_df=summary_df.loc[:,necessary_columns]
-    summary_df.to_csv("summary_df.csv",sep="\t",index=False)
-
-    summary_df=map_column(summary_df,"map_variant",columns)
-    df=map_column(df,"map_variant",columns)
-    tmp=pd.merge(df,summary_df.loc[:,["#variant","map_variant",columns["pval"],"trait","trait_name"]],how="left",on="map_variant")
-    tmp=tmp.drop(columns=["map_variant"])
-    tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
-    tmp=tmp.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+        necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
+        summary_df=summary_df.loc[:,necessary_columns]
+        summary_df.to_csv("summary_df.csv",sep="\t",index=False)
+        summary_df=map_column(summary_df,"map_variant",columns)
+        df=map_column(df,"map_variant",columns)
+        tmp=pd.merge(df,summary_df.loc[:,["#variant","map_variant",columns["pval"],"trait","trait_name"]],how="left",on="map_variant")
+        tmp=tmp.drop(columns=["map_variant"])
+        tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
+        tmp=tmp.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
     tmp.to_csv(args.raport_out,sep="\t",index=False)
     #Calculate ld between our variants and external variants
-    if args.ld_check:
+    if args.ld_check and (not summary_df.empty):
         #if no groups in base data
         if (("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list())):
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 

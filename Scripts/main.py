@@ -6,6 +6,7 @@ import numpy as np
 import gws_fetch, compare, annotate
 
 def main(args):
+    print("input file: {}".format(args.gws_fpath))
     ###########################
     ###Filter and Group SNPs###
     ###########################
