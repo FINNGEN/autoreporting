@@ -1,5 +1,5 @@
 {
-    "autoreporting.phenotypelist": "gs://arto/finngen-r3-summaries/one_phenotype",
+    "autoreporting.phenotypelist": "gs://arto/finngen-r3-summaries/phenotypes",
     "autoreporting.report.docker":"eu.gcr.io/phewas-development/autorep:0.003",
     "autoreporting.report.summ_stat":"gs://arto/finngen-r3-summaries/K11_APPENDIX.gz",
     "autoreporting.report.gnomad_exome":"gs://arto/cromwell_test/gnomad_data/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",

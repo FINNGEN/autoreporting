@@ -57,6 +57,8 @@ task report {
         mod_ld=$( echo ${ld_panel_bed} | sed 's/.bed//g' )
         ld_chrom=$( echo ${ld_chrom_files[0]} | sed 's/_[0-9].[fb][aei][dm]//g' )
 
+        output_filename=$(basename ${summ_stat})
+
         main.py ${summ_stat} --sign-treshold ${s_tresh} --alt-sign-treshold ${s_tresh2}  \
         ${true='--group' false='' group} --grouping-method ${gr_method} --locus-width-kb ${grouping_locus_width} \
         --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_mem} ${true='--overlap' false='' overlap} \
@@ -65,7 +67,7 @@ task report {
         --ld-chromosome-panel-path ${dollar}ld_chrom --ldstore-threads ${cpus} --gwascatalog-threads ${gwas_threads} \
         ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \
         --gwascatalog-pval ${gw_pval} --gwascatalog-width-kb ${gw_width} ${efo_cmd} ${efo_codes} --db ${db_choice} ${"--local-gwascatalog " + local_gwcatalog} \
-        --fetch-out ${fetch_out} --annotate-out ${annotate_out} --raport-out ${raport_out} --top-report-out ${top_raport_out} --ld-raport-out ${ld_raport_out}
+        --fetch-out $output_filename.fetch.out --annotate-out $output_filename.annotate.out --raport-out $output_filename.raport.out --top-report-out $output_filename.top.out --ld-raport-out $output_filename.ld.out
     }
     #output
     output {
