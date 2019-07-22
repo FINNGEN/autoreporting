@@ -1,0 +1,4 @@
+locus_id	chr	start	end	matching_pheno_gwas_catalog_hits	other_gwas_hits
+chr1_1000_A_T	1	900	1250		
+chr3_750_A_T	3	750	1200		
+chrX_100000_A_T	X	100000	100001		

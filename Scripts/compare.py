@@ -27,6 +27,10 @@ def map_alleles(a1,a2):
 
 def map_column(df,col_name,columns):
     df_=df.copy()
+    if df_.empty:
+        cols=list(df_.columns)
+        cols.append(col_name)
+        return pd.DataFrame(columns=cols)
     for _, row in df.iterrows():
         [ref_,alt_]=map_alleles(row[ columns["ref"] ],row[ columns["alt"] ])
         df_.loc[_,"temp_map_ref"]=ref_
@@ -79,6 +83,8 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     summary_df=input_summary_df.copy()
     #create mapping column
     df=map_column(df,"map_variant",columns)
+    if df.empty:
+        return pd.DataFrame(columns=["locus_id","chr","start","end","matching_pheno_gwas_catalog_hits","other_gwas_hits"])
     if not summary_df.empty:
         summary_df=map_column(summary_df,"map_variant",columns)
         summary_df=summary_df.loc[:,["map_variant","trait","trait_name"]]
@@ -114,6 +120,37 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
             "other_gwas_hits":""},ignore_index=True)
     return top_level_df
          
+def load_summary_files(summary_fpath,endpoint_fpath,columns):
+    necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
+    summary_df_1=pd.DataFrame(columns=necessary_columns)
+    with open(summary_fpath,"r") as f:
+        s_paths=f.readlines()
+        s_paths=[s.strip("\n").strip() for s in s_paths]
+    with open(endpoint_fpath,"r") as f:
+        endpoints=f.readlines()
+        endpoints=[s.strip("\n").strip() for s in endpoints]
+    if len(s_paths)!=len(endpoints):
+        raise RuntimeError("summary file amount and endpoint amounts are not equal. {} =/= {}".format(len(s_paths),len(endpoints)))
+    for idx in range(0,len(s_paths) ):
+        s_path=s_paths[idx]
+        endpoint=endpoints[idx]
+        try:
+            s_df=pd.read_csv(s_path,sep="\t")
+        except FileNotFoundError as e:
+            raise FileNotFoundError("File {} does not exist. Given as line {} in file {} given in argument '--summary-fpath' .".format(s_path,idx+1,summary_fpath))
+        #make sure the variant column exists
+        summary_cols=s_df.columns
+        if "#variant" not in summary_cols:
+            s_df.loc[:, "#variant"]=create_variant_column(s_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        s_df.loc[:,"trait"] = endpoint
+        s_df.loc[:,"trait_name"] = endpoint
+        cols=s_df.columns.to_list()
+        if not all(nec_col in cols for nec_col in necessary_columns):
+            Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
+        summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)
+    summary_df_1=summary_df_1.loc[:,necessary_columns].reset_index(drop=True)
+    return summary_df_1
+    
 def compare(args):
     """
     Compares our findings to gwascatalog results or supplied summary statistic files
@@ -130,28 +167,7 @@ def compare(args):
     summary_df_2=pd.DataFrame()
     #building summaries, external files and/or gwascatalog
     if args.compare_style in ["file","both"]:
-        with open(args.summary_fpath,"r") as f:
-            s_paths=f.readlines()
-            s_paths=[s.strip("\n").strip() for s in s_paths]
-        with open(args.endpoints,"r") as f:
-            endpoints=f.readlines()
-            endpoints=[s.strip("\n").strip() for s in endpoints]
-        for idx in range(0,len(s_paths) ):
-            s_path=s_paths[idx]
-            endpoint=endpoints[idx]
-            s_df=pd.read_csv(s_path,sep="\t")
-            #make sure the variant column exists
-            summary_cols=s_df.columns
-            if "#variant" not in summary_cols:
-                s_df.loc[:, "#variant"]=create_variant_column(summary_df)
-            s_df.loc[:,"trait"] = endpoint
-            s_df.loc[:,"trait_name"] = endpoint
-            cols=s_df.columns.to_list()
-            necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant"]
-            if not all(nec_col in cols for nec_col in (necessary_columns+["trait","trait_name"])):
-                Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
-            summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)     
-        summary_df_1=summary_df_1.loc[:,necessary_columns+["trait","trait_name"]].reset_index(drop=True)
+        summary_df_1=load_summary_files(args.summary_fpath,args.endpoints,columns)
     if args.compare_style in ["gwascatalog","both"]:
         gwas_df=None
         if os.path.exists("gwas_out_mapping.csv") and args.cache_gwas:

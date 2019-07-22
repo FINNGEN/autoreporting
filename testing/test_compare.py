@@ -24,7 +24,92 @@ class TestGws(unittest.TestCase):
         for col in out.columns:
             self.assertTrue(retval[col].equals(out[col]) )
 
+    def test_map_column(self):
+        chrom=["1","1","2","2"]
+        pos=[100,200,300,400]
+        ref=["A","T","C","T"]
+        alt=["C","G","G","A"]
+        df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt})
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt"}
+        res_ref=["A","A","C","A"]
+        res_alt=["C","C","G","T"]
+        df2=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":res_ref,"alt":res_alt})
+        df2["map_variant"]=autils.create_variant_column(df2)
+        res=compare.map_column(df,"map_variant",columns)
+        self.assertEqual(list(df2["map_variant"]),list(res["map_variant"]))
+
+    def test_top_report(self):
+        #Needed: dataframe, summary variant dataframe, end result dataframe
+        #also need to test using empty summary dataframe as well as empty dataframe
+        # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
+        cols=["#chrom","pos","ref","alt","pval","#variant","locus_id"]
+        summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
+        end_result_cols=["locus_id","chr","start","end","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
+        traits=[]
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        df=pd.DataFrame(columns=cols)
+        summary_df=pd.DataFrame(columns=summary_cols)
+        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        validate=pd.DataFrame(columns=end_result_cols)
+        self.assertTrue(res.equals(validate) )
+        # test two: populated dataframe, empty summary variant dataframe
+        df=pd.read_csv("compare_resources/top_df.csv",sep="\t")
+        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        validate=pd.read_csv("compare_resources/top_result_empty_summary.csv",sep="\t")
+        validate=validate.fillna("")
+        for col in res.columns:
+            self.assertTrue(res[col].equals(validate[col].astype(object)) )
+        # test 3: populated dataframe, populated summary variant df, no traits
+        summary_df=pd.read_csv("compare_resources/summary_df.csv",sep="\t")
+        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        validate=pd.read_csv("compare_resources/top_result_traits_1.csv",sep="\t")
+        validate=validate.fillna("")
+        for col in res.columns:
+            self.assertTrue(res[col].equals(validate[col].astype(object)) )
+        # test 4: populated dataframes, common traits
+        traits=["TRAIT_1","TRAIT_4"]
+        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        validate=pd.read_csv("compare_resources/top_result_traits_2.csv",sep="\t")
+        validate=validate.fillna("")
+        for col in res.columns:
+            self.assertTrue(res[col].equals(validate[col].astype(object)) )
     
+    def test_load_summaries(self):
+        """Test cases:
+        Normal
+        Empty files
+        either file does not exist, should throw a normal FileNotFoundError
+        File specified in summary_fpath does not exist (should throw an understandable error message, preferably with information about which file was not found, and in which file was that file declared)
+        """
+        #normal case: summary file with 2 entries, entries have some variants 
+        summ_fpath="compare_resources/summary_fpath_1"
+        endpoint_fpath="compare_resources/endpoint_fpath_1"
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
+        validate=pd.read_csv("compare_resources/loaded_summary_files_1.csv",sep="\t")
+        for col in df.columns:
+            self.assertEqual(list(df[col]),list(validate[col]))
+        #empty files
+        summ_fpath="compare_resources/summary_fpath_2"
+        endpoint_fpath="compare_resources/endpoint_fpath_2"
+        df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
+        validate=pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval", "#variant", "trait", "trait_name"])
+        self.assertTrue(df.equals(validate))
+        #either file does not exist
+        summ_fpath="compare_resources/summary_fpath_2"
+        endpoint_fpath="DOES_NOT_EXIST"
+        with self.assertRaises(FileNotFoundError) as notfound:
+            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
+        #file does not exist
+        summ_fpath="compare_resources/summary_fpath_no_file"
+        endpoint_fpath="compare_resources/endpoint_fpath_1"
+        with self.assertRaises(FileNotFoundError) as notfound:
+            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
+        #summary and endpoint amounts do not agree
+        summ_fpath="compare_resources/summary_fpath_2"
+        endpoint_fpath="compare_resources/endpoint_fpath_1"
+        with self.assertRaises(RuntimeError) as notfound:
+            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
 
 if __name__=="__main__":
     os.chdir("./testing")
