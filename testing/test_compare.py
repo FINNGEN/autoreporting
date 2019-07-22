@@ -111,6 +111,34 @@ class TestGws(unittest.TestCase):
         with self.assertRaises(RuntimeError) as notfound:
             df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
 
+    def test_api_summaries_local(self):
+        # test loading summary statistics using local gwascatalog
+        # test with no file found, should error out
+        # test with some variants, of which some are found and some are not
+        # include a small copy of the database, at most 4 variants.
+        localdb_path="compare_resources/5_line_gwascatalog.csv"
+        chrom=["1","6"]
+        pos=[100000,32441740]
+        ref=["A","T"]
+        alt=["T","G"]
+        pval=[2e-8,1e-9]
+        df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt,"pval":pval})
+        gwascatalog_pad=500
+        gwascatalog_pval=5e-8
+        database_choice="local"
+        gwascatalog_threads=1
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        #case one: wrong path to db
+        wrong_path_to_db="wrong/filepath/to_db.tsv"
+        with self.assertRaises(FileNotFoundError) as err:
+            tmp=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,database_choice,gwascatalog_threads,wrong_path_to_db,columns)
+        #case two: correct usage of function, should return correct amount of results
+        gwas_df=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,database_choice,gwascatalog_threads,localdb_path,columns)
+        validate_path="compare_resources/local_gwascatalog_validate.csv"
+        validate=pd.read_csv(validate_path,sep="\t")
+        for col in gwas_df.columns:
+            self.assertEqual(list(gwas_df[col].astype(str)),list(validate[col].astype(str)))
+
 if __name__=="__main__":
     os.chdir("./testing")
     unittest.main()

@@ -151,6 +151,43 @@ def load_summary_files(summary_fpath,endpoint_fpath,columns):
     summary_df_1=summary_df_1.loc[:,necessary_columns].reset_index(drop=True)
     return summary_df_1
     
+def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,database_choice,gwascatalog_threads, localdb_path, columns):
+    range_df=df.loc[:,[columns["chrom"],columns["pos"] ]].copy(deep=True)
+    range_df.loc[:,"pos2"]=range_df.loc[:,columns["pos"] ]
+    range_df=range_df.rename(columns={columns["pos"]:"pos_rmin","pos2":"pos_rmax"})
+
+    pad=gwascatalog_pad*1000
+    range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-pad
+    range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+pad
+    range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
+    regions=prune_regions(range_df,columns=columns)
+    #use api to get all gwascatalog hits
+    data_lst=[]
+    for _,region in regions.iterrows():
+        data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],gwascatalog_pval])
+    r_lst=None
+    threads=gwascatalog_threads
+    if database_choice=="local":
+        gwapi=gwcatalog_api.LocalDB(localdb_path)
+        threads=1
+    elif database_choice=="summary_stats":
+        gwapi=gwcatalog_api.SummaryApi()
+    else:
+        gwapi=gwcatalog_api.GwasApi()
+    with ThreadPool(threads) as pool:
+        r_lst=pool.starmap(gwapi.get_associations,data_lst)
+    #remove empties, flatten
+    r_lst=[r for r in r_lst if r != None]
+    result_lst=[i for sublist in r_lst for i in sublist]
+    gwas_df=pd.DataFrame(result_lst)
+    #resolve indels
+    if not gwas_df.empty:
+        indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
+        indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
+        gwas_df=gwas_df.loc[~indel_idx,:]
+        gwas_df=pd.concat([gwas_df,indels]).reset_index(drop=True)
+    return gwas_df
+
 def compare(args):
     """
     Compares our findings to gwascatalog results or supplied summary statistic files
@@ -177,44 +214,7 @@ def compare(args):
             rm_gwas_out="rm gwas_out_mapping.csv"
             subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             #NOTE: change range to be the same that was defined in fetching, either the width or first and last variant in the group if ld
-            #create ranges that contain all of the SNPs
-            range_df=df.loc[:,[columns["chrom"],columns["pos"] ]].copy(deep=True)
-            range_df.loc[:,"pos2"]=range_df.loc[:,columns["pos"] ]
-            range_df=range_df.rename(columns={columns["pos"]:"pos_rmin","pos2":"pos_rmax"})
-            
-            pad=args.gwascatalog_pad*1000
-            range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-pad
-            range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+pad
-            range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
-            regions=prune_regions(range_df,columns=columns)
-            #use api to get all gwascatalog hits
-            data_lst=[]
-            for _,region in regions.iterrows():
-                data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],args.gwascatalog_pval])
-            r_lst=None
-            if args.database_choice=="gwas":
-                gwapi=gwcatalog_api.GwasApi()
-            elif args.database_choice=="local":
-                gwapi=gwcatalog_api.LocalDB(args.localdb_path)
-            elif args.database_choice=="summary_stats":
-                gwapi=gwcatalog_api.SummaryApi()
-            else:
-                gwapi=gwcatalog_api.GwasApi()
-            with ThreadPool(args.gwascatalog_threads) as pool:
-                r_lst=pool.starmap(gwapi.get_associations,data_lst)
-            #remove empties
-            r_lst=[r for r in r_lst if r != None]
-            result_lst=[]
-            for sublst in r_lst:
-                result_lst=result_lst+sublst
-            gwas_df=pd.DataFrame(result_lst)
-            #NOTE: add functionality for no gwas results.
-            #drop variants with - in alleles
-            if not gwas_df.empty:
-                indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
-                indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
-                gwas_df=gwas_df.loc[~indel_idx,:]
-                gwas_df=pd.concat([gwas_df,indels]).reset_index(drop=True)
+            gwas_df=load_api_summaries(df,args.gwascatalog_pad,args.gwascatalog_pval,args.database_choice,args.gwascatalog_threads,args.localdb_path,columns)
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t",index=False)
         #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
