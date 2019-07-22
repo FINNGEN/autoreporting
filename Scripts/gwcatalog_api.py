@@ -139,7 +139,7 @@ class LocalDB(ExtDB):
         return out
 
     def __init__(self,db_path):
-        self.df=pd.read_csv(db_path,sep="\t")
+        self.df=pd.read_csv(db_path,sep="\t",low_memory=False)
         self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID"])
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains(";") ,:]
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains("x") ,:]
