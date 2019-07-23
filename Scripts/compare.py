@@ -151,7 +151,7 @@ def load_summary_files(summary_fpath,endpoint_fpath,columns):
     summary_df_1=summary_df_1.loc[:,necessary_columns].reset_index(drop=True)
     return summary_df_1
     
-def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,database_choice,gwascatalog_threads, localdb_path, columns):
+def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_threads, columns):
     range_df=df.loc[:,[columns["chrom"],columns["pos"] ]].copy(deep=True)
     range_df.loc[:,"pos2"]=range_df.loc[:,columns["pos"] ]
     range_df=range_df.rename(columns={columns["pos"]:"pos_rmin","pos2":"pos_rmax"})
@@ -167,13 +167,6 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,database_choice,gwa
         data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],gwascatalog_pval])
     r_lst=None
     threads=gwascatalog_threads
-    if database_choice=="local":
-        gwapi=gwcatalog_api.LocalDB(localdb_path)
-        threads=1
-    elif database_choice=="summary_stats":
-        gwapi=gwcatalog_api.SummaryApi()
-    else:
-        gwapi=gwcatalog_api.GwasApi()
     with ThreadPool(threads) as pool:
         r_lst=pool.starmap(gwapi.get_associations,data_lst)
     #remove empties, flatten
@@ -188,9 +181,67 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,database_choice,gwa
         gwas_df=pd.concat([gwas_df,indels]).reset_index(drop=True)
     return gwas_df
 
+def extract_ld_variants(df,summary_df,locus,args,columns):
+    chromosome=df.loc[df["#variant"]==locus,columns["chrom"] ].unique()[0]
+    print("Chromosome {}, group {} ld computation, variant amount {}".format(chromosome,locus,df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]))
+    #get group range
+    r_max=df.loc[df["locus_id"]==locus,"pos_rmax"].values[0]
+    r_min=df.loc[df["locus_id"]==locus,"pos_rmin"].values[0]
+    if r_max == r_min:
+        return
+    #calculate ld for that group
+    ldstore_command="ldstore --bplink {}_{} --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
+        args.ld_chromosome_panel, chromosome, args.ld_treshold**0.5, r_min, r_max, args.ldstore_threads)
+    pr = subprocess.run(shlex.split(ldstore_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
+    if pr.returncode!=0:
+        print("LDSTORE FAILURE for locus {}".format(locus)  )
+        print(pr.stdout)
+        return
+    #merge the file
+    ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
+    subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
+    pr = subprocess.run(shlex.split(ldstore_merge_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
+    if pr.returncode!=0:
+        print("LDSTORE FAILURE for locus {}".format(locus)  )
+        print(pr.stdout)
+        return
+    #create list of variants of interest.
+    var_cols=["#variant",columns["pos"],columns["chrom"],columns["ref"],columns["alt"]]
+    var_rename={"#variant":"RSID",columns["pos"]:"position",columns["chrom"]:"chromosome",columns["ref"]:"A_allele",columns["alt"]:"B_allele"}
+    extract_df_1=df.loc[df["locus_id"]==locus,:].copy()
+    extract_df_2=summary_df.loc[(summary_df[columns["pos"]] <=r_max) & (summary_df[columns["pos"]] >=r_min)  ,:].copy()
+    extract_df=pd.concat([extract_df_1,extract_df_2],sort=True).loc[:,var_cols].rename(columns=var_rename).drop_duplicates().sort_values(by="position")
+    ### different datatypes caused drop duplicates to not recognize duplicates and ldstore failed in the next step
+    extract_df = extract_df.astype(str)
+    extract_df = extract_df.drop_duplicates()
+    extract_df.to_csv("var_lst",sep=" ",index=False)
+    #extract variants of interest 
+    ldstore_extract_command="ldstore --bcor temp_corr.bcor --table ld_table.table --incl-variants var_lst"
+    pr = subprocess.run(shlex.split(ldstore_extract_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
+    if pr.returncode!=0:
+        print("LDSTORE FAILURE for locus {}".format(locus)  )
+        print(pr.stdout)
+        return
+    #read ld_table, make it so rsid1 is for our variants and rsid2 for summary variants
+    ld_table=pd.read_csv("ld_table.table",sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
+    if ld_table.empty:
+        return
+    ld_table2=ld_table.copy()
+    ld_table2=ld_table2.rename(columns={"RSID1":"RSID2","RSID2":"RSID1"})
+    ld=pd.concat([ld_table,ld_table2],sort=True).reset_index(drop=True)
+    ld[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]=ld["RSID2"].apply(lambda x:pd.Series( x.strip("chr").split("_") ,index=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]))
+    #filter
+    ld=ld.loc[ld["RSID1"].isin(extract_df_1["#variant"].values),:]
+    ld=map_column(ld,"RSID2_map",columns)
+    #is #variant mapped to A strand? maybe, but this should be checked.
+    ld=ld.loc[ld["RSID2_map"].isin(extract_df_2["#variant"].values),:]
+    ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
+    ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
+    return ld
+
 def compare(args):
     """
-    Compares our findings to gwascatalog results or supplied summary statistic files
+    Compares our findings to gwascatalog results and/or supplied summary statistic files
     """
     columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
     #load original file
@@ -199,7 +250,6 @@ def compare(args):
     df_cols=df.columns.to_list()
     if not all(nec_col in df_cols for nec_col in necessary_columns):
         Exception("GWS variant file {} did not contain all of the necessary columns:\n{} ".format(args.compare_fname,necessary_columns))
-    
     summary_df_1=pd.DataFrame()
     summary_df_2=pd.DataFrame()
     #building summaries, external files and/or gwascatalog
@@ -207,31 +257,38 @@ def compare(args):
         summary_df_1=load_summary_files(args.summary_fpath,args.endpoints,columns)
     if args.compare_style in ["gwascatalog","both"]:
         gwas_df=None
+        gwapi=None
         if os.path.exists("gwas_out_mapping.csv") and args.cache_gwas:
             print("reading gwas results from gwas_out_mapping.csv...")
             gwas_df=pd.read_csv("gwas_out_mapping.csv",sep="\t")
+            gwapi=gwcatalog_api.GwasApi()
         else:
             rm_gwas_out="rm gwas_out_mapping.csv"
             subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            #NOTE: change range to be the same that was defined in fetching, either the width or first and last variant in the group if ld
-            gwas_df=load_api_summaries(df,args.gwascatalog_pad,args.gwascatalog_pval,args.database_choice,args.gwascatalog_threads,args.localdb_path,columns)
+            threads=args.gwascatalog_threads
+            if args.database_choice=="local":
+                gwapi=gwcatalog_api.LocalDB(args.localdb_path)
+                threads=1
+            elif args.database_choice=="summary_stats":
+                gwapi=gwcatalog_api.SummaryApi()
+            else:
+                gwapi=gwcatalog_api.GwasApi()
+            gwas_df=load_api_summaries(df,args.gwascatalog_pad,args.gwascatalog_pval,gwapi,threads,columns)
             gwas_df.to_csv("gwas_out_mapping.csv",sep="\t",index=False)
-        #assuming code is the same as hm_code, we want to filter out 9, 14, 15, 16, 17, 18
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
         gwas_df=gwas_df.rename(columns=gwas_rename)
         if gwas_df.empty:
             summary_df_2=gwas_df
         else:    
+            #filter out invalid values
             filter_out_codes=[9, 14, 15, 16, 17, 18]
             gwas_df=gwas_df.loc[~gwas_df.loc[:,"code"].isin(filter_out_codes)]
             gwas_df.loc[:,"#variant"]=create_variant_column(gwas_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-            #change alleles to a strand using the code from commons
             summary_df_2=gwas_df
-            #create list of unique traits
             unique_efos=list(summary_df_2["trait"].unique())
             trait_name_map={}
             for key in unique_efos:
-                trait_name_map[key]=gwcatalog_api.get_trait_name(key)
+                trait_name_map[key]=gwapi.get_trait(key)
             summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
             summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
     if args.compare_style not in ["file","gwascatalog","both"]:
@@ -245,97 +302,34 @@ def compare(args):
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
         print("No summary variants, raport will be incomplete")
-        tmp=df.copy()
-        tmp["variant_hit"]="NA"
-        tmp["pval_trait"]="NA"
-        tmp["trait"]="NA"
-        tmp["trait_name"]="NA"
+        raport_out_df=df.copy()
+        raport_out_df["variant_hit"]="NA"
+        raport_out_df["pval_trait"]="NA"
+        raport_out_df["trait"]="NA"
+        raport_out_df["trait_name"]="NA"
     else:
-        necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
-        summary_df=summary_df.loc[:,necessary_columns]
+        
         summary_df.to_csv("summary_df.csv",sep="\t",index=False)
         summary_df=map_column(summary_df,"map_variant",columns)
         df=map_column(df,"map_variant",columns)
-        tmp=pd.merge(df,summary_df.loc[:,["#variant","map_variant",columns["pval"],"trait","trait_name"]],how="left",on="map_variant")
-        tmp=tmp.drop(columns=["map_variant"])
-        tmp=tmp.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
-        tmp=tmp.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
-    tmp.to_csv(args.raport_out,sep="\t",index=False)
+        necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name"]
+        raport_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
+        raport_out_df=raport_out_df.drop(columns=["map_variant"])
+        raport_out_df=raport_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
+        raport_out_df=raport_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+    raport_out_df.to_csv(args.raport_out,sep="\t",index=False)
     #Calculate ld between our variants and external variants
     if args.ld_check and (not summary_df.empty):
         #if no groups in base data
         if (("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list())):
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
-
-        #get variant list, i.e. the list of variants that consists of gws results and summary results
-        var_cols=["#variant",columns["pos"],columns["chrom"],columns["ref"],columns["alt"]]
-        var_rename={"#variant":"RSID",columns["pos"]:"position",columns["chrom"]:"chromosome",columns["ref"]:"A_allele",columns["alt"]:"B_allele"}
-        var_lst_df=pd.concat([summary_df.loc[:,var_cols].rename(columns=var_rename),df.loc[:,var_cols].rename(columns=var_rename)  ])
-        var_lst_df=var_lst_df.drop_duplicates(subset=["RSID"])
         unique_locus_list=df["locus_id"].unique()
         ld_df=pd.DataFrame()
         df.to_csv("df.csv",index=False,sep="\t")
         for locus in unique_locus_list:
-            
-            chromosome=df.loc[df["#variant"]==locus,columns["chrom"] ].unique()[0]
-            print("Chromosome {}, group {} ld computation, variant amount {}".format(chromosome,locus,df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]))
-            #get group range
-            r_max=df.loc[df["locus_id"]==locus,"pos_rmax"].values[0]
-            r_min=df.loc[df["locus_id"]==locus,"pos_rmin"].values[0]
-            if r_max == r_min:
+            ld=extract_ld_variants(df,summary_df,locus,args,columns)
+            if type(ld)==type(None):
                 continue
-            #calculate ld for that group
-            ldstore_command="ldstore --bplink {}_{} --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
-            args.ld_chromosome_panel,
-            chromosome,
-            args.ld_treshold**0.5,#due to ldstore taking in |r|, not r2
-            r_min,
-            r_max,
-            args.ldstore_threads)
-            pr = subprocess.run(shlex.split(ldstore_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
-            if pr.returncode!=0:
-                print("LDSTORE FAILURE for locus {}".format(locus)  )
-                print(pr.stdout)
-                continue 
-            #merge the file
-            ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
-            subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
-            pr = subprocess.run(shlex.split(ldstore_merge_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
-            if pr.returncode!=0:
-                print("LDSTORE FAILURE for locus {}".format(locus)  )
-                print(pr.stdout)
-                continue
-            #create list of variants of interest.
-            extract_df_1=df.loc[df["locus_id"]==locus,:].copy()
-            extract_df_2=summary_df.loc[(summary_df[columns["pos"]] <=r_max) & (summary_df[columns["pos"]] >=r_min)  ,:].copy()
-            extract_df=pd.concat([extract_df_1,extract_df_2],sort=True).loc[:,var_cols].rename(columns=var_rename).drop_duplicates().sort_values(by="position")
-            
-            ### different datatypes caused drop duplicates to not recognize duplicates and ldstore failed in the next step
-            extract_df =  extract_df.astype(str)
-            extract_df = extract_df.drop_duplicates()
-            extract_df.to_csv("var_lst",sep=" ",index=False)
-            #extract variants of interest 
-            ldstore_extract_command="ldstore --bcor temp_corr.bcor --table ld_table.table --incl-variants var_lst"
-            pr = subprocess.run(shlex.split(ldstore_extract_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
-            if pr.returncode!=0:
-                print("LDSTORE FAILURE for locus {}".format(locus)  )
-                print(pr.stdout)
-                continue
-            #read ld_table, make it so rsid1 is for our variants and rsid2 for summary variants
-            ld_table=pd.read_csv("ld_table.table",sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
-            if ld_table.empty:
-                continue
-            ld_table2=ld_table.copy()
-            ld_table2=ld_table2.rename(columns={"RSID1":"temp_rsid2","RSID2":"temp_rsid1"})
-            ld_table2=ld_table2.rename(columns={"temp_rsid2":"RSID2","temp_rsid1":"RSID1"})
-            ld=pd.concat([ld_table,ld_table2],sort=True).reset_index(drop=True)
-            ld[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]=ld["RSID2"].apply(lambda x:pd.Series( x.strip("chr").split("_") ,index=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]))
-            #filter
-            ld=ld.loc[ld["RSID1"].isin(extract_df_1["#variant"].values),:]
-            ld=map_column(ld,"RSID2_map",columns)
-            ld=ld.loc[ld["RSID2_map"].isin(extract_df_2["#variant"].values),:]
-            ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
-            ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
             ld_df=pd.concat([ld_df,ld],sort=True)
         c5="rm ld_table.table var_lst"
         corr_files=glob.glob("temp_corr.*")

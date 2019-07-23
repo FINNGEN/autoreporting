@@ -103,8 +103,8 @@ class SummaryApi(ExtDB):
 
     def get_trait(self, trait_code):
         base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        trait_=trait_code.upper()
-        r=requests.get(url=base_url+trait_)
+        trait=trait_code.upper()
+        r=requests.get(url=base_url+trait)
         if r.status_code == 404:
             print("Trait {} not found in GWASCatalog".format(trait))
             return trait_code
@@ -144,10 +144,12 @@ class LocalDB(ExtDB):
         except FileNotFoundError as err:
             raise FileNotFoundError("argument {} to flag '--local-gwascatalog' not found: Does the file exist?".format(db_path))
         self.df=self.df.astype(str)
-        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID"])
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains(";") ,:]
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains("x") ,:]
-        self.df=self.df.astype(dtype={"CHR_POS":int,"P-VALUE":float})
+        self.df["CHR_POS"]=pd.to_numeric(self.df["CHR_POS"],errors="coerce",downcast="integer")
+        self.df["P-VALUE"]=pd.to_numeric(self.df["P-VALUE"],errors="coerce",downcast="float")
+        #self.df=self.df.astype(dtype={"CHR_POS":np.int64,"P-VALUE":np.float})
+        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE"])
     
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
         #filter based on chromosome, start, end, pval
@@ -200,8 +202,8 @@ class LocalDB(ExtDB):
     
     def get_trait(self, trait_code):
         base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        trait_=trait_code.upper()
-        r=requests.get(url=base_url+trait_)
+        trait=trait_code.upper()
+        r=requests.get(url=base_url+trait)
         if r.status_code == 404:
             print("Trait {} not found in GWASCatalog".format(trait))
             return trait_code
@@ -287,8 +289,8 @@ class GwasApi(ExtDB):
 
     def get_trait(self, trait_code):
         base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        trait_=trait_code.upper()
-        r=requests.get(url=base_url+trait_)
+        trait=trait_code.upper()
+        r=requests.get(url=base_url+trait)
         if r.status_code == 404:
             print("Trait {} not found in GWASCatalog".format(trait))
             return trait_code

@@ -6,6 +6,7 @@ sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import compare
 from Scripts import autoreporting_utils as autils
+from Scripts import gwcatalog_api
 
 class TestGws(unittest.TestCase):
 
@@ -131,13 +132,19 @@ class TestGws(unittest.TestCase):
         #case one: wrong path to db
         wrong_path_to_db="wrong/filepath/to_db.tsv"
         with self.assertRaises(FileNotFoundError) as err:
-            tmp=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,database_choice,gwascatalog_threads,wrong_path_to_db,columns)
+            gwapi=gwcatalog_api.LocalDB(wrong_path_to_db)
+            tmp=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
         #case two: correct usage of function, should return correct amount of results
-        gwas_df=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,database_choice,gwascatalog_threads,localdb_path,columns)
+        gwapi=gwcatalog_api.LocalDB(localdb_path)
+        gwas_df=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
         validate_path="compare_resources/local_gwascatalog_validate.csv"
-        validate=pd.read_csv(validate_path,sep="\t")
+        validate=pd.read_csv(validate_path,sep="\t",dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float})
         for col in gwas_df.columns:
-            self.assertEqual(list(gwas_df[col].astype(str)),list(validate[col].astype(str)))
+            for _,row in gwas_df.iterrows(): 
+                if type(gwas_df.loc[_,col])==str:
+                    self.assertEqual(gwas_df.loc[_,col],validate.loc[_,col])
+                else:
+                    self.assertAlmostEqual(gwas_df.loc[_,col],validate.loc[_,col])
 
 if __name__=="__main__":
     os.chdir("./testing")
