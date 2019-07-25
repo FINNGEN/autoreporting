@@ -13,8 +13,8 @@ task report {
     File ld_panel_fam=ld_panel+".fam"
     File finngen_annotation
     File finngen_annotation_tb=finngen_annotation+".tbi"
-    File ld_chrom_input_file
-    Array[File] ld_chrom_files = read_lines(ld_chrom_input_file)
+    #File ld_chrom_input_file
+    #Array[File] ld_chrom_files = read_lines(ld_chrom_input_file)
     File? summary_stat_listing
     File? endpoint_listing
     #trick wdl to write the external summary stats paths as a file
@@ -51,11 +51,10 @@ task report {
     String raport_out
     String top_raport_out
     String ld_raport_out
-
+    #ld_chrom=$( echo ${ld_chrom_files[0]} | sed 's/_[0-9].[fb][aei][dm]//g' )
     #command
     command {
         mod_ld=$( echo ${ld_panel_bed} | sed 's/.bed//g' )
-        ld_chrom=$( echo ${ld_chrom_files[0]} | sed 's/_[0-9].[fb][aei][dm]//g' )
         for file in ${sep=' ' summ_stat} ; do
             output_filename=$(basename $file)
             main.py $file --sign-treshold ${s_tresh} --alt-sign-treshold ${s_tresh2}  \
@@ -63,7 +62,7 @@ task report {
             --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_mem} ${true='--overlap' false='' overlap} \
             --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' batch_freq} --finngen-path ${finngen_annotation} \
             --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
-            --ld-chromosome-panel-path ${dollar}ld_chrom --ldstore-threads ${cpus} --gwascatalog-threads ${gwas_threads} \
+            --ldstore-threads ${cpus} --gwascatalog-threads ${gwas_threads} \
             ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \
             --gwascatalog-pval ${gw_pval} --gwascatalog-width-kb ${gw_width} ${efo_cmd} ${efo_codes} --db ${db_choice} ${"--local-gwascatalog " + local_gwcatalog} \
             --fetch-out $output_filename.fetch.out --annotate-out $output_filename.annotate.out --raport-out $output_filename.raport.out --top-report-out $output_filename.top.out --ld-raport-out $output_filename.ld.out
@@ -127,8 +126,9 @@ task preprocess_chunks{
 
 workflow autoreporting{
     File phenotypelist
+    Int phenos_per_worker
     call preprocess_chunks{
-        input: phenotypelist=phenotypelist, num=3
+        input: phenotypelist=phenotypelist, num=phenos_per_worker
     }
     Array[Array[File]] pheno_arr = read_tsv(preprocess_chunks.out_tsv)
     Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_chunks.out_tbi_tsv)
