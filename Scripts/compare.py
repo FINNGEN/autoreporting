@@ -334,7 +334,7 @@ def compare(args):
             plink_cmd="plink --bfile {} --chr {} --make-bed --out temp_chrom ".format( args.ld_panel_path, chrom )
             pr=subprocess.run(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT)
             if pr.returncode!=0:
-                print("PLINK FAILURE for chromosome {}. Error code {}".format(chrom,pr)  )
+                print("PLINK FAILURE for chromosome {}. Error code {}".format(chrom,pr.returncode)  )
                 print(pr.stdout)
                 continue
             for gr in groups:

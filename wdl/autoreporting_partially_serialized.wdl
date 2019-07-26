@@ -85,6 +85,7 @@ task report {
 task preprocess_chunks{
     File phenotypelist
     Int num
+    String docker
     command <<<
         python3 <<CODE
         with open("${phenotypelist}") as f:
@@ -115,7 +116,7 @@ task preprocess_chunks{
     }
 
     runtime {
-        docker: "eu.gcr.io/phewas-development/autorep:0.003"
+        docker: "${docker}"
         cpu: 1
         memory: "2 GB"
         disks: "local-disk 10 HDD"
@@ -127,14 +128,15 @@ task preprocess_chunks{
 workflow autoreporting{
     File phenotypelist
     Int phenos_per_worker
+    String docker 
     call preprocess_chunks{
-        input: phenotypelist=phenotypelist, num=phenos_per_worker
+        input: phenotypelist=phenotypelist, num=phenos_per_worker,docker=docker
     }
     Array[Array[File]] pheno_arr = read_tsv(preprocess_chunks.out_tsv)
     Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_chunks.out_tbi_tsv)
     scatter (i in range(length(pheno_arr))) {
         call report{
-            input: summ_stat=pheno_arr[i], summ_stat_tb=pheno_tbi_arr[i]
+            input: summ_stat=pheno_arr[i], summ_stat_tb=pheno_tbi_arr[i], docker=docker
         }
     }
 }
