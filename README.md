@@ -53,7 +53,6 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--compare-style COMPARE_STYLE] [--summary-fpath SUMMARY_FPATH]
                [--endpoint-fpath ENDPOINTS] [--check-for-ld]
                [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
-               [--ld-chromosome-panel-path LD_CHROMOSOME_PANEL]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--gwascatalog-threads GWASCATALOG_THREADS]
@@ -76,7 +75,7 @@ Argument   |  Meaning   |   Example | Original script
 --grouping-method | grouping method used if --group flag is supplied. options are 'simple', i.e. grouping based on range from gws variants, or 'ld', i.e. grouping using plink --clump |  --grouping-method ld | gws_fetch.py
 --locus-width-kb | group widths in kb. In case of ld clumping, the value is supplied to plink --clump-kb. | --locus-width-kb 500 | gws_fetch.py
 --alt-sign-treshold | optional alternate signifigance treshold for including less significant variants into groups. | --alt-sign-treshold 5e-6 | gws_fetch.py
---ld-panel-path | path to ld panel, without panel file suffix. Ld panel must currently be in plink's .bed format, as a single file. | --ld-panel-path path_to_panel/plink_file | gws_fetch.py
+--ld-panel-path | path to ld panel, without panel file suffix. Ld panel must be in plink's .bed format, as a single file. Accompanying .bim and .fam files must be in the same directory. | --ld-panel-path path_to_panel/plink_file | gws_fetch.py
 --ld-r2 | plink clump-r2 argument, default 0.4 | --ld-r2 0.7 | gws_fetch.py
 --plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 | gws_fetch.py
 --overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap | gws_fetch.py
@@ -91,7 +90,6 @@ Argument   |  Meaning   |   Example | Original script
 --check-for-ld | When supplied, gws variants and summary statistics (from file or gwascatalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
 --raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if asked for. | --raport-out raport_out.tsv | compare<span></span>.py
 --ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
---ld-chromosome-panel-path | Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' | --ld-chromosome-panel-path path/ld_panel | compare<span></span>.py
 --gwascatalog-pval | P-value to use for filtering results from gwascatalog's summary statistic API. default 5e-8 | --gwascatalog-pval 5e-6 | compare<span></span>.py
 --gwascatalog-width-kb | Buffer outside gws variants that is searched from gwascatalog, in kilobases. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
 --gwascatalog-threads | Number of concurrent queries to gwasgatalog API. Default 4. Increase to speed up gwascatalog comparison. | --gwascatalog-threads 8 | compare<span></span>.py
@@ -175,9 +173,9 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 ```
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath SUMMARY_FPATH] [--endpoint-fpath ENDPOINTS]
-                  [--check-for-ld]
-                  [--ld-chromosome-panel-path LD_CHROMOSOME_PANEL]
-                  [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
+                  [--check-for-ld] [--plink-memory PLINK_MEM]
+                  [--ld-panel-path LD_PANEL_PATH] [--raport-out RAPORT_OUT]
+                  [--ld-raport-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--gwascatalog-threads GWASCATALOG_THREADS]
@@ -189,7 +187,6 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
                   compare_fname
 
-
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
 ```
@@ -200,7 +197,7 @@ Additional flags, such as `--check-for-ld`, can be used to check if the summary 
 A more detailed description of the script:  
 __Input__:  
 compare_fname: genome-wide significant variants that are filtered & grouped by gws_fetch.py and annotated by annotate<span></span>.py.  
-ld_chromosome_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). The file must be separated into separate files by chromosome.
+ld_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). Same file that's used in gws_fetch. 
 summary_fpath (optional): A file containing the summary file paths. List one file path per line. Actual summary statistics must be tab-separated value files and in build 38.
 endpoint_fpath (optional):  A file containing endpoints for the summary files listed in summary_fpath. List one endpoint per line. 
 __Output__:  
