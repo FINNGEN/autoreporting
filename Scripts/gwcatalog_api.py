@@ -197,7 +197,7 @@ class LocalDB(ExtDB):
         retval.loc[:,"code"]=20
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
         retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":int})
+        #retval=retval.astype(dtype={"chrom":int})
         retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
         retcols=["chrom","pos","ref","alt","pval","trait","code"]
         return retval.loc[:,retcols].to_dict("records")
@@ -286,7 +286,7 @@ class GwasApi(ExtDB):
         retval.loc[:,"code"]=20
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
         retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":int})
+        #retval=retval.astype(dtype={"chrom":int})
         retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
         retcols=["chrom","pos","ref","alt","pval","trait","code"]
         return retval.loc[:,retcols].to_dict("records")

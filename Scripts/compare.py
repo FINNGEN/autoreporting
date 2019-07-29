@@ -248,6 +248,9 @@ def compare(args):
     columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
     #load original file
     df=pd.read_csv(args.compare_fname,sep="\t")
+    if df.empty:
+        print("No variants, {}, {} and {} will not be produced".format(args.top_report_out, args.raport_out,args.ld_raport_out))
+        return
     necessary_columns=[ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","locus_id","pos_rmin","pos_rmax"]
     df_cols=df.columns.to_list()
     if not all(nec_col in df_cols for nec_col in necessary_columns):

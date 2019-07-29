@@ -74,8 +74,7 @@ def fetch_gws(args):
     temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
     df_p1=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold,: ].copy()
     df_p2=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold_2,: ].copy()
-
-    if args.grouping:
+    if args.grouping and not df_p1.empty:
         if args.grouping_method=="ld":
             #write current SNPs to file
             temp_variants="temp_plink.variants.csv"
@@ -102,6 +101,7 @@ def fetch_gws(args):
             if pr.returncode!=0:
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
                 print(pr.stdout)
+                print(pr.stderr)
             #parse output file, find locus width
             group_data=pd.read_csv(plink_fname+".clumped",sep="\s+")
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]

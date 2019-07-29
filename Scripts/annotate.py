@@ -55,6 +55,9 @@ def annotate(args):
 
     #load main file
     df=pd.read_csv(args.annotate_fpath,sep="\t")
+    if df.empty:
+        df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
+        return
     #load gnomad_genomes
     tb_g=tabix.open(args.gnomad_genome_path)
     gnomad_genomes=load_tb_df(df,tb_g,args.gnomad_genome_path,columns=columns)
