@@ -106,11 +106,11 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         if not summary_df.empty:
             all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
             trait_dict={}
-            for _,row in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().iterrows():
-                if row["trait_name"]=="NA":
-                    trait_dict[row["trait"]]=row["trait"]
+            for row in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
+                if row.trait_name =="NA":
+                    trait_dict[row.trait]=row.trait
                 else:
-                    trait_dict[row["trait"]]=row["trait_name"]
+                    trait_dict[row.trait]=row.trait_name
             matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
             other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
             top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),

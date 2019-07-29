@@ -176,22 +176,22 @@ class LocalDB(ExtDB):
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
-        retval=pd.DataFrame()
-        for _,row in tmpdf.iterrows():
-            if type(row["MAPPED_TRAIT_URI"]) == type("string"):
-                if "," in row["MAPPED_TRAIT_URI"]:
-                    efos=row["MAPPED_TRAIT_URI"].split(",")
+        retval=[]
+        for row in tmpdf.itertuples(index=False):
+            if type(row.MAPPED_TRAIT_URI) == type("string"):
+                if "," in row.MAPPED_TRAIT_URI:
+                    efos=row.MAPPED_TRAIT_URI.split(",")
                     efos=[e.strip() for e in efos]
                     for efo in efos:
-                        new_row=row.copy()
-                        new_row["MAPPED_TRAIT_URI"]=efo
-                        retval=retval.append(new_row)
+                        new_row=row._replace(MAPPED_TRAIT_URI=efo)
+                        retval.append(new_row)
                 else:
-                    retval=retval.append(row)
+                    retval.append(row)
             else:
-                retval=retval.append(row)
-        if retval.empty:
+                retval.append(row)
+        if not retval:
             return None
+        retval=pd.DataFrame.from_records(retval,columns=tmpdf.columns)
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
@@ -265,20 +265,22 @@ class GwasApi(ExtDB):
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
-        retval=pd.DataFrame()
-        for _,row in tmpdf.iterrows():
-            if type(row["MAPPED_TRAIT_URI"]) == type("string"):
-                if "," in row["MAPPED_TRAIT_URI"]:
-                    efos=row["MAPPED_TRAIT_URI"].split(",")
+        retval=[]
+        for row in tmpdf.itertuples(index=False):
+            if type(row.MAPPED_TRAIT_URI) == type("string"):
+                if "," in row.MAPPED_TRAIT_URI:
+                    efos=row.MAPPED_TRAIT_URI.split(",")
                     efos=[e.strip() for e in efos]
                     for efo in efos:
-                        new_row=row.copy()
-                        new_row["MAPPED_TRAIT_URI"]=efo
-                        retval=retval.append(new_row)
+                        new_row=row._replace(MAPPED_TRAIT_URI=efo)
+                        retval.append(new_row)
                 else:
-                    retval=retval.append(row)
+                    retval.append(row)
             else:
-                retval=retval.append(row)
+                retval.append(row)
+        if not retval:
+            return None
+        retval=pd.DataFrame.from_records(retval,columns=tmpdf.columns)
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
