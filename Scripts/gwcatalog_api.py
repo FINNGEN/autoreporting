@@ -190,6 +190,8 @@ class LocalDB(ExtDB):
                     retval=retval.append(row)
             else:
                 retval=retval.append(row)
+        if retval.empty:
+            return None
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20

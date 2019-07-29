@@ -182,6 +182,8 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_t
     return gwas_df
 
 def extract_ld_variants(df,summary_df,locus,args,columns):
+    if df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]<=1:
+        return
     chromosome=df.loc[df["#variant"]==locus,columns["chrom"] ].unique()[0]
     print("Chromosome {}, group {} ld computation, variant amount {}".format(chromosome,locus,df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]))
     #get group range
@@ -231,10 +233,10 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
     ld=pd.concat([ld_table,ld_table2],sort=True).reset_index(drop=True)
     ld[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]=ld["RSID2"].apply(lambda x:pd.Series( x.strip("chr").split("_") ,index=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]))
     #filter
-    ld=ld.loc[ld["RSID1"].isin(extract_df_1["#variant"].values),:]
+    ld=ld.merge(extract_df_1.loc[:,["#variant"] ].rename(columns={"#variant":"RSID1"}),how="inner",on="RSID1")
     ld=map_column(ld,"RSID2_map",columns)
     #is #variant mapped to A strand? maybe, but this should be checked.
-    ld=ld.loc[ld["RSID2_map"].isin(extract_df_2["#variant"].values),:]
+    ld=ld.merge(extract_df_1.loc[:,["#variant"] ].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
     ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
     ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
     return ld
@@ -331,7 +333,7 @@ def compare(args):
         for chrom in chrom_lst:
             print("------------LD for groups in chromosome {}------------".format(chrom))
             groups=df[df[columns["chrom"]].astype(str) == chrom ].loc[:,"locus_id"].unique()
-            plink_cmd="plink --bfile {} --chr {} --make-bed --out temp_chrom ".format( args.ld_panel_path, chrom )
+            plink_cmd="plink --bfile {} --chr {} --make-bed --out temp_chrom --memory {}".format( args.ld_panel_path, chrom ,args.plink_mem)
             pr=subprocess.run(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT)
             if pr.returncode!=0:
                 print("PLINK FAILURE for chromosome {}. Error code {}".format(chrom,pr.returncode)  )
@@ -362,6 +364,7 @@ if __name__ == "__main__":
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
+    parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
