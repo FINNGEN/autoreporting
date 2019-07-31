@@ -103,13 +103,12 @@ class SummaryApi(ExtDB):
 
     def get_trait(self, trait_code):
         base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        trait=trait_code.upper()
-        r=requests.get(url=base_url+trait)
+        r=requests.get(url=base_url+trait_code)
         if r.status_code == 404:
-            print("Trait {} not found in GWASCatalog".format(trait))
+            print("Trait {} not found in GWASCatalog".format(trait_code))
             return trait_code
         elif r.status_code != 200:
-            print("Request for trait {} returned status code {}".format(trait,r.status_code))
+            print("Request for trait {} returned status code {}".format(trait_code,r.status_code))
             return trait_code
         else:
             return r.json()["trait"]
@@ -204,13 +203,12 @@ class LocalDB(ExtDB):
     
     def get_trait(self, trait_code):
         base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        trait=trait_code.upper()
-        r=requests.get(url=base_url+trait)
+        r=requests.get(url=base_url+trait_code)
         if r.status_code == 404:
-            print("Trait {} not found in GWASCatalog".format(trait))
+            print("Trait {} not found in GWASCatalog".format(trait_code))
             return trait_code
         elif r.status_code != 200:
-            print("Request for trait {} returned status code {}".format(trait,r.status_code))
+            print("Request for trait {} returned status code {}".format(trait_code,r.status_code))
             return trait_code
         else:
             return r.json()["trait"]
@@ -293,13 +291,12 @@ class GwasApi(ExtDB):
 
     def get_trait(self, trait_code):
         base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        trait=trait_code.upper()
-        r=requests.get(url=base_url+trait)
+        r=requests.get(url=base_url+trait_code)
         if r.status_code == 404:
-            print("Trait {} not found in GWASCatalog".format(trait))
+            print("Trait {} not found in GWASCatalog".format(trait_code))
             return trait_code
         elif r.status_code != 200:
-            print("Request for trait {} returned status code {}".format(trait,r.status_code))
+            print("Request for trait {} returned status code {}".format(trait_code,r.status_code))
             return trait_code
         else:
             return r.json()["trait"]
