@@ -12,11 +12,9 @@ from multiprocessing.dummy import Pool as ThreadPool
 def map_alleles(a1,a2):
     """
     Flips alleles to the A strand if necessary and orders them lexicogaphically
-    Author: Pietro?
+    Author: Pietro, with small changes by Arto
     """
-    allele_dict={}
-    for n1,n2 in [("T","A"),("C","G"),("G","C")]:
-        allele_dict[n1]=n2
+    allele_dict={"T":"A","C":"G","G":"C"}
      # check if the A variant is present
     if 'A' not in a1 + a2 and 'a' not in a1+a2:
         # for both/ref and alt map them to the A strand and order each one lexicographically
@@ -31,10 +29,7 @@ def map_column(df,col_name,columns):
         cols=list(df_.columns)
         cols.append(col_name)
         return pd.DataFrame(columns=cols)
-    for _, row in df.iterrows():
-        [ref_,alt_]=map_alleles(row[ columns["ref"] ],row[ columns["alt"] ])
-        df_.loc[_,"temp_map_ref"]=ref_
-        df_.loc[_,"temp_map_alt"]=alt_
+    df_[["temp_map_ref","temp_map_alt"]]=df_.loc[:,[columns["ref"],columns["alt"] ]].apply(lambda x: map_alleles(*x),axis=1,result_type="expand")
     df_[col_name]=create_variant_column(df_,chrom=columns["chrom"],pos=columns["pos"],ref="temp_map_ref",alt="temp_map_alt")
     df_=df_.drop(columns=["temp_map_ref","temp_map_alt"])
     return df_
@@ -192,15 +187,16 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
     if r_max == r_min:
         return
     #calculate ld for that group
+    threads=min(args.ldstore_threads,df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]) # ldstore silently errors out when #variants < #threads, do this to alleviate that 
     ldstore_command="ldstore --bplink temp_chrom --bcor temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
-        args.ld_treshold**0.5, r_min, r_max, args.ldstore_threads)
+        args.ld_treshold**0.5, r_min, r_max, threads)
     pr = subprocess.run(shlex.split(ldstore_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
     if pr.returncode!=0:
         print("LDSTORE FAILURE for locus {}".format(locus)  )
         print(pr.stdout)
         return
     #merge the file
-    ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(args.ldstore_threads)
+    ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(threads)
     subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
     pr = subprocess.run(shlex.split(ldstore_merge_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
     if pr.returncode!=0:
@@ -231,12 +227,15 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
     ld_table2=ld_table.copy()
     ld_table2=ld_table2.rename(columns={"RSID1":"RSID2","RSID2":"RSID1"})
     ld=pd.concat([ld_table,ld_table2],sort=True).reset_index(drop=True)
-    ld[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]=ld["RSID2"].apply(lambda x:pd.Series( x.strip("chr").split("_") ,index=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]))
+    ld[columns["chrom"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[0] )
+    ld[columns["pos"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[1] )
+    ld[columns["ref"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[2] )
+    ld[columns["alt"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[3] )
     #filter
     ld=ld.merge(extract_df_1.loc[:,["#variant"] ].rename(columns={"#variant":"RSID1"}),how="inner",on="RSID1")
     ld=map_column(ld,"RSID2_map",columns)
     #is #variant mapped to A strand? maybe, but this should be checked.
-    ld=ld.merge(extract_df_1.loc[:,["#variant"] ].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
+    ld=ld.merge(extract_df_2.loc[:,["#variant"] ].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
     ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
     ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
     return ld
@@ -353,9 +352,9 @@ def compare(args):
         Popen(shlex.split(c5)+corr_files+plink_files,stderr=subprocess.DEVNULL)
         if not ld_df.empty:
             ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
-            ld_df=ld_df.merge(summary_df.loc[:,["#variant","trait","trait_name"]].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
+            ld_df=ld_df.merge(summary_df.loc[:,["map_variant","trait","trait_name"]].rename(columns={"map_variant":"RSID2_map"}),how="inner",on="RSID2_map")
             ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
-            ld_out=ld_out.drop(columns=["RSID1","map_variant"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
+            ld_out=ld_out.drop(columns=["RSID1","map_variant","RSID2_map"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
             ld_out.to_csv(args.ld_raport_out,sep="\t",index=False)
         else:
             print("No variants in ld found, no {} produced.".format(args.ld_raport_out))
