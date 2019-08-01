@@ -85,7 +85,6 @@ class SummaryApi(ExtDB):
         while "next" in dump["_links"].keys():
             time.sleep(1)
             r=try_request(dump["_links"]["next"]["href"],params={"reveal":"all"})
-            #print(r.url)
             if r.status_code != 200:
                 print("Request {} with params {} returned status code {}".format(url,payload,r.status_code))
                 break
@@ -115,7 +114,6 @@ class SummaryApi(ExtDB):
 
 def parse_efo(code):
     if type(code) != type("asd"):
-        #print("INVALID TYPE OF EFO CODE with code {}, type {}".format(code,type(code)))
         return "NAN"
     else: 
         return code.split("/").pop()
@@ -128,8 +126,6 @@ class LocalDB(ExtDB):
     def __parse_ensembl(self,json_data):
         out=[]
         for key in json_data.keys():
-            #minor_allele=json_data[key]["minor_allele"]
-            #other_allele=json_data[key]["ancestral_allele"]
             alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
             other_allele=alleles[0]
             minor_allele=alleles[1]
@@ -163,7 +159,7 @@ class LocalDB(ExtDB):
         headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
         for rsid_chunk in self.__in_chunks(rsids,200):
             list_str='["{}"]'.format('", "'.join(rsid_chunk))
-            data='{{ "ids":{} }}'.format(list_str) #{"ids":rsid_chunk}
+            data='{{ "ids":{} }}'.format(list_str)
             ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
             if ensembl_response.status_code != 200:
                 print(ensembl_response.text)
@@ -196,7 +192,6 @@ class LocalDB(ExtDB):
         retval.loc[:,"code"]=20
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
         retval=retval.rename(columns=rename)
-        #retval=retval.astype(dtype={"chrom":int})
         retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
         retcols=["chrom","pos","ref","alt","pval","trait","code"]
         return retval.loc[:,retcols].to_dict("records")
@@ -224,8 +219,6 @@ class GwasApi(ExtDB):
     def __parse_ensembl(self,json_data):
         out=[]
         for key in json_data.keys():
-            #minor_allele=json_data[key]["minor_allele"]
-            #other_allele=json_data[key]["ancestral_allele"]
             alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
             other_allele=alleles[0]
             minor_allele=alleles[1]
@@ -251,9 +244,8 @@ class GwasApi(ExtDB):
         out=[]
         headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
         for rsid_chunk in self.__in_chunks(rsids,200):
-            #list_str="', '".join(rsid_chunk)
             list_str='["{}"]'.format('", "'.join(rsid_chunk))
-            data='{{ "ids":{} }}'.format(list_str) #{"ids":rsid_chunk}
+            data='{{ "ids":{} }}'.format(list_str)
             ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
             if ensembl_response.status_code != 200:
                 print(ensembl_response.text)
@@ -284,7 +276,6 @@ class GwasApi(ExtDB):
         retval.loc[:,"code"]=20
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
         retval=retval.rename(columns=rename)
-        #retval=retval.astype(dtype={"chrom":int})
         retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
         retcols=["chrom","pos","ref","alt","pval","trait","code"]
         return retval.loc[:,retcols].to_dict("records")
