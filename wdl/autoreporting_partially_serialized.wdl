@@ -38,6 +38,8 @@ task report {
     Boolean check_for_ld
 
     String gr_method
+    String ignore_region
+    String ignore_cmd = if ignore_region != "" then "--ignore-region" else ""
     String efo_codes
     String compare_style
     String db_choice
@@ -60,6 +62,7 @@ task report {
             main.py $file --sign-treshold ${s_tresh} --alt-sign-treshold ${s_tresh2}  \
             ${true='--group' false='' group} --grouping-method ${gr_method} --locus-width-kb ${grouping_locus_width} \
             --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_mem} ${true='--overlap' false='' overlap} \
+            ${ignore_cmd} ${ignore_region}\
             --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' batch_freq} --finngen-path ${finngen_annotation} \
             --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
             --ldstore-threads ${cpus} --gwascatalog-threads ${gwas_threads} \

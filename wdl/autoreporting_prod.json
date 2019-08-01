@@ -22,6 +22,7 @@
     "autoreporting.report.batch_freq":false,
     "autoreporting.report.check_for_ld":false,
     "autoreporting.report.gr_method":"ld",
+    "autoreporting.report.ignore_region":"",
     "autoreporting.report.efo_codes":"",
     "autoreporting.report.compare_style":"gwascatalog",
     "autoreporting.report.db_choice":"local",
