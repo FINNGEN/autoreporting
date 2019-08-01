@@ -34,37 +34,48 @@ def map_column(df,col_name,columns):
     df_=df_.drop(columns=["temp_map_ref","temp_map_alt"])
     return df_
 
+def indel_helper(row, chrom,pos,ref,alt):
+    row["ref"] = ref
+    row["alt"] = alt
+    row["chrom"] = chrom
+    row["pos"] = pos
+    return row
+
 def solve_indels(indel_df,df,columns):
     """ Solve exact matches for indels where they are missing one basepair 
     """
-    out_df=[]
+    out_df=pd.DataFrame(columns=indel_df.columns)
     for _, row in indel_df.iterrows():
         #check if our dataframe has an exact match.
         rowpos=int(row["pos"])-1
         rowchrom=str(row["chrom"])
         possible_matches=df.loc[(df[columns["chrom"]].astype(str) == rowchrom)&(df[columns["pos"]] == rowpos )  ,:].copy()
         for __, row2 in possible_matches.iterrows():
-            #if alleles are a match s.t. -/TCGA == T/TTCGA, add that to output df and break from the loop            
+            #if alleles are a match s.t. -/TCGA == T/TTCGA, add that to output df and break from the loop
             a1=row["ref"]
             a2=row["alt"]
             b1=row2[columns["ref"]]
             b2=row2[columns["alt"]]
+            n_row=row.copy()
             if a1=="-":
                 if len(b1)==1 and b2[1:] == a2:
-                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b1,"alt":b2,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b1,b2)
+                    out_df=out_df.append(n_row,sort=True)
                     break
                 elif len(b2)==1 and b1[1:] == a2:
-                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b2,"alt":b1,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b2,b1)
+                    out_df=out_df.append(n_row,sort=True)
                     break
             elif a2=="-":
                 if len(b1)==1 and b2[1:] == a1:
-                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b2,"alt":b1,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b2,b1)
+                    out_df=out_df.append(n_row,sort=True)
                     break
                 elif len(b2)==1 and b1[1:] == a1:
-                    out_df.append({"chrom":row2[columns["chrom"]],"pos":row2[columns["pos"]], "ref":b1,"alt":b2,"pval":row["pval"],"trait":row["trait"],"code":row["code"]})
+                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b1,b2)
+                    out_df=out_df.append(n_row,sort=True)
                     break
             #else, continue
-    out_df=pd.DataFrame(out_df)
     return out_df
 
 def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
@@ -289,11 +300,12 @@ def compare(args):
             gwas_df=gwas_df.loc[~gwas_df.loc[:,"code"].isin(filter_out_codes)]
             gwas_df.loc[:,"#variant"]=create_variant_column(gwas_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
             summary_df_2=gwas_df
-            unique_efos=list(summary_df_2["trait"].unique())
-            trait_name_map={}
-            for key in unique_efos:
-                trait_name_map[key]=gwapi.get_trait(key)
-            summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
+            if args.database_choice != "local":
+                unique_efos=list(summary_df_2["trait"].unique())
+                trait_name_map={}
+                for key in unique_efos:
+                    trait_name_map[key]=gwapi.get_trait(key)
+                summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
             summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
     if args.compare_style not in ["file","gwascatalog","both"]:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))

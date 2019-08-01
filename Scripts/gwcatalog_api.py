@@ -141,10 +141,11 @@ class LocalDB(ExtDB):
         self.df=self.df.astype(str)
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains(";") ,:]
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains("x") ,:]
-        self.df["CHR_POS"]=pd.to_numeric(self.df["CHR_POS"],errors="coerce",downcast="integer")
-        self.df["P-VALUE"]=pd.to_numeric(self.df["P-VALUE"],errors="coerce",downcast="float")
+        self.df["CHR_POS"]=pd.to_numeric(self.df["CHR_POS"],errors="coerce")
+        self.df["P-VALUE"]=pd.to_numeric(self.df["P-VALUE"],errors="coerce")
+        self.df["PVALUE_MLOG"]=pd.to_numeric(self.df["PVALUE_MLOG"],errors="coerce")
         #self.df=self.df.astype(dtype={"CHR_POS":np.int64,"P-VALUE":np.float})
-        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE"])
+        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE","PVALUE_MLOG"])
     
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
         #filter based on chromosome, start, end, pval
@@ -168,7 +169,7 @@ class LocalDB(ExtDB):
         if rsid_df.empty:
             return
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
-        cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
+        cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval=[]
@@ -176,9 +177,11 @@ class LocalDB(ExtDB):
             if type(row.MAPPED_TRAIT_URI) == type("string"):
                 if "," in row.MAPPED_TRAIT_URI:
                     efos=row.MAPPED_TRAIT_URI.split(",")
+                    traits=row.MAPPED_TRAIT.split(",")
                     efos=[e.strip() for e in efos]
-                    for efo in efos:
-                        new_row=row._replace(MAPPED_TRAIT_URI=efo)
+                    traits=[e.strip() for e in traits]
+                    for idx, (efo,trait) in enumerate(zip(efos,traits)):
+                        new_row=row._replace(MAPPED_TRAIT_URI=efo,MAPPED_TRAIT=trait)
                         retval.append(new_row)
                 else:
                     retval.append(row)
@@ -190,10 +193,10 @@ class LocalDB(ExtDB):
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
-        rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
+        rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
         retval=retval.rename(columns=rename)
         retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
-        retcols=["chrom","pos","ref","alt","pval","trait","code"]
+        retcols=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","code","study","study_link"]
         return retval.loc[:,retcols].to_dict("records")
     
     def get_trait(self, trait_code):

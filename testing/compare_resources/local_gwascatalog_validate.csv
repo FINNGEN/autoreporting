@@ -1,4 +1,4 @@
-alt	chrom	code	pos	pval	ref	trait
-G	6	20	32251212	1.00E-08	A	EFO_0000717
-G	6	20	32441753	2.00E-27	A	EFO_0000717
-G	6	20	32623148	1.00E-11	A	EFO_0000717
+alt	chrom	code	pos	pval	pval_mlog	ref	trait	trait_name	study	study_link
+G	6	20	32251212	1E-08	8	A	EFO_0000717	systemic scleroderma	Identification of novel genetic markers associated with clinical phenotypes of systemic sclerosis through a genome-wide association strategy.	www.ncbi.nlm.nih.gov/pubmed/21779181
+G	6	20	32441753	2E-27	26.698970004336	A	EFO_0000717	systemic scleroderma	Identification of novel genetic markers associated with clinical phenotypes of systemic sclerosis through a genome-wide association strategy.	www.ncbi.nlm.nih.gov/pubmed/21779181
+G	6	20	32623148	1E-11	11	A	EFO_0000717	systemic scleroderma	Identification of novel genetic markers associated with clinical phenotypes of systemic sclerosis through a genome-wide association strategy.	www.ncbi.nlm.nih.gov/pubmed/21779181

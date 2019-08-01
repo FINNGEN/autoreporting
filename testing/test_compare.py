@@ -11,6 +11,7 @@ from Scripts import gwcatalog_api
 class TestGws(unittest.TestCase):
 
     def test_solve_indels(self):
+        #test: test only chrom, pos, ref alt. Other columns need not be tested.
         #Necessary data: df which contains our versions of indels, indels
         columns={"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         indels_={"chrom":["1","1","X"], "pos":[2,3,4],"ref":["-","TATA","-"],"alt":["CGTACGTA","-","-"],"pval":[0.4,0.2,0.1],"code":[10,10,10],"trait":["1","2","3"]}
@@ -22,8 +23,9 @@ class TestGws(unittest.TestCase):
         #Match alleles to gwascatalog ref=ref and gwas alt=alt
         out_={"chrom":["1","1"],"pos":[1,2],"ref":["A","TTATA"],"ref":["A","TTATA"],"alt":["ACGTACGTA","T"],"pval":[0.4,0.2],"code":[10,10],"trait":["1","2"]}
         out=pd.DataFrame(out_)
-        for col in out.columns:
-            self.assertTrue(retval[col].equals(out[col]) )
+        test_cols=["chrom","pos","ref","alt"]
+        for col in test_cols:
+            self.assertTrue(retval[col].astype(str).equals(out[col].astype(str)) )
 
     def test_map_column(self):
         chrom=["1","1","2","2"]
