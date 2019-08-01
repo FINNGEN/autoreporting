@@ -90,6 +90,7 @@ class TestGws(unittest.TestCase):
         args.loc_width=1
         args.grouping=False
         args.column_labels=["#chrom","pos","ref","alt","pval"]
+        args.ignore_region=""
         args.fetch_out=StringIO()
         gws_fetch.fetch_gws(args)
         args.fetch_out.seek(0)
@@ -118,6 +119,7 @@ class TestGws(unittest.TestCase):
         args.grouping_method="simple"
         args.overlap=False
         args.fetch_out=StringIO()
+        args.ignore_region=""
 
         gws_fetch.fetch_gws(args)
         args.fetch_out.seek(0)

@@ -7,6 +7,12 @@ import pandas as pd, numpy as np
 #import tabix
 from autoreporting_utils import *
 
+def parse_region(region):
+    chrom=region.split(":")[0]
+    start=region.split(":")[1].split("-")[0]
+    end=region.split(":")[1].split("-")[1]
+    return {"chrom":str(chrom),"start":int(start),"end":int(end)}
+
 def parse_plink_output(df,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt"}):
     """Parse plink --clump output, which is a multiple-space separated dataframe with the groups
     separated by commas. Is used to get tabixdf
@@ -67,6 +73,11 @@ def fetch_gws(args):
     for dframe in pd.read_csv(args.gws_fpath,compression="gzip",sep="\t",dtype=dtype,engine="c",chunksize=c_size):
         #filter gws snps
         temp_df=pd.concat([temp_df,dframe.loc[dframe[columns["pval"]]<=sig_tresh,:]],axis="index",ignore_index=True)
+    #remove ignored region if there is one
+    if args.ignore_region:
+        ignore_region=parse_region(args.ignore_region)
+        ign_idx=( ( temp_df[columns["chrom"]]==ignore_region["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region["end"] )&( temp_df[columns["pos"]]>=ignore_region["start"] ) )
+        temp_df=temp_df.loc[~ign_idx,:]
     temp_df=temp_df.reset_index(drop=True)
     temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
@@ -164,5 +175,6 @@ if __name__=="__main__":
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
+    parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     args=parser.parse_args()
     fetch_gws(args)
