@@ -47,6 +47,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
                [--alt-sign-treshold SIG_TRESHOLD_2]
                [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
                [--plink-memory PLINK_MEM] [--overlap]
+               [--ignore-region IGNORE_REGION]
                [--gnomad-genome-path GNOMAD_GENOME_PATH]
                [--gnomad-exome-path GNOMAD_EXOME_PATH] [--include-batch-freq]
                [--finngen-path FINNGEN_PATH] [--annotate-out ANNOTATE_OUT]
@@ -79,6 +80,7 @@ Argument   |  Meaning   |   Example | Original script
 --ld-r2 | plink clump-r2 argument, default 0.4 | --ld-r2 0.7 | gws_fetch.py
 --plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 | gws_fetch.py
 --overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap | gws_fetch.py
+--ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 | gws_fetch.py
 --gnomad-genome-path | path to gnomad genome annotation file. Must be tabixed. Required for annotation. | --gnomad-genome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
 --gnomad-exome-path | path to gnomad exome annotation file. Must be tabixed. Required for annotation. | --gnomad-exome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
 --include-batch-freq | Include batch frequencies from finngen annotation file | --include-batch-freq | annotate<span></span>.py
@@ -123,6 +125,7 @@ usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD]
                     [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
                     [--plink-memory PLINK_MEM] [--overlap]
                     [--column-labels CHROM POS REF ALT PVAL]
+                    [--ignore-region IGNORE_REGION]
                     gws_fpath
 ```
 The gws_fetch.py-script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, either based on a range around top hits, or by using plink's --clump functionality. The arguments used are the same as the ones in main<span></span>.py. For example, to just filter variants according to a p-value, the script can be called by
