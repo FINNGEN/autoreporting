@@ -21,23 +21,23 @@ task report {
     Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
     File? local_gwcatalog
 
-    Float s_tresh
-    Float s_tresh2
+    Float sign_treshold
+    Float alt_sign_treshold
     Int grouping_locus_width
     Float ld_r2
-    Int plink_mem
-    Float gw_pval
-    Int gw_width
+    Int plink_memory
+    Float gwascatalog_pval
+    Int gwascatalog_width_kb
     Float ld_treshold
     Int cpus
-    Int gwas_threads
+    Int gwascatalog_threads
 
     Boolean group
     Boolean overlap
-    Boolean batch_freq
+    Boolean include_batch_freq
     Boolean check_for_ld
 
-    String gr_method
+    String grouping_method
     String ignore_region
     String ignore_cmd = if ignore_region != "" then "--ignore-region" else ""
     String efo_codes
@@ -47,27 +47,20 @@ task report {
     String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
     String dollar = "$"  
 
-    #output file names
-    String fetch_out
-    String annotate_out
-    String raport_out
-    String top_raport_out
-    String ld_raport_out
-    #ld_chrom=$( echo ${ld_chrom_files[0]} | sed 's/_[0-9].[fb][aei][dm]//g' )
     #command
     command {
         mod_ld=$( echo ${ld_panel_bed} | sed 's/.bed//g' )
         for file in ${sep=' ' summ_stat} ; do
             output_filename=$(basename $file)
-            main.py $file --sign-treshold ${s_tresh} --alt-sign-treshold ${s_tresh2}  \
-            ${true='--group' false='' group} --grouping-method ${gr_method} --locus-width-kb ${grouping_locus_width} \
-            --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_mem} ${true='--overlap' false='' overlap} \
+            main.py $file --sign-treshold ${sign_treshold} --alt-sign-treshold ${alt_sign_treshold}  \
+            ${true='--group' false='' group} --grouping-method ${grouping_method} --locus-width-kb ${grouping_locus_width} \
+            --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_memory} ${true='--overlap' false='' overlap} \
             ${ignore_cmd} ${ignore_region}\
-            --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' batch_freq} --finngen-path ${finngen_annotation} \
+            --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' include_batch_freq} --finngen-path ${finngen_annotation} \
             --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
-            --ldstore-threads ${cpus} --gwascatalog-threads ${gwas_threads} \
+            --ldstore-threads ${cpus} --gwascatalog-threads ${gwascatalog_threads} \
             ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \
-            --gwascatalog-pval ${gw_pval} --gwascatalog-width-kb ${gw_width} ${efo_cmd} ${efo_codes} --db ${db_choice} ${"--local-gwascatalog " + local_gwcatalog} \
+            --gwascatalog-pval ${gwascatalog_pval} --gwascatalog-width-kb ${gwascatalog_width_kb} ${efo_cmd} ${efo_codes} --db ${db_choice} ${"--local-gwascatalog " + local_gwcatalog} \
             --fetch-out $output_filename.fetch.out --annotate-out $output_filename.annotate.out --raport-out $output_filename.raport.out --top-report-out $output_filename.top.out --ld-raport-out $output_filename.ld.out
         done  
     }
