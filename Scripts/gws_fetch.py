@@ -123,7 +123,13 @@ def fetch_gws(args):
             with open("plink_log.log","wb") as f:
                 plink_logfile.seek(0)
                 f.write(plink_logfile.read())
-            group_data=pd.read_csv(plink_fname+".clumped",sep="\s+")
+            try:
+                group_data=pd.read_csv(plink_fname+".clumped",sep="\s+")
+            except:
+                print(".clumped file not produced. Plink logs:")
+                print(pr.stdout)
+                print(pr.stderr)
+                Exception("PLINK clump file not found.")
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
             res=parse_plink_output(group_data,columns=columns)
             new_df=pd.DataFrame(columns=df_p2.columns)
@@ -135,7 +141,7 @@ def fetch_gws(args):
             new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
             new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
             #cleanup plink files
-            plink_files=glob.glob("temp_plink.*")
+            plink_files=glob.glob("{}.*".format(plink_fname))
             subprocess.call(["rm"]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         else:
             #simple grouping
