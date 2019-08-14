@@ -13,7 +13,9 @@ def main(args):
     print("filter & group SNPs")
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
-    gws_fetch.fetch_gws(args)
+    val=gws_fetch.fetch_gws(args)
+    if val!= 0:
+        return
     
     ###########################
     ##########Finemap##########

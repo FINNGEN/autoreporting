@@ -2,7 +2,7 @@
 
 import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
-import sys,os
+import sys,os,io
 import pandas as pd, numpy as np
 #import tabix
 from autoreporting_utils import *
@@ -73,6 +73,9 @@ def fetch_gws(args):
     for dframe in pd.read_csv(args.gws_fpath,compression="gzip",sep="\t",dtype=dtype,engine="c",chunksize=c_size):
         #filter gws snps
         temp_df=pd.concat([temp_df,dframe.loc[dframe[columns["pval"]]<=sig_tresh,:]],axis="index",ignore_index=True)
+    if temp_df.empty:
+        print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(args.gws_fpath,args.sig_treshold))
+        return 1
     #remove ignored region if there is one
     if args.ignore_region:
         ignore_region=parse_region(args.ignore_region)
@@ -87,6 +90,7 @@ def fetch_gws(args):
     df_p2=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold_2,: ].copy()
     if args.grouping and not df_p1.empty:
         if args.grouping_method=="ld":
+            plink_logfile=io.BytesIO()
             #write current SNPs to file
             temp_variants="temp_plink.variants.csv"
             df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
@@ -109,11 +113,16 @@ def fetch_gws(args):
                 allow_overlap)
             #call plink
             pr = subprocess.run(shlex.split(plink_command), stdout=PIPE,stderr=PIPE )
+            plink_logfile.write(pr.stdout)
+            plink_logfile.write(pr.stderr)
             if pr.returncode!=0:
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
                 print(pr.stdout)
                 print(pr.stderr)
             #parse output file, find locus width
+            with open("plink_log.log","wb") as f:
+                plink_logfile.seek(0)
+                f.write(plink_logfile.read())
             group_data=pd.read_csv(plink_fname+".clumped",sep="\s+")
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
             res=parse_plink_output(group_data,columns=columns)
@@ -160,6 +169,7 @@ def fetch_gws(args):
     else:
         #take only gws hits, no groups. Therefore, use df_p1
         df_p1.sort_values(["locus_id","#variant"]).to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+    return 0
     
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetch and group genome-wide significant variants from summary statistic")
