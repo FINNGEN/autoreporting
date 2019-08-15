@@ -208,7 +208,6 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
         return
     #merge the file
     ldstore_merge_command="ldstore --bcor temp_corr.bcor --merge {}".format(threads)
-    subprocess.call(shlex.split(ldstore_merge_command),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL )
     pr = subprocess.run(shlex.split(ldstore_merge_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
     if pr.returncode!=0:
         print("LDSTORE FAILURE for locus {}".format(locus)  )
