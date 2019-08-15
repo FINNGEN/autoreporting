@@ -3,10 +3,15 @@
 import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
-import gws_fetch, compare, annotate
+import gws_fetch, compare, annotate,autoreporting_utils
 
 def main(args):
     print("input file: {}".format(args.gws_fpath))
+    args.fetch_out = "{}.{}".format(args.prefix,args.fetch_out)
+    args.annotate_out = "{}.{}".format(args.prefix,args.annotate_out)
+    args.raport_out = "{}.{}".format(args.prefix,args.raport_out)
+    args.top_report_out = "{}.{}".format(args.prefix,args.top_report_out)
+    args.ld_raport_out = "{}.{}".format(args.prefix,args.ld_raport_out)
     ###########################
     ###Filter and Group SNPs###
     ###########################
@@ -26,7 +31,7 @@ def main(args):
     ###########################
     if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
         print("Annotation files missing, skipping gnomad & finngen annotation...")
-        args.compare_fname=args.fetch_out
+        args.compare_fname=args.annotate_fpath
     else:
         print("Annotate SNPs")
         annotate.annotate(args)
@@ -42,6 +47,7 @@ if __name__=="__main__":
     #gws_fetch
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed summary statistic file to be processed")
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
+    parser.add_argument("--prefix",dest="prefix",type=str,default="DEFAULT",help="output and temporary file prefix")
     parser.add_argument("--fetch-out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
     parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
@@ -80,4 +86,6 @@ if __name__=="__main__":
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
+    if args.prefix=="DEFAULT":
+        args.prefix=autoreporting_utils.filebasename(args.gws_fpath)
     main(args)

@@ -91,6 +91,7 @@ class TestGws(unittest.TestCase):
         args.grouping=False
         args.column_labels=["#chrom","pos","ref","alt","pval"]
         args.ignore_region=""
+        args.prefix=""
         args.fetch_out=StringIO()
         gws_fetch.fetch_gws(args)
         args.fetch_out.seek(0)

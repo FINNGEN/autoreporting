@@ -1,4 +1,4 @@
-import argparse,shlex,subprocess
+import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np
 import tabix
@@ -6,6 +6,11 @@ import tabix
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
 """
+
+def filebasename(s):
+    if s != "":
+        return os.path.basename(s).split(".")[0]
+    return ""
 
 def pytabix(tb,chrom,start,end):
     """Get genomic region from tabixed file

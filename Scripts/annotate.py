@@ -56,7 +56,7 @@ def annotate(args):
     #load main file
     df=pd.read_csv(args.annotate_fpath,sep="\t")
     if df.empty:
-        df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
+        df.to_csv(path_or_buf="{}.{}".format(args.prefix,args.annotate_out),sep="\t",index=False)
         return
     #load gnomad_genomes
     tb_g=tabix.open(args.gnomad_genome_path)
@@ -145,9 +145,13 @@ if __name__=="__main__":
     parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
+    parser.add_argument("--prefix",dest="prefix",type=str,default="DEFAULT",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.csv",help="Output filename, default is out.csv")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     args=parser.parse_args()
+    if args.prefix=="DEFAULT":
+        args.prefix=filebasename(args.annotate_fpath)
+    args.annotate_out = "{}.{}".format(args.prefix,args.annotate_out)
     if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
         print("Annotation files missing, aborting...")
     else:    
