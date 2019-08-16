@@ -41,8 +41,9 @@ In the project folder, the script can be used by either calling the whole script
 ### main:
 
 ```
-usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--fetch-out FETCH_OUT]
-               [--group] [--grouping-method GROUPING_METHOD]
+usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
+               [--fetch-out FETCH_OUT] [--group]
+               [--grouping-method GROUPING_METHOD]
                [--locus-width-kb LOC_WIDTH]
                [--alt-sign-treshold SIG_TRESHOLD_2]
                [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
@@ -71,6 +72,7 @@ Command-line arguments:
 Argument   |  Meaning   |   Example | Original script
 --- | --- | --- | ---
 --sign-treshold | signifigance treshold for variants | --sign-treshold 5e-8 | gws_fetch.py
+--prefix | a prefix for all of the output and temporary files. Useful in cases where there might be confusion between processes running in the same folder. A dot is inserted after the prefix if it is passed. | --prefix NAME_OF_PHENOTYPE | main<span></span>.py
 --fetch-out | output file path for filtered and/or grouped variants. 'fetch_out.csv' by default. | --fetch-out output.tsv | gws_fetch.py
 --group | supplying this flag results in the variants being grouped into groups | --group | gws_fetch.py
 --grouping-method | grouping method used if --group flag is supplied. options are 'simple', i.e. grouping based on range from gws variants, or 'ld', i.e. grouping using plink --clump |  --grouping-method ld | gws_fetch.py
@@ -117,7 +119,7 @@ Additional features, such as result grouping, can be added through the use of th
 ### gws_fetch.py:
 
 ```
-usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD]
+usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                     [--fetch-out FETCH_OUT] [--group]
                     [--grouping-method GROUPING_METHOD]
                     [--locus-width-kb LOC_WIDTH]
@@ -161,7 +163,7 @@ The grouping based on linkage disequilibrium is based on plink 1.9's --clump opt
 usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--gnomad-exome-path GNOMAD_EXOME_PATH]
                    [--include-batch-freq] [--finngen-path FINNGEN_PATH]
-                   [--annotate-out ANNOTATE_OUT]
+                   [--prefix PREFIX] [--annotate-out ANNOTATE_OUT]
                    [--column-labels CHROM POS REF ALT PVAL]
                    annotate_fpath
 ```
@@ -177,8 +179,8 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath SUMMARY_FPATH] [--endpoint-fpath ENDPOINTS]
                   [--check-for-ld] [--plink-memory PLINK_MEM]
-                  [--ld-panel-path LD_PANEL_PATH] [--raport-out RAPORT_OUT]
-                  [--ld-raport-out LD_RAPORT_OUT]
+                  [--ld-panel-path LD_PANEL_PATH] [--prefix PREFIX]
+                  [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--gwascatalog-threads GWASCATALOG_THREADS]

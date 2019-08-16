@@ -92,9 +92,9 @@ def fetch_gws(args):
         if args.grouping_method=="ld":
             plink_logfile=io.BytesIO()
             #write current SNPs to file
-            temp_variants="{}.clump_variants.csv".format(args.prefix)
+            temp_variants="{}clump_variants.csv".format(args.prefix)
             df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
-            plink_fname="{}.plink_clump".format(args.prefix)
+            plink_fname="{}plink_clump".format(args.prefix)
             allow_overlap=""
             if args.overlap==True:
                 allow_overlap="--clump-allow-overlap"
@@ -120,7 +120,7 @@ def fetch_gws(args):
                 print(pr.stdout)
                 print(pr.stderr)
             #parse output file, find locus width
-            with open("{}.plink_log.log".format(args.prefix),"wb") as f:
+            with open("{}plink_log.log".format(args.prefix),"wb") as f:
                 plink_logfile.seek(0)
                 f.write(plink_logfile.read())
             try:
@@ -181,7 +181,7 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetch and group genome-wide significant variants from summary statistic")
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed summary statistic")
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
-    parser.add_argument("--prefix",dest="prefix",type=str,default="DEFAULT",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
+    parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--fetch-out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
     parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
@@ -194,7 +194,7 @@ if __name__=="__main__":
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     args=parser.parse_args()
-    if args.prefix=="DEFAULT":
-        args.prefix=filebasename(args.gws_fpath)
-    args.fetch_out = "{}.{}".format(args.prefix,args.fetch_out)
+    if args.prefix!="":
+        args.prefix=args.prefix+"."
+    args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
     fetch_gws(args)

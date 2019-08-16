@@ -199,7 +199,7 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
         return
     #calculate ld for that group
     threads=min(args.ldstore_threads,df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]) # ldstore silently errors out when #variants < #threads, do this to alleviate that 
-    ldstore_command="ldstore --bplink {}.temp_chrom --bcor {}.temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
+    ldstore_command="ldstore --bplink {}temp_chrom --bcor {}temp_corr.bcor --ld-thold {}  --incl-range {}-{} --n-threads {}".format(
         args.prefix, args.prefix, args.ld_treshold**0.5, r_min, r_max, threads)
     pr = subprocess.run(shlex.split(ldstore_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
     if pr.returncode!=0:
@@ -207,7 +207,7 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
         print(pr.stdout)
         return
     #merge the file
-    ldstore_merge_command="ldstore --bcor {}.temp_corr.bcor --merge {}".format(args.prefix, threads)
+    ldstore_merge_command="ldstore --bcor {}temp_corr.bcor --merge {}".format(args.prefix, threads)
     pr = subprocess.run(shlex.split(ldstore_merge_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
     if pr.returncode!=0:
         print("LDSTORE FAILURE for locus {}".format(locus)  )
@@ -222,17 +222,17 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
     ### different datatypes caused drop duplicates to not recognize duplicates and ldstore failed in the next step
     extract_df = extract_df.astype(str)
     extract_df = extract_df.drop_duplicates()
-    var_lst_name="{}.var_lst".format(args.prefix)
+    var_lst_name="{}var_lst".format(args.prefix)
     extract_df.to_csv(var_lst_name,sep=" ",index=False)
     #extract variants of interest 
-    ldstore_extract_command="ldstore --bcor {}.temp_corr.bcor --table {}.ld_table.table --incl-variants {}".format(args.prefix, args.prefix, var_lst_name)
+    ldstore_extract_command="ldstore --bcor {}temp_corr.bcor --table {}ld_table.table --incl-variants {}".format(args.prefix, args.prefix, var_lst_name)
     pr = subprocess.run(shlex.split(ldstore_extract_command), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding='ASCII' )
     if pr.returncode!=0:
         print("LDSTORE FAILURE for locus {}".format(locus)  )
         print(pr.stdout)
         return
     #read ld_table, make it so rsid1 is for our variants and rsid2 for summary variants
-    ld_table=pd.read_csv("{}.ld_table.table".format(args.prefix),sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
+    ld_table=pd.read_csv("{}ld_table.table".format(args.prefix),sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
     if ld_table.empty:
         return
     ld_table2=ld_table.copy()
@@ -250,7 +250,7 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
     ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
     ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
     #remove temporary files
-    rmcmd="rm {}.ld_table.table {}.var_lst".format(args.prefix, args.prefix)
+    rmcmd="rm {}ld_table.table {}var_lst".format(args.prefix, args.prefix)
     Popen(shlex.split(rmcmd),stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
     return ld
 
@@ -276,12 +276,12 @@ def compare(args):
     if args.compare_style in ["gwascatalog","both"]:
         gwas_df=None
         gwapi=None
-        if os.path.exists("{}.gwas_out_mapping.csv".format(args.prefix)) and args.cache_gwas:
+        if os.path.exists("{}gwas_out_mapping.csv".format(args.prefix)) and args.cache_gwas:
             print("reading gwas results from gwas_out_mapping.csv...")
-            gwas_df=pd.read_csv("{}.gwas_out_mapping.csv".format(args.prefix),sep="\t")
+            gwas_df=pd.read_csv("{}gwas_out_mapping.csv".format(args.prefix),sep="\t")
             gwapi=gwcatalog_api.GwasApi()
         else:
-            rm_gwas_out="rm {}.gwas_out_mapping.csv".format(args.prefix)
+            rm_gwas_out="rm {}gwas_out_mapping.csv".format(args.prefix)
             subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             threads=args.gwascatalog_threads
             if args.database_choice=="local":
@@ -293,7 +293,7 @@ def compare(args):
                 gwapi=gwcatalog_api.GwasApi()
             gwas_df=load_api_summaries(df,args.gwascatalog_pad,args.gwascatalog_pval,gwapi,threads,columns)
             if args.cache_gwas:
-                gwas_df.to_csv("{}.gwas_out_mapping.csv".format(args.prefix),sep="\t",index=False)
+                gwas_df.to_csv("{}gwas_out_mapping.csv".format(args.prefix),sep="\t",index=False)
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
         gwas_df=gwas_df.rename(columns=gwas_rename)
         if gwas_df.empty:
@@ -328,7 +328,7 @@ def compare(args):
         raport_out_df["trait"]="NA"
         raport_out_df["trait_name"]="NA"
     else:
-        summary_df.to_csv("{}.summary_df.csv".format(args.prefix),sep="\t",index=False)
+        summary_df.to_csv("{}summary_df.csv".format(args.prefix),sep="\t",index=False)
         summary_df=map_column(summary_df,"map_variant",columns)
         df=map_column(df,"map_variant",columns)
         necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name"]
@@ -344,13 +344,13 @@ def compare(args):
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
         unique_locus_list=df["locus_id"].unique()
         ld_df=pd.DataFrame()
-        df.to_csv("{}.df.csv".format(args.prefix),index=False,sep="\t")
+        df.to_csv("{}df.csv".format(args.prefix),index=False,sep="\t")
         #create chromosome list and group loci based on those
         chrom_lst=  sorted([*{*[s.split("_")[0].strip("chr") for s in unique_locus_list]}])
         for chrom in chrom_lst:
             print("------------LD for groups in chromosome {}------------".format(chrom))
             groups=df[df[columns["chrom"]].astype(str) == chrom ].loc[:,"locus_id"].unique()
-            plink_cmd="plink --bfile {} --chr {} --make-bed --out {}.temp_chrom --memory {}".format( args.ld_panel_path, chrom ,args.prefix,args.plink_mem)
+            plink_cmd="plink --bfile {} --chr {} --make-bed --out {}temp_chrom --memory {}".format( args.ld_panel_path, chrom ,args.prefix,args.plink_mem)
             pr=subprocess.run(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT)
             if pr.returncode!=0:
                 print("PLINK FAILURE for chromosome {}. Error code {}".format(chrom,pr.returncode)  )
@@ -362,8 +362,8 @@ def compare(args):
                     continue
                 ld_df=pd.concat([ld_df,ld],sort=True)
         c5="rm "
-        corr_files=glob.glob("{}.temp_corr.*".format(args.prefix))
-        plink_files=glob.glob("{}.temp_chrom.*".format(args.prefix))
+        corr_files=glob.glob("{}temp_corr.*".format(args.prefix))
+        plink_files=glob.glob("{}temp_chrom.*".format(args.prefix))
         Popen(shlex.split(c5)+corr_files+plink_files,stderr=subprocess.DEVNULL)
         if not ld_df.empty:
             ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
-    parser.add_argument("--prefix",dest="prefix",type=str,default="DEFAULT",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
+    parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
     parser.add_argument("--ld-raport-out",dest="ld_raport_out",type=str,default="ld_raport_out.csv",help="LD check raport output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
@@ -399,9 +399,9 @@ if __name__ == "__main__":
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
-    if args.prefix=="DEFAULT":
-        args.prefix=filebasename(args.compare_fname)
-    args.raport_out = "{}.{}".format(args.prefix,args.raport_out)
-    args.top_report_out = "{}.{}".format(args.prefix,args.top_report_out)
-    args.ld_raport_out = "{}.{}".format(args.prefix,args.ld_raport_out)
+    if args.prefix!="":
+        args.prefix=args.prefix+"."
+    args.raport_out = "{}{}".format(args.prefix,args.raport_out)
+    args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
+    args.ld_raport_out = "{}{}".format(args.prefix,args.ld_raport_out)
     compare(args)
