@@ -8,6 +8,7 @@ wget http://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_latest.zip && unzi
 RUN cp ldstore_v1.1_x86_64/ldstore /usr/local/bin/
 RUN chmod +x /usr/local/bin/ldstore
 COPY Scripts/main.py /usr/local/bin/
+
 RUN chmod +x /usr/local/bin/main.py
 COPY Scripts/gws_fetch.py /usr/local/bin/
 COPY Scripts/annotate.py /usr/local/bin/
