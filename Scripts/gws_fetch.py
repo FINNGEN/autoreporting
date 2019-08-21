@@ -90,7 +90,6 @@ def fetch_gws(args):
     df_p2=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold_2,: ].copy()
     if args.grouping and not df_p1.empty:
         if args.grouping_method=="ld":
-            plink_logfile=io.BytesIO()
             #write current SNPs to file
             temp_variants="{}clump_variants.csv".format(args.prefix)
             df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
@@ -112,23 +111,20 @@ def fetch_gws(args):
                 args.plink_mem,
                 allow_overlap)
             #call plink
-            pr = subprocess.run(shlex.split(plink_command), stdout=PIPE,stderr=PIPE )
-            plink_logfile.write(pr.stdout)
-            plink_logfile.write(pr.stderr)
+            pr = subprocess.run(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
+            plink_log=pr.stdout.readlines()
             if pr.returncode!=0:
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-                print(pr.stdout)
-                print(pr.stderr)
+                [print(l) for l in plink_log]
+                raise ValueError("Plink clumping returned code {}".format(pr.returncode))
             #parse output file, find locus width
             with open("{}plink_log.log".format(args.prefix),"wb") as f:
-                plink_logfile.seek(0)
-                f.write(plink_logfile.read())
+                f.writelines(plink_log)
             try:
                 group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
             except:
                 print("Plink .clumped file not found. Plink logs:")
-                print(pr.stdout)
-                print(pr.stderr)
+                [print(l) for l in plink_log]
                 raise 
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
             res=parse_plink_output(group_data,columns=columns)
