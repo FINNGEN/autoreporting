@@ -126,10 +126,10 @@ def fetch_gws(args):
             try:
                 group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
             except:
-                print(".clumped file not produced. Plink logs:")
+                print("Plink .clumped file not found. Plink logs:")
                 print(pr.stdout)
                 print(pr.stderr)
-                Exception("PLINK clump file not found.")
+                raise 
             group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
             res=parse_plink_output(group_data,columns=columns)
             new_df=pd.DataFrame(columns=df_p2.columns)
