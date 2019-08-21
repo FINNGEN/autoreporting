@@ -111,14 +111,15 @@ def fetch_gws(args):
                 args.plink_mem,
                 allow_overlap)
             #call plink
-            pr = subprocess.run(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
+            pr = subprocess.Popen(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
+            pr.wait()
             plink_log=pr.stdout.readlines()
             if pr.returncode!=0:
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
                 [print(l) for l in plink_log]
                 raise ValueError("Plink clumping returned code {}".format(pr.returncode))
             #parse output file, find locus width
-            with open("{}plink_log.log".format(args.prefix),"wb") as f:
+            with open("{}plink_log.log".format(args.prefix),"w") as f:
                 f.writelines(plink_log)
             try:
                 group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
