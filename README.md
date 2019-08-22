@@ -36,6 +36,14 @@ Copy repository to folder
 git clone https://github.com/FINNGEN/autoreporting.git
 ```
 
+## Resources
+
+The resources to use this tool (gnomad & finngen annotations, LD panel) can be found here:
+- gnomad genome&exome annotations: gs://finngen-production-library-green/autoreporting_annotations/gnomad_data/
+- finngen annotations: gs://finngen-production-library-green/autoreporting_annotations/finngen_annotation/
+- LD panel (based on 1000 genomes data): gs://finngen-production-library-green/autoreporting_annotations/1kg_ld 
+
+
 ## Usage
 
 In the project folder, the script can be used by either calling the whole script or calling the individual scripts by themselves.
