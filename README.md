@@ -13,7 +13,7 @@ __NOTE: currently, only files which are in build 38 are supported. This concerns
 
 ## Dependencies
 
-packages:python 3, pip, plink 1.9, ldstore (tested on 1.1), zlib development libraries for pytabix
+packages:python 3, pip, latest plink, ldstore (tested on 1.1), zlib development libraries for pytabix
 
 python 3 libraries: requests, numpy, pandas, pytabix 
 
@@ -22,7 +22,8 @@ python 3 libraries: requests, numpy, pandas, pytabix
 Install dependencies
 
 ```
-sudo apt install tabix python3 python3-pip plink1.9 zlib1g-dev
+sudo apt install tabix python3 python3-pip zlib1g-dev
+wget http://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_latest.zip && unzip plink_linux_x86_64_latest.zip  && sudo cp plink /bin
 wget http://www.christianbenner.com/ldstore_v1.1_x86_64.tgz
 tar xvf ldstore_v1.1_x86_64.tgz
 sudo cp ldstore_v1.1_x86_64/ldstore /usr/local/bin/ldstore
