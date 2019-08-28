@@ -189,7 +189,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath SUMMARY_FPATH] [--endpoint-fpath ENDPOINTS]
                   [--check-for-ld] [--plink-memory PLINK_MEM]
                   [--ld-panel-path LD_PANEL_PATH] [--prefix PREFIX]
-                  [--raport-out RAPORT_OUT] [--ld-raport-out LD_RAPORT_OUT]
+                  [--report-out RAPORT_OUT] [--ld-report-out LD_RAPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--gwascatalog-threads GWASCATALOG_THREADS]
@@ -204,7 +204,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
 ```
-python3 Scripts/compare.py variant_file.tsv --compare-style gwascatalog --gwascatalog-pval 5e-8 --raport-out output_raport.tsv
+python3 Scripts/compare.py variant_file.tsv --compare-style gwascatalog --gwascatalog-pval 5e-8 --report-out output_report.tsv
 ```
 Additional flags, such as `--check-for-ld`, can be used to check if the summary statistics are in ld with the variants, and to report them if they are.
 
@@ -215,12 +215,12 @@ ld_panel_path (optional): a plink .bed-file, without the suffix, that will be us
 summary_fpath (optional): A file containing the summary file paths. List one file path per line. Actual summary statistics must be tab-separated value files and in build 38.
 endpoint_fpath (optional):  A file containing endpoints for the summary files listed in summary_fpath. List one endpoint per line. 
 __Output__:  
-raport_out: a tsv raport of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also raported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
-ld_raport_out: A tsv raport of those variants that are in LD with external summary statistic/gwascatalog variants.  
-top_report_out: A tsv raport of variant groups and their gwascatalog matched phenotypes. More specific match information is presented in raport_out.   
+report_out: a tsv report of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also reported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
+ld_report_out: A tsv report of those variants that are in LD with external summary statistic/gwascatalog variants.  
+top_report_out: A tsv report of variant groups and their gwascatalog matched phenotypes. More specific match information is presented in report_out.   
 
 __Script function__:
-The comparison script takes in a filtered and annotated variant tsv file, and raports if those variants have been announced in earlier studies. In case GWAScatalog is used, the script forms chromosome &  basepair ranges, such as 1:200000-300000 for 1st chromosome and all variants through 200000 to 300000, and the GWAScatalog summary statistic API is then queried for all hits inside this range that have a p-value under a designated p-value treshold. In case of external summary statistic files, the variants are just combined from these files. The filtered and annotated FINNGEN summary statistic variants are then compared against this group of variants, and for each variant all exact matches are reported. Optionally, genome-wide significant variants are also tested for ld with these variants for earlier studies, and variants for which the ld value is larger than `--ld-treshold` value are reported.
+The comparison script takes in a filtered and annotated variant tsv file, and reports if those variants have been announced in earlier studies. In case GWAScatalog is used, the script forms chromosome &  basepair ranges, such as 1:200000-300000 for 1st chromosome and all variants through 200000 to 300000, and the GWAScatalog summary statistic API is then queried for all hits inside this range that have a p-value under a designated p-value treshold. In case of external summary statistic files, the variants are just combined from these files. The filtered and annotated FINNGEN summary statistic variants are then compared against this group of variants, and for each variant all exact matches are reported. Optionally, genome-wide significant variants are also tested for ld with these variants for earlier studies, and variants for which the ld value is larger than `--ld-treshold` value are reported.
 
 
 ## WDL pipeline

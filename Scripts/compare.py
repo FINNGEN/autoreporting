@@ -213,6 +213,9 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
         print("LDSTORE FAILURE for locus {}".format(locus)  )
         print(pr.stdout)
         return
+    #check if ldstore merged file exists, if not, throw an error
+    if not os.path.exists("{}temp_corr.bcor".format(args.prefix)):
+        raise FileNotFoundError("The LD correlation file {} does not exist. Check that the chromosome index is correct, e.g. 23 in both summary statistic and LD panel instead of 23 and X.".format(args.prefix+"temp_corr.bcor"))
     #create list of variants of interest.
     var_cols=["#variant",columns["pos"],columns["chrom"],columns["ref"],columns["alt"]]
     var_rename={"#variant":"RSID",columns["pos"]:"position",columns["chrom"]:"chromosome",columns["ref"]:"A_allele",columns["alt"]:"B_allele"}
@@ -232,6 +235,8 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
         print(pr.stdout)
         return
     #read ld_table, make it so rsid1 is for our variants and rsid2 for summary variants
+    if not os.path.exists("{}ld_table.table".format(args.prefix)):
+        raise FileNotFoundError("The LD association table {} does not exist. Check that the chromosome index is correct, e.g. 23 in both summary statistic and LD panel instead of 23 and X.".format(args.prefix+"ld_table.table"))
     ld_table=pd.read_csv("{}ld_table.table".format(args.prefix),sep="\s+").loc[:,["chromosome","RSID1","RSID2","correlation"]]
     if ld_table.empty:
         return
@@ -250,8 +255,9 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
     ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
     ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
     #remove temporary files
-    rmcmd="rm {}ld_table.table {}var_lst".format(args.prefix, args.prefix)
-    Popen(shlex.split(rmcmd),stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
+    corr_files=glob.glob("{}temp_corr.*".format(args.prefix))
+    rmcmd="rm {}ld_table.table {}var_lst".format(args.prefix, args.prefix, args.prefix)
+    Popen(shlex.split(rmcmd)+corr_files,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
     return ld
 
 def compare(args):
@@ -362,9 +368,8 @@ def compare(args):
                     continue
                 ld_df=pd.concat([ld_df,ld],sort=True)
         c5="rm "
-        corr_files=glob.glob("{}temp_corr.*".format(args.prefix))
         plink_files=glob.glob("{}temp_chrom.*".format(args.prefix))
-        Popen(shlex.split(c5)+corr_files+plink_files,stderr=subprocess.DEVNULL)
+        Popen(shlex.split(c5)+plink_files,stderr=subprocess.DEVNULL)
         if not ld_df.empty:
             ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
             ld_df=ld_df.merge(summary_df.loc[:,["map_variant","trait","trait_name"]].rename(columns={"map_variant":"RSID2_map"}),how="inner",on="RSID2_map")
@@ -385,17 +390,17 @@ if __name__ == "__main__":
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
-    parser.add_argument("--raport-out",dest="raport_out",type=str,default="raport_out.csv",help="Raport output path")
-    parser.add_argument("--ld-raport-out",dest="ld_raport_out",type=str,default="ld_raport_out.csv",help="LD check raport output path")
-    parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
+    parser.add_argument("--report-out",dest="raport_out",type=str,default="report_out.csv",help="Report output path")
+    parser.add_argument("--ld-report-out",dest="ld_raport_out",type=str,default="ld_report_out.csv",help="LD check report output path")
+    parser.add_argument("--gwascatalog-pval",type=str,default="5e-8",help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
-    parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld raport")
+    parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
-    parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level raport")
+    parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse,shlex,subprocess
+import argparse,shlex,subprocess,os
 from subprocess import Popen, PIPE
 import pandas as pd 
 import numpy as np
@@ -59,14 +59,20 @@ def annotate(args):
         df.to_csv(path_or_buf="{}".format(args.annotate_out),sep="\t",index=False)
         return
     #load gnomad_genomes
+    if not os.path.exists("{}.tbi".format(args.gnomad_genome_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.gnomad_genome_path))
     tb_g=tabix.open(args.gnomad_genome_path)
     gnomad_genomes=load_tb_df(df,tb_g,args.gnomad_genome_path,columns=columns)
 
     #load gnomad_exomes
+    if not os.path.exists("{}.tbi".format(args.gnomad_exome_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.gnomad_exome_path))
     tb_e=tabix.open(args.gnomad_exome_path)
     gnomad_exomes=load_tb_df(df,tb_e,args.gnomad_exome_path,columns=columns)
 
     #load finngen annotations
+    if not os.path.exists("{}.tbi".format(args.finngen_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.finngen_path))
     tb_f=tabix.open(args.finngen_path)
     fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
     fg_df=fg_df.drop_duplicates(subset=["#variant"])
