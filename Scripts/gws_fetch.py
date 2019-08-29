@@ -73,14 +73,14 @@ def fetch_gws(args):
     for dframe in pd.read_csv(args.gws_fpath,compression="gzip",sep="\t",dtype=dtype,engine="c",chunksize=c_size):
         #filter gws snps
         temp_df=pd.concat([temp_df,dframe.loc[dframe[columns["pval"]]<=sig_tresh,:]],axis="index",ignore_index=True)
-    if temp_df.empty:
-        print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(args.gws_fpath,args.sig_treshold))
-        return 1
     #remove ignored region if there is one
     if args.ignore_region:
         ignore_region=parse_region(args.ignore_region)
         ign_idx=( ( temp_df[columns["chrom"]]==ignore_region["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region["end"] )&( temp_df[columns["pos"]]>=ignore_region["start"] ) )
         temp_df=temp_df.loc[~ign_idx,:]
+    if temp_df.empty:
+        print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(args.gws_fpath,args.sig_treshold))
+        return 1
     temp_df=temp_df.reset_index(drop=True)
     temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]

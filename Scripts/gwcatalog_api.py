@@ -267,7 +267,7 @@ class GwasApi(ExtDB):
                     break
                 else:
                     print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
-        rsid_df=pd.DataFrame(out)
+        rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
         tmpdf=df_out.loc[:,cols].copy()
