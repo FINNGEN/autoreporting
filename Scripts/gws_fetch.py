@@ -49,6 +49,24 @@ def solve_groups(result_dframe,group_data,tabixdf):
         result_dframe=pd.concat([result_dframe,tmp],axis=0)
     return result_dframe
 
+def solve_groups_better(all_variants,group_data):
+    """
+    Returns a dataframe containing the grouped variants, and only those.
+    In: All variants considered for grouping (basically the variants with p-value < args.sig_tresh_2), parsed group data
+    Out: Dataframe with same columns as all_variants, containing the rows in group_data
+    """
+    retval=pd.DataFrame(columns=all_variants.columns)
+    for t in group_data.itertuples():
+        group=[t.SNP]
+        if t.TOTAL>0:
+            sp2_split=t.SP2.split(",")
+            sp2_split=[x.strip().strip("(1)") for x in sp2_split]
+            group=group+sp2_split
+        group_df=all_variants[all_variants["#variant"].isin(group)].copy()
+        group_df.loc[:,"locus_id"]=t.SNP
+        retval=pd.concat([retval,group_df],axis="index")
+    return retval
+
 def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
     #find min and max position from group, return them
     temp_df=dframe.loc[dframe["locus_id"]==group_variant]
@@ -114,29 +132,36 @@ def fetch_gws(args):
             pr = subprocess.Popen(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
             pr.wait()
             plink_log=pr.stdout.readlines()
+            with open("{}plink_log.log".format(args.prefix),"w") as f:
+                f.writelines(plink_log)
             if pr.returncode!=0:
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
                 [print(l) for l in plink_log]
                 raise ValueError("Plink clumping returned code {}".format(pr.returncode))
             #parse output file, find locus width
-            with open("{}plink_log.log".format(args.prefix),"w") as f:
-                f.writelines(plink_log)
-            try:
+            no_sig_res_string="Warning: No significant --clump results.  Skipping."
+            if os.path.exists("{}.clumped".format(plink_fname)):
                 group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
-            except:
-                print("Plink .clumped file not found. Plink logs:")
-                [print(l) for l in plink_log]
-                raise 
-            group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
-            res=parse_plink_output(group_data,columns=columns)
-            new_df=pd.DataFrame(columns=df_p2.columns)
-            new_df=solve_groups(new_df,group_data,df_p2)
-            for var in new_df["locus_id"].unique():
-                r=get_group_range(new_df,var,columns=columns)
-                new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=r["min"]
-                new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=r["max"]
-            new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
-            new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
+                group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
+                res=parse_plink_output(group_data,columns=columns)
+                new_df=solve_groups_better(df_p2.copy(),group_data)
+                for var in new_df["locus_id"].unique():
+                    r=get_group_range(new_df,var,columns=columns)
+                    new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=r["min"]
+                    new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=r["max"]
+                p1_group_leads = df_p1["#variant"].isin(new_df["#variant"])
+                p1_singletons = ~p1_group_leads
+                new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index").sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+                new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
+                new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
+            else:
+                if any([no_sig_res_string in string for string in plink_log]):#no significant results
+                    print("No significant results with PLINK clumping. All groups are singletons.")
+                    new_df=df_p1.copy()
+                else:
+                    print("Plink .clumped file not found. Check the logs for information:")
+                    [print(l) for l in plink_log]
+                    raise FileNotFoundError("Plink .clumped file not found.")
             #cleanup plink files
             plink_files=glob.glob("{}.*".format(plink_fname))
             subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
