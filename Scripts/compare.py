@@ -356,7 +356,7 @@ def compare(args):
         for chrom in chrom_lst:
             print("------------LD for groups in chromosome {}------------".format(chrom))
             groups=df[df[columns["chrom"]].astype(str) == chrom ].loc[:,"locus_id"].unique()
-            plink_cmd="plink --bfile {} --chr {} --make-bed --out {}temp_chrom --memory {}".format( args.ld_panel_path, chrom ,args.prefix,args.plink_mem)
+            plink_cmd="plink --bfile {} --output-chr M --chr {} --make-bed --out {}temp_chrom --memory {}".format( args.ld_panel_path, chrom ,args.prefix,args.plink_mem)
             pr=subprocess.run(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT)
             if pr.returncode!=0:
                 print("PLINK FAILURE for chromosome {}. Error code {}".format(chrom,pr.returncode)  )

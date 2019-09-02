@@ -12,6 +12,7 @@ def main(args):
     args.raport_out = "{}{}".format(args.prefix,args.raport_out)
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_raport_out = "{}{}".format(args.prefix,args.ld_raport_out)
+    args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
     ###########################
     ###Filter and Group SNPs###
     ###########################
