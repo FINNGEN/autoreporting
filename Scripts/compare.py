@@ -90,7 +90,7 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
     #create mapping column
     df=map_column(df,"map_variant",columns)
     if df.empty:
-        return pd.DataFrame(columns=["locus_id","chr","start","end","matching_pheno_gwas_catalog_hits","other_gwas_hits"])
+        return pd.DataFrame(columns=["locus_id","chr","start","end","enrichment","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"])
     if not summary_df.empty:
         summary_df=map_column(summary_df,"map_variant",columns)
         summary_df=summary_df.loc[:,["map_variant","trait","trait_name"]]
@@ -99,7 +99,7 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         merged=df.copy()
     list_of_loci=list(df["locus_id"].unique())
     #compile new simple top level dataframe
-    top_level_columns=["locus_id","chr","start","end","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
+    top_level_columns=["locus_id","chr","start","end","enrichment","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
     top_level_df=pd.DataFrame(columns=top_level_columns)
     for locus_id in list_of_loci:
         #get variants of this locus
@@ -108,6 +108,11 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         chrom=loc_variants[columns["chrom"]].values[0]
         start=np.amin(loc_variants[columns["pos"]])
         end=np.amax(loc_variants[columns["pos"]])
+        try:#in case the annotation has not been done
+            enrich=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].values[0]
+        except:
+            enrich=np.nan
+        pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
         #find all of the traits that have hits
         if not summary_df.empty:
             all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
@@ -119,10 +124,10 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
                     trait_dict[row.trait]=row.trait_name
             matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
             other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
-            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
+            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"enrichment":enrich,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
             "other_gwas_hits":";".join(other_traits)},ignore_index=True)
         else:
-            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"matching_pheno_gwas_catalog_hits":"",
+            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"enrichment":enrich,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":"",
             "other_gwas_hits":""},ignore_index=True)
     return top_level_df
          

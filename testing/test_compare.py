@@ -47,7 +47,7 @@ class TestGws(unittest.TestCase):
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
         cols=["#chrom","pos","ref","alt","pval","#variant","locus_id"]
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
-        end_result_cols=["locus_id","chr","start","end","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
+        end_result_cols=["locus_id","chr","start","end","enrichment","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
         traits=[]
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         df=pd.DataFrame(columns=cols)
@@ -61,21 +61,21 @@ class TestGws(unittest.TestCase):
         validate=pd.read_csv("compare_resources/top_result_empty_summary.csv",sep="\t")
         validate=validate.fillna("")
         for col in res.columns:
-            self.assertTrue(res[col].equals(validate[col].astype(object)) )
+            self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 3: populated dataframe, populated summary variant df, no traits
         summary_df=pd.read_csv("compare_resources/summary_df.csv",sep="\t")
         res=compare.create_top_level_report(df,summary_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_traits_1.csv",sep="\t")
         validate=validate.fillna("")
         for col in res.columns:
-            self.assertTrue(res[col].equals(validate[col].astype(object)) )
+            self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 4: populated dataframes, common traits
         traits=["TRAIT_1","TRAIT_4"]
         res=compare.create_top_level_report(df,summary_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_traits_2.csv",sep="\t")
         validate=validate.fillna("")
         for col in res.columns:
-            self.assertTrue(res[col].equals(validate[col].astype(object)) )
+            self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
     
     def test_load_summaries(self):
         """Test cases:
