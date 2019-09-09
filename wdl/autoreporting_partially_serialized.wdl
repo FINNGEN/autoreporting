@@ -84,14 +84,16 @@ task preprocess_chunks{
     String docker
     command <<<
         python3 <<CODE
-        with open("${phenotypelist}") as f:
+        with open("${phenotypelist}","r") as f:
             lines = f.readlines()
             lines=[l.strip("\n") for l in lines]
             n=int(${num})
             f2=open("phenofiles.tbi.tsv","w")
             with open("phenofiles.tsv","w") as w:
-                for i in range(n):
-                    tmparr=lines[i*(len(lines)//n+1):(i+1)*(len(lines)//n+1)]
+                #for i in range(n):
+                #   tmparr=lines[i*(len(lines)//n+1):(i+1)*(len(lines)//n+1)]
+                for i in range(len(lines)//n+1):
+                    tmparr=lines[(i*n):(i+1)*n]
                     if tmparr==[]:
                         break
                     w.write("\t".join( tmparr ))

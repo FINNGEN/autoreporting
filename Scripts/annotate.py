@@ -125,9 +125,9 @@ def annotate(args):
     
     fg_df=fg_df.rename(columns={"gene":"most_severe_gene","most_severe":"most_severe_consequence"})
     fg_cols=fg_df.columns.values.tolist()
-    info=list(filter(lambda s: "INFO_" in s,fg_cols))
-    imp=list(filter(lambda s: "IMP_" in s,fg_cols))
-    af=list(filter(lambda s: "AF_" in s,fg_cols))
+    info=list(filter(lambda s: "INFO" in s,fg_cols))
+    imp=list(filter(lambda s: "IMP" in s,fg_cols))
+    af=list(filter(lambda s: "AFW" in s,fg_cols))
 
     fg_batch_lst=info+imp+af
     fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
