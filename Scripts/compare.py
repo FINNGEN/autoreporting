@@ -99,7 +99,7 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         merged=df.copy()
     list_of_loci=list(df["locus_id"].unique())
     #compile new simple top level dataframe
-    top_level_columns=["locus_id","chr","start","end","enrichment","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
+    top_level_columns=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
     top_level_df=pd.DataFrame(columns=top_level_columns)
     for locus_id in list_of_loci:
         #get variants of this locus
@@ -110,8 +110,12 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         end=np.amax(loc_variants[columns["pos"]])
         try:#in case the annotation has not been done
             enrich=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].values[0]
+            most_sev_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].values[0]
+            most_sev_cons=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_consequence"].values[0]
         except:
             enrich=np.nan
+            most_sev_gene=np.nan
+            most_sev_cons=np.nan
         pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
         #find all of the traits that have hits
         if not summary_df.empty:
@@ -124,10 +128,12 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
                     trait_dict[row.trait]=row.trait_name
             matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
             other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
-            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"enrichment":enrich,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
+            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
+            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
             "other_gwas_hits":";".join(other_traits)},ignore_index=True)
         else:
-            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,"enrichment":enrich,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":"",
+            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
+            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":"",
             "other_gwas_hits":""},ignore_index=True)
     return top_level_df
          
@@ -189,7 +195,7 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_t
         indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
         indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
         gwas_df=gwas_df.loc[~indel_idx,:]
-        gwas_df=pd.concat([gwas_df,indels]).reset_index(drop=True)
+        gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
     return gwas_df
 
 def extract_ld_variants(df,summary_df,locus,args,columns):
