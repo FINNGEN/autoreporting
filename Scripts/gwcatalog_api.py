@@ -37,6 +37,17 @@ def try_request(url, params=None,timeout=5):
         tries+=1
     return r
 
+def parse_float(number):
+    """
+    Parse number so that it only consists of a whole number part and an exponent, i.e. 5.1e-8 -> 51e-9
+    In: any floating point number (though for the purposes of this project positive values do not make sense. Should still work.)
+    Out: a string representation of that float with no dots.
+    """
+    numpart="".join("{:e}".format(number).split("e")[0].strip("0").split("."))
+    exponent=int("{:e}".format(number).split("e")[1])-len(numpart)+1
+    retval="{}e{}".format(numpart,exponent)
+    return retval
+
 class ExtDB(object):
 
     @abc.abstractmethod
@@ -239,7 +250,7 @@ class GwasApi(ExtDB):
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
         url="https://www.ebi.ac.uk/gwas/api/search/downloads?q=chromosomeName: {} AND chromosomePosition:[ {} TO {}"\
             "]&pvalfilter={}&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
-            chromosome,start,end,pval)
+            chromosome,start,end,parse_float(float(pval) ))
         gwcat_response=requests.get(url)
         while gwcat_response.status_code!=200:
             print(gwcat_response.status_code)
