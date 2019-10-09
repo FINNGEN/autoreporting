@@ -43,6 +43,7 @@ task report {
     String efo_codes
     String compare_style
     String db_choice
+    String annotation_version
     String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
     String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
     String dollar = "$"  
@@ -57,6 +58,7 @@ task report {
             --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_memory} ${true='--overlap' false='' overlap} \
             ${ignore_cmd} ${ignore_region}\
             --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' include_batch_freq} --finngen-path ${finngen_annotation} \
+            --finngen-annotation-version ${annotation_version}\
             --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
             --ldstore-threads ${cpus} --gwascatalog-threads ${gwascatalog_threads} \
             ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \

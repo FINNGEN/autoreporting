@@ -65,7 +65,12 @@ def annotate(args):
     if not os.path.exists("{}.tbi".format(args.finngen_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.finngen_path))
     tb_f=tabix.open(args.finngen_path)
-    fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
+    if args.fg_ann_version=="r3":
+        fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
+    else:
+        fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+        fg_df=fg_df.drop(labels="#variant",axis="columns")
+        fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     fg_df=fg_df.drop_duplicates(subset=["#variant"])
 
     #load functional annotations. 
@@ -173,6 +178,7 @@ if __name__=="__main__":
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.csv",help="Output filename, default is out.csv")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
+    parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."

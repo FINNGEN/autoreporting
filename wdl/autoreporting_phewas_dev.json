@@ -1,7 +1,7 @@
 {
     "autoreporting.phenotypelist": "gs://arto/finngen-r3-summaries/phenotypes",
     "autoreporting.phenos_per_worker": 5,
-    "autoreporting.report.docker":"eu.gcr.io/phewas-development/autorep:0.003",
+    "autoreporting.report.docker":"eu.gcr.io/finngen-refinery-dev/autorep:fd5e52",
     "autoreporting.report.gnomad_exome":"gs://arto/cromwell_test/gnomad_data/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
     "autoreporting.report.gnomad_genome":"gs://arto/cromwell_test/gnomad_data/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
     "autoreporting.report.ld_panel":"gs://arto/cromwell_test/1kg_ld/1k",
@@ -27,5 +27,6 @@
     "autoreporting.report.ignore_region":"",
     "autoreporting.report.efo_codes":"",
     "autoreporting.report.compare_style":"gwascatalog",
-    "autoreporting.report.db_choice":"local"
+    "autoreporting.report.db_choice":"local",
+    "autoreporting.report.annotation_version":"r3"
 }
