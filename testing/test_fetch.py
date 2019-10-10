@@ -108,23 +108,24 @@ class TestGws(unittest.TestCase):
             self.assertEqual( list(output[col]) , list(validation[col]) )
 
     def test_simple_grouping(self):
-        #test simple grouping 
+        #test simple grouping function
+        #set up data and parameters
         input_="fetch_resources/test_grouping.tsv.gz"
-        args=Arg()
-        args.gws_fpath=input_
-        args.sig_treshold=0.05
-        args.sig_treshold_2=0.05
-        args.column_labels=["#chrom","pos","ref","alt","pval"]
-        args.loc_width=1
-        args.grouping=True
-        args.grouping_method="simple"
-        args.overlap=False
-        args.fetch_out=StringIO()
-        args.ignore_region=""
-
-        gws_fetch.fetch_gws(args)
-        args.fetch_out.seek(0)
-        output=pd.read_csv(args.fetch_out,sep="\t")
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        data=pd.read_csv(input_,compression="gzip",sep="\t")
+        data["#variant"]=autils.create_variant_column(data)
+        data["locus_id"]=data["#variant"]
+        data["pos_rmax"]=data["pos"]
+        data["pos_rmin"]=data["pos"]
+        sig_treshold=0.05
+        sig_treshold_2=0.05
+        loc_width=1000
+        overlap=False
+        df_p1=data[data["pval"] <=sig_treshold]
+        df_p2=data[data["pval"] <=sig_treshold_2]
+        #run function
+        output=gws_fetch.simple_grouping(df_p1,df_p2,loc_width,overlap,columns)
+        output=output.sort_values(["locus_id","#variant"])
         val_path="fetch_resources/group_validate_width_1k.tsv"
         validate=pd.read_csv(val_path,sep="\t")
         for col in output.columns:
