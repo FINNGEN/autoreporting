@@ -76,9 +76,40 @@ def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
     max_=np.max(temp_df[columns["pos"]])
     return {"min":min_,"max":max_}
 
+def simple_grouping(df_p1,df_p2,r,overlap,columns):
+    """
+    Simple grouping function
+    Groups the variants based on p-values
+    Group 1: lead variants
+    Group 2: lead variants + variants that can not be lead variants. group 2 contains group 1.
+    In: group 1 (df_p1, df), group 2 (df_p2, df), group width (r, int), do we overlap (overlap, bool), columns (columns, dict{key:str})
+    Out: grouped dataframe
+    """
+    #simple grouping
+    df=df_p1.copy()
+    group_df=df_p2.copy()
+    new_df=pd.DataFrame(columns=df.columns)
+    while not df.empty:
+        ms_snp=df.loc[df[columns["pval"] ].idxmin(),:]#get most sig SNP
+        rowidx=(group_df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(group_df[ columns["pos"] ]>= (ms_snp[columns["pos"]]-r) )&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])#get group indexes
+        tmp=group_df.loc[rowidx,:].copy()
+        tmp.loc[:,"locus_id"]=ms_snp["#variant"]#necessary
+        tmp.loc[:,"pos_rmin"]=tmp[columns["pos"]].min()#get group pos_rmin and pos_rmax from location of the SNPs instead of just a 
+        tmp.loc[:,"pos_rmax"]=tmp[columns["pos"]].max()
+        new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
+        #convergence: remove the indexes from result_dframe. The rowidx =\= dropidx, as they come from different dataframes (df, group_df)
+        dropidx=(df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(df[ columns["pos"] ]>= (ms_snp[columns["pos"]]-r) )&(df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
+        df=df.loc[~dropidx,:]
+        #if not overlap, we also delete these from the group_df, so they can't be included again in other groups.
+        if not overlap:
+            t_dropidx=(group_df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(group_df[ columns["pos"] ]>=(ms_snp[columns["pos"]]-r) )&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
+            group_df=group_df.loc[~t_dropidx,:]
+    return new_df
+
 def fetch_gws(args):
     #column names
     columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
+
     sig_tresh=max(args.sig_treshold,args.sig_treshold_2)
     c_size=100000
     r=args.loc_width*1000#range for location width, originally in kb
@@ -96,6 +127,7 @@ def fetch_gws(args):
         ignore_region=parse_region(args.ignore_region)
         ign_idx=( ( temp_df[columns["chrom"]]==ignore_region["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region["end"] )&( temp_df[columns["pos"]]>=ignore_region["start"] ) )
         temp_df=temp_df.loc[~ign_idx,:]
+    
     if temp_df.empty:
         print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(args.gws_fpath,args.sig_treshold))
         return 1
@@ -166,32 +198,7 @@ def fetch_gws(args):
             plink_files=glob.glob("{}.*".format(plink_fname))
             subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         else:
-            #simple grouping
-            df=df_p1.copy()
-            df.loc[:,"pos_rmin"]+= -r
-            df.loc[:,"pos_rmax"]+= r
-            df.loc[:,"pos_rmin"]=df.loc[:,"pos_rmin"].clip(lower=0)
-            group_df=df_p2.copy()
-            new_df=pd.DataFrame(columns=df.columns)
-            i=1
-            total=df.shape[0]
-            while not df.empty:
-                ms_snp=df.loc[df[columns["pval"] ].idxmin(),:]
-                rowidx=(group_df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(group_df[ columns["pos"] ]>=ms_snp["pos_rmin"])&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
-                tmp=group_df.loc[rowidx,:].copy()
-                tmp.loc[:,"locus_id"]=ms_snp["#variant"]
-                tmp.loc[:,"pos_rmin"]=ms_snp["pos_rmin"]
-                tmp.loc[:,"pos_rmax"]=ms_snp["pos_rmax"]
-                new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
-                #convergence: remove the indexes from result_dframe
-                dropidx=(df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(df[ columns["pos"] ]>=ms_snp["pos_rmin"])&(df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
-                df=df.loc[~dropidx,:]
-                if not args.overlap:
-                    t_dropidx=(group_df[ columns["pos"] ]<=ms_snp["pos_rmax"])&(group_df[ columns["pos"] ]>=ms_snp["pos_rmin"])&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
-                    group_df=group_df.loc[~t_dropidx,:]
-                if i%100==0:
-                    print("iter: {}, lead SNPs remaining:{}/{}".format(i,df.shape[0],total))
-                i+=1
+            new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=args.overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
         new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     else:
