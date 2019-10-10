@@ -14,6 +14,7 @@ class Arg():
 
 class TestGws(unittest.TestCase):
 
+    """
     def test_plink_parsing(self):
         #load data
         df=pd.read_csv("fetch_resources/test_plink.clumped",sep="\s+")
@@ -28,7 +29,7 @@ class TestGws(unittest.TestCase):
         #test parsing
         df=gws_fetch.parse_plink_output(df)
         self.assertTrue(df2.equals(df))
-
+    
     def test_solve_groups(self):
         #create parameters for function
         result_header=["#chrom", "pos", "ref", "alt", "rsids", "nearest_genes", "pval", "beta", "sebeta", "maf", "maf_cases", "maf_controls","#variant","locus_id"]
@@ -43,7 +44,7 @@ class TestGws(unittest.TestCase):
         #test for equality
         self.assertTrue(df.equals(df2))
         pass
-
+    
     def test_group_range(self):
         #input possibilities: df with no entries, df with one entry, df with multiple entries of one group
         #column names: since they are specified in the function call, no need to test them
@@ -79,7 +80,7 @@ class TestGws(unittest.TestCase):
         self.assertEqual(min_,retval["min"])
         self.assertEqual(max_,retval["max"])
         pass
-
+    """
     def test_simple_filtering(self):
         #test simple filtering
         input_="fetch_resources/filter_test.tsv.gz"

@@ -13,41 +13,6 @@ def parse_region(region):
     end=region.split(":")[1].split("-")[1]
     return {"chrom":str(chrom),"start":int(start),"end":int(end)}
 
-def parse_plink_output(df,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt"}):
-    """Parse plink --clump output, which is a multiple-space separated dataframe with the groups
-    separated by commas. Is used to get tabixdf
-    In: plink --clump output dataframe
-    Out: dataframe that has chrom,pos,ref,alt of all of the grouped and group variants"""
-    chrom_pos_lst=[]
-    for t in df.itertuples():
-        chrom_pos_lst.append(t.SNP)
-        if t.TOTAL != 0:
-            sp2_split=t.SP2.split(",")
-            sp2_split=[x.strip().strip("(1)") for x in sp2_split]
-            chrom_pos_lst=chrom_pos_lst+sp2_split
-    #separate to chrom and pos
-    res={columns["chrom"]:[],columns["pos"]:[],columns["ref"]:[],columns["alt"]:[]}
-    for row in chrom_pos_lst:
-        tmp=row.strip("chr").split("_")
-        res[columns["chrom"] ].append(tmp[0])
-        res[columns["pos"] ].append(tmp[1])
-        res[columns["ref"] ].append(tmp[2])
-        res[columns["alt"] ].append(tmp[3])
-    res=pd.DataFrame(res)
-    res.loc[:,"#variant"]=create_variant_column(res,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-    return res
-
-def solve_groups(result_dframe,group_data,tabixdf):
-    for t in group_data.itertuples():
-        group=[t.SNP]
-        if t.TOTAL>0:
-            sp2_split=t.SP2.split(",")
-            sp2_split=[x.strip().strip("(1)") for x in sp2_split]
-            group=group+sp2_split
-        tmp=tabixdf.loc[tabixdf["#variant"].isin(group),].copy(deep=True)
-        tmp.loc[:,"locus_id"]=t.SNP
-        result_dframe=pd.concat([result_dframe,tmp],axis=0)
-    return result_dframe
 
 def solve_groups_better(all_variants,group_data):
     """
@@ -60,13 +25,14 @@ def solve_groups_better(all_variants,group_data):
         group=[t.SNP]
         if t.TOTAL>0:
             sp2_split=t.SP2.split(",")
-            sp2_split=[x.strip().strip("(1)") for x in sp2_split]
+            strip_= lambda x,y: x[:-len(y)] if x.endswith(y) else x
+            sp2_split=[strip_(x.strip(),"(1)" ) for x in sp2_split]
             group=group+sp2_split
-        group_df=all_variants[all_variants["#variant"].isin(group)].copy()
+        group_df=all_variants[ all_variants["#variant"].isin(group) ].copy()
         group_df.loc[:,"locus_id"]=t.SNP
         retval=pd.concat([retval,group_df],axis="index")
     return retval
-
+"""
 def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
     #find min and max position from group, return them
     temp_df=dframe.loc[dframe["locus_id"]==group_variant]
@@ -75,7 +41,7 @@ def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
     min_=np.min(temp_df[columns["pos"]])
     max_=np.max(temp_df[columns["pos"]])
     return {"min":min_,"max":max_}
-
+"""
 def simple_grouping(df_p1,df_p2,r,overlap,columns):
     """
     Simple grouping function
@@ -104,6 +70,72 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
         if not overlap:
             t_dropidx=(group_df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(group_df[ columns["pos"] ]>=(ms_snp[columns["pos"]]-r) )&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
             group_df=group_df.loc[~t_dropidx,:]
+    return new_df
+
+def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_treshold,ld_panel_path,plink_memory,overlap, prefix, columns):
+    """
+    LD Clumping function
+    Groups the variants based on PLINK's ld-clumping
+    In: variant group 1, variant group 2, p-value threshold 1, p-value threshold 2, group width, ld threshold, prefix,  columns
+    Out: grouped dataframe
+    """
+    #1:create PLINK variant list
+    temp_variants="{}clump_variants.csv".format(prefix)
+    df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
+    plink_fname="{}plink_clump".format(prefix)
+    #set up overlap flag for PLINK
+    allow_overlap=""
+    if overlap==True:
+        allow_overlap="--clump-allow-overlap"
+    plink_command="plink --allow-extra-chr --bfile {} --clump {} --clump-field {} --clump-snp-field '{}'  --clump-r2 {}"\
+        " --clump-kb {} --clump-p1 {} --clump-p2 {} --out {} --memory {} {}".format(
+        ld_panel_path,
+        temp_variants,
+        columns["pval"],
+        "#variant",
+        ld_treshold,
+        locus_width,
+        sig_treshold,
+        sig_treshold_2,
+        plink_fname,
+        plink_memory,
+        allow_overlap)
+    #run PLINK
+    pr = subprocess.Popen(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
+    pr.wait()
+    #get plink log
+    plink_log=pr.stdout.readlines()
+    if pr.returncode!=0:
+        print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
+        [print(l) for l in plink_log]
+        raise ValueError("Plink clumping returned code {}".format(pr.returncode))
+    #Check if PLINK returned something or not
+    no_sig_res_string="Warning: No significant --clump results.  Skipping."
+    #if there is data
+    if os.path.exists("{}.clumped".format(plink_fname)):
+        group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
+        group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
+        new_df=solve_groups_better(df_p2.copy(),group_data)
+        for var in new_df["locus_id"].unique():
+            new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=new_df.loc[new_df["locus_id"]==var,"pos"].min()#r["min"]
+            new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=new_df.loc[new_df["locus_id"]==var,"pos"].max()
+        p1_group_leads = df_p1["#variant"].isin(new_df["#variant"])
+        p1_singletons = ~p1_group_leads
+        new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index").sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+        new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
+        new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
+    #if there is not data
+    else:
+        if any([no_sig_res_string in string for string in plink_log]):#no significant results
+            print("No significant results with PLINK clumping. All groups are singletons.")
+            new_df=df_p1.copy()
+        else:
+            print("Plink .clumped file not found. Check the logs for information:")
+            [print(l) for l in plink_log]
+            raise FileNotFoundError("Plink .clumped file not found.")
+    #cleanup plink files
+    plink_files=glob.glob("{}.*".format(plink_fname))
+    subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     return new_df
 
 def fetch_gws(args):
@@ -140,63 +172,7 @@ def fetch_gws(args):
     df_p2=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold_2,: ].copy()
     if args.grouping and not df_p1.empty:
         if args.grouping_method=="ld":
-            #write current SNPs to file
-            temp_variants="{}clump_variants.csv".format(args.prefix)
-            df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
-            plink_fname="{}plink_clump".format(args.prefix)
-            allow_overlap=""
-            if args.overlap==True:
-                allow_overlap="--clump-allow-overlap"
-            plink_command="plink --allow-extra-chr --bfile {} --clump {} --clump-field {} --clump-snp-field '{}'  --clump-r2 {}"\
-                " --clump-kb {} --clump-p1 {} --clump-p2 {} --out {} --memory {} {}".format(
-                args.ld_panel_path,
-                temp_variants,
-                columns["pval"],
-                "#variant",
-                args.ld_r2,
-                args.loc_width,
-                args.sig_treshold,
-                args.sig_treshold_2,
-                plink_fname,
-                args.plink_mem,
-                allow_overlap)
-            #call plink
-            pr = subprocess.Popen(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
-            pr.wait()
-            plink_log=pr.stdout.readlines()
-            with open("{}plink_log.log".format(args.prefix),"w") as f:
-                f.writelines(plink_log)
-            if pr.returncode!=0:
-                print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-                [print(l) for l in plink_log]
-                raise ValueError("Plink clumping returned code {}".format(pr.returncode))
-            #parse output file, find locus width
-            no_sig_res_string="Warning: No significant --clump results.  Skipping."
-            if os.path.exists("{}.clumped".format(plink_fname)):
-                group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
-                group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
-                res=parse_plink_output(group_data,columns=columns)
-                new_df=solve_groups_better(df_p2.copy(),group_data)
-                for var in new_df["locus_id"].unique():
-                    r=get_group_range(new_df,var,columns=columns)
-                    new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=r["min"]
-                    new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=r["max"]
-                p1_group_leads = df_p1["#variant"].isin(new_df["#variant"])
-                p1_singletons = ~p1_group_leads
-                new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index").sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
-                new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
-                new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
-            else:
-                if any([no_sig_res_string in string for string in plink_log]):#no significant results
-                    print("No significant results with PLINK clumping. All groups are singletons.")
-                    new_df=df_p1.copy()
-                else:
-                    print("Plink .clumped file not found. Check the logs for information:")
-                    [print(l) for l in plink_log]
-                    raise FileNotFoundError("Plink .clumped file not found.")
-            #cleanup plink files
-            plink_files=glob.glob("{}.*".format(plink_fname))
-            subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            new_df=ld_grouping(df_p1,df_p2,args.sig_treshold,args.sig_treshold_2,args.loc_width,args.ld_r2,args.ld_panel_path,args.plink_mem,args.overlap,args.prefix,columns)
         else:
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=args.overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
