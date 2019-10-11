@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock as mock
 import sys,os
 sys.path.append("../")
 sys.path.append("./")
@@ -11,6 +12,13 @@ from io import StringIO
 class Arg():
     def __init__(self):
         pass
+
+def return_sp_mock(arg,stdout, stderr=None,encoding=None,*args):
+    retval=mock.Mock()
+    retval.returncode=0
+    retval.wait=lambda:True
+    retval.stdout.readlines=lambda:[""]
+    return retval
 
 class TestGws(unittest.TestCase):
 
@@ -132,6 +140,39 @@ class TestGws(unittest.TestCase):
         for col in output.columns:
             self.assertEqual(list(output[col]),list(validate[col]))
 
+    #@mock.patch('')
+    @mock.patch('Scripts.gws_fetch.subprocess.Popen',side_effect=return_sp_mock)
+    @mock.patch('Scripts.gws_fetch.subprocess.call')
+    def test_ld_grouping(self,mocked_subprocess,mocked_call):
+        mocked_subprocess.return_value=0
+        mocked_subprocess.wait=lambda:True
+        input_="fetch_resources/test_grouping.tsv.gz"
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        data=pd.read_csv(input_,compression="gzip",sep="\t")
+        data["#variant"]=autils.create_variant_column(data)
+        data["locus_id"]=data["#variant"]
+        data["pos_rmax"]=data["pos"]
+        data["pos_rmin"]=data["pos"]
+        sig_treshold=0.05
+        sig_treshold_2=0.05
+        loc_width=1000
+        overlap=False
+        df_p1=data[data["pval"] <=sig_treshold]
+        df_p2=data[data["pval"] <=sig_treshold_2]
+        ld_treshold=0.2
+        ld_panel_path=""
+        plink_mem=12000
+        prefix=""
+        ld_out=pd.read_csv("fetch_resources/plink_out.csv",sep="\t")
+        with mock.patch("Scripts.gws_fetch.pd.DataFrame.to_csv") as mock_write:
+            with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=ld_out) as mock_read:
+                with mock.patch("Scripts.gws_fetch.os.path.exists") as mock_exists:
+                    retval=gws_fetch.ld_grouping(df_p1,df_p2,sig_treshold,sig_treshold_2,loc_width,ld_treshold,ld_panel_path,plink_mem,overlap,prefix,columns)
+        validate=pd.read_csv("fetch_resources/ld_group_validate.csv",sep="\t")
+        retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64})
+        retval=retval.reset_index(drop=True)
+        for col in validate.columns:
+            self.assertTrue(validate[col].equals(retval[col]))
 if __name__=="__main__":
     os.chdir("./testing")
     unittest.main()
