@@ -37,58 +37,24 @@ class TestGws(unittest.TestCase):
         #test parsing
         df=gws_fetch.parse_plink_output(df)
         self.assertTrue(df2.equals(df))
-    
+    """
+
     def test_solve_groups(self):
         #create parameters for function
         result_header=["#chrom", "pos", "ref", "alt", "rsids", "nearest_genes", "pval", "beta", "sebeta", "maf", "maf_cases", "maf_controls","#variant","locus_id"]
         df=pd.DataFrame(columns=result_header)
         group_df=pd.read_csv("fetch_resources/test_plink.clumped",sep="\s+")
         group_df=group_df.loc[:,["SNP","TOTAL","SP2"]]
-        tabixdf=pd.read_csv("fetch_resources/test_tsv",sep="\t")
-        tabixdf.loc[:,"#variant"]=gws_fetch.create_variant_column(tabixdf)
+        df=pd.read_csv("fetch_resources/test_tsv",sep="\t")
+        df.loc[:,"#variant"]=gws_fetch.create_variant_column(df)
         df2=pd.read_csv("fetch_resources/solve_groups_result.tsv",sep="\t")
-        df=gws_fetch.solve_groups(df,group_df,tabixdf)
+        df=gws_fetch.solve_groups(df,group_df)
         df.loc[:,"pos"]=df.loc[:,"pos"].astype(np.int64)
         #test for equality
-        self.assertTrue(df.equals(df2))
+        for col in df:
+            self.assertTrue(df[col].equals(df2[col]))
         pass
-    
-    def test_group_range(self):
-        #input possibilities: df with no entries, df with one entry, df with multiple entries of one group
-        #column names: since they are specified in the function call, no need to test them
-        # Case 1: No entries in df
-        # Function should return None
-        df=pd.DataFrame(columns=["#chrom","pos","ref","alt","locus_id"])
-        gr_var="chr1_100_A_T"
-        retval=gws_fetch.get_group_range(df,gr_var,{"pos":"pos"})
-        self.assertEqual(retval, None)
-        # Case 2: df with one entry, matching gr_var
-        # Function should return {"min":pos,"max":pos}
-        pos=12345
-        df=pd.DataFrame([["1",pos,"A","T"]],columns=["#chrom","pos","ref","alt"])
-        df.loc[:,"locus_id"]=autils.create_variant_column(df)
-        gr_var="chr1_12345_A_T"
-        retval=gws_fetch.get_group_range(df,gr_var,{"pos":"pos"})
-        self.assertTrue(retval["min"]==pos & retval["max"] == pos)
-        # Case 3: df with one entry, no matching gr_var
-        #function should return None
-        pos=12345
-        df=pd.DataFrame([["1",pos,"A","T"]],columns=["#chrom","pos","ref","alt"])
-        df.loc[:,"locus_id"]=autils.create_variant_column(df)
-        gr_var="chr1_11111_G_C"
-        retval=gws_fetch.get_group_range(df,gr_var,{"pos":"pos"})
-        self.assertEqual(retval, None)
-        # Case 4: df with multiple entries, matching gr_var
-        #function should return group range min and max
-        df=pd.read_csv("fetch_resources/group_range_df.tsv",sep="\t",dtype={"pos":np.int32,"#chrom":str})
-        gr_var="chr1_1111_A_C"
-        min_=1111
-        max_=4321
-        retval=gws_fetch.get_group_range(df, gr_var, columns={"pos":"pos"})
-        self.assertEqual(min_,retval["min"])
-        self.assertEqual(max_,retval["max"])
-        pass
-    """
+
     def test_simple_filtering(self):
         #test simple filtering
         input_="fetch_resources/filter_test.tsv.gz"

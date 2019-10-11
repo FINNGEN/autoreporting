@@ -14,7 +14,7 @@ def parse_region(region):
     return {"chrom":str(chrom),"start":int(start),"end":int(end)}
 
 
-def solve_groups_better(all_variants,group_data):
+def solve_groups(all_variants,group_data):
     """
     Returns a dataframe containing the grouped variants, and only those.
     In: All variants considered for grouping (basically the variants with p-value < args.sig_tresh_2), parsed group data
@@ -30,18 +30,9 @@ def solve_groups_better(all_variants,group_data):
             group=group+sp2_split
         group_df=all_variants[ all_variants["#variant"].isin(group) ].copy()
         group_df.loc[:,"locus_id"]=t.SNP
-        retval=pd.concat([retval,group_df],axis="index")
+        retval=pd.concat([retval,group_df],axis="index",sort=True)
     return retval
-"""
-def get_group_range(dframe,group_variant,columns={"pos":"pos"}):
-    #find min and max position from group, return them
-    temp_df=dframe.loc[dframe["locus_id"]==group_variant]
-    if temp_df.empty:
-        return None
-    min_=np.min(temp_df[columns["pos"]])
-    max_=np.max(temp_df[columns["pos"]])
-    return {"min":min_,"max":max_}
-"""
+
 def simple_grouping(df_p1,df_p2,r,overlap,columns):
     """
     Simple grouping function
@@ -115,13 +106,13 @@ def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_tres
     if os.path.exists("{}.clumped".format(plink_fname)):
         group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
         group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
-        new_df=solve_groups_better(df_p2.copy(),group_data)
+        new_df=solve_groups(df_p2.copy(),group_data)
         for var in new_df["locus_id"].unique():
             new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=new_df.loc[new_df["locus_id"]==var,"pos"].min()#r["min"]
             new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=new_df.loc[new_df["locus_id"]==var,"pos"].max()
         p1_group_leads = df_p1["#variant"].isin(new_df["#variant"])
         p1_singletons = ~p1_group_leads
-        new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index").sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+        new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index",sort=True).sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
         new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
         new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
     #if there is not data
