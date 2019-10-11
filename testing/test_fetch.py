@@ -22,23 +22,6 @@ def return_sp_mock(arg,stdout, stderr=None,encoding=None,*args):
 
 class TestGws(unittest.TestCase):
 
-    """
-    def test_plink_parsing(self):
-        #load data
-        df=pd.read_csv("fetch_resources/test_plink.clumped",sep="\s+")
-        df=df.loc[:,["SNP","TOTAL","SP2"]]
-        #create end result
-        df2={"#chrom":["1","1","X","X","X"],
-            "pos":["111111111","111111112","111111113","111111114","111111115"],
-            "ref":["A","C","A","G","C"],
-            "alt":["T"]*5}
-        df2=pd.DataFrame(df2)
-        df2.loc[:,"#variant"]=gws_fetch.create_variant_column(df2)
-        #test parsing
-        df=gws_fetch.parse_plink_output(df)
-        self.assertTrue(df2.equals(df))
-    """
-
     def test_solve_groups(self):
         #create parameters for function
         result_header=["#chrom", "pos", "ref", "alt", "rsids", "nearest_genes", "pval", "beta", "sebeta", "maf", "maf_cases", "maf_controls","#variant","locus_id"]
