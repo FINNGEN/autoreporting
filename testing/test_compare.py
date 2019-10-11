@@ -1,5 +1,6 @@
 import unittest
-import sys,os
+import unittest.mock as mock
+import sys,os,json
 sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
@@ -115,6 +116,13 @@ class TestGws(unittest.TestCase):
             df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
 
     def test_api_summaries_local(self):
+        def post_response(url,headers,data):
+            retval=mock.Mock()
+            with open("compare_resources/ensembl_response","r") as f:
+                val=f.readline().strip("\n")
+                retval.json=lambda:json.loads(val)
+            retval.status_code=200
+            return retval
         # test loading summary statistics using local gwascatalog
         # test with no file found, should error out
         # test with some variants, of which some are found and some are not
@@ -137,8 +145,9 @@ class TestGws(unittest.TestCase):
             gwapi=gwcatalog_api.LocalDB(wrong_path_to_db)
             tmp=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
         #case two: correct usage of function, should return correct amount of results
-        gwapi=gwcatalog_api.LocalDB(localdb_path)
-        gwas_df=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
+        with mock.patch('Scripts.gwcatalog_api.requests.post',side_effect=post_response) as mock_post:
+            gwapi=gwcatalog_api.LocalDB(localdb_path)
+            gwas_df=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
         validate_path="compare_resources/local_gwascatalog_validate.csv"
         validate=pd.read_csv(validate_path,sep="\t",dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float})
         for col in gwas_df.columns:

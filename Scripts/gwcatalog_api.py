@@ -176,7 +176,7 @@ class LocalDB(ExtDB):
                 ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
                 if ensembl_response.status_code == 200:
                     try:
-                        tmp_json=json.loads(ensembl_response.text)
+                        #tmp_json=json.loads(ensembl_response.text)
                         out=out+ self.__parse_ensembl(ensembl_response.json())
                     except ValueError:
                         pass
@@ -271,7 +271,7 @@ class GwasApi(ExtDB):
                 ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
                 if ensembl_response.status_code == 200:
                     try:
-                        tmp_json=json.loads(ensembl_response.text)
+                        #tmp_json=json.loads(ensembl_response.text)
                         out=out+ self.__parse_ensembl(ensembl_response.json())
                     except ValueError:
                         pass
