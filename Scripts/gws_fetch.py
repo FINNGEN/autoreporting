@@ -129,22 +129,36 @@ def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_tres
     subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     return new_df
 
+def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"},compression="gzip"):
+    """
+    Get genome-wide significant variants from a summary statistic file.
+    In: filename, significance threshold, dtype,columns,compression
+    Out: dataframe containing the significant variants. No additional columns will be added.
+    """
+    chunksize=100000
+    if not dtype:
+        dtype={columns["chrom"]:str,
+                columns["pos"]:np.int32,
+                columns["ref"]:str,
+                columns["alt"]:str,
+                columns["pval"]:np.float64}
+    retval=pd.DataFrame()
+    for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
+        retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True )
+    return retval
+
 def fetch_gws(args):
     #column names
     columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
-
     sig_tresh=max(args.sig_treshold,args.sig_treshold_2)
-    c_size=100000
     r=args.loc_width*1000#range for location width, originally in kb
     dtype={columns["chrom"]:str,
                 columns["pos"]:np.int32,
                 columns["ref"]:str,
                 columns["alt"]:str,
                 columns["pval"]:np.float64}
-    temp_df=pd.DataFrame()
-    for dframe in pd.read_csv(args.gws_fpath,compression="gzip",sep="\t",dtype=dtype,engine="c",chunksize=c_size):
-        #filter gws snps
-        temp_df=pd.concat([temp_df,dframe.loc[dframe[columns["pval"]]<=sig_tresh,:]],axis="index",ignore_index=True)
+
+    temp_df=get_gws_variants(args.gws_fpath,sign_treshold=sig_tresh,dtype=dtype,columns=columns,compression="gzip")
     #remove ignored region if there is one
     if args.ignore_region:
         ignore_region=parse_region(args.ignore_region)
@@ -161,6 +175,7 @@ def fetch_gws(args):
     temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
     df_p1=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold,: ].copy()
     df_p2=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold_2,: ].copy()
+    #grouping
     if args.grouping and not df_p1.empty:
         if args.grouping_method=="ld":
             new_df=ld_grouping(df_p1,df_p2,args.sig_treshold,args.sig_treshold_2,args.loc_width,args.ld_r2,args.ld_panel_path,args.plink_mem,args.overlap,args.prefix,columns)
