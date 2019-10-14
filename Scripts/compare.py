@@ -99,7 +99,7 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         merged=df.copy()
     list_of_loci=list(df["locus_id"].unique())
     #compile new simple top level dataframe
-    top_level_columns=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
+    top_level_columns=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","credible_set_variants","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
     top_level_df=pd.DataFrame(columns=top_level_columns)
     for locus_id in list_of_loci:
         #get variants of this locus
@@ -117,6 +117,9 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
             most_sev_gene=np.nan
             most_sev_cons=np.nan
         pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
+        #credible set variants in the group
+        cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_id"] ].drop_duplicates()
+        cred_set=";".join( " {}:{}".format(t._1,t.cs_id) for t in  cred_s.itertuples() )
         #find all of the traits that have hits
         if not summary_df.empty:
             all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
@@ -129,11 +132,11 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
             matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
             other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
             top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
-            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
+            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue,"credible_set_variants":cred_set,"matching_pheno_gwas_catalog_hits":";".join(matching_traits),
             "other_gwas_hits":";".join(other_traits)},ignore_index=True)
         else:
             top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
-            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue,"matching_pheno_gwas_catalog_hits":"",
+            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue,"credible_set_variants":cred_set,"matching_pheno_gwas_catalog_hits":"",
             "other_gwas_hits":""},ignore_index=True)
     return top_level_df
          

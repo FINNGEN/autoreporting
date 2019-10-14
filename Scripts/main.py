@@ -59,6 +59,7 @@ if __name__=="__main__":
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
+    parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.")
     #finemap
     
     #annotate

@@ -73,3 +73,26 @@ def prune_regions(df,columns={"chrom":"#chrom"}):
         else:
             regions.append({columns["chrom"]:t._1,"min":t.pos_rmin,"max":t.pos_rmax})
     return pd.DataFrame(regions)
+
+def load_credible_set(fname,columns):
+    """
+    Load credible sets from file, return a dataframe with them
+    In: filename, column names
+    Out: Dataframe with chrom,pos,ref,alt,prob,cs
+    #Note: credibleset identifier is just the credible set number appended to the variant column.
+    """
+    data=pd.read_csv(fname,sep="\t")
+    if data.empty:
+        return pd.DataFrame()
+    data=data[data["cs"]!=-1]
+    data=data.rename(columns={"chromosome":columns["chrom"], "position": columns["pos"], "allele1": columns["ref"], "allele2": columns["alt"], "prob": "cs_prob"})
+    data[columns["chrom"]] = data[columns["chrom"]].str.strip("chr")
+    data["cs_id"]=np.NaN
+    #credible set id, can be changed to something more sensible if necessary
+    for i in data["cs"].unique():
+        cs=data[data["cs"]==i]
+        rsid=cs.loc[cs["cs_prob"].idxmax(),"rsid"]
+        data.loc[data["cs"]==i,"cs_id"] = "{}_{}".format(rsid,i)
+    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id" ]
+    data=data.loc[:,cols] 
+    return data

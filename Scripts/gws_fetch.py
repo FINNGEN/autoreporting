@@ -63,6 +63,20 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
             group_df=group_df.loc[~t_dropidx,:]
     return new_df
 
+def load_credible_sets(fname,columns):
+    """
+    Load SuSiE credible sets from a file containing the credible set file anmes on its rows.
+    In: fname, with the file containing filenames for all of the credible set files, columns dict
+    Out: A Dataframe containing the credible sets for this one phenotype.
+    """
+    retval=pd.DataFrame()
+    with open(fname,"r") as f:
+        for line in f.readlines():
+            #load individual credible set regions
+            d=load_credible_set(line.strip("\n"),columns )
+            retval=pd.concat([retval,d])
+    return retval
+
 def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_treshold,ld_panel_path,plink_memory,overlap, prefix, columns):
     """
     LD Clumping function
@@ -158,6 +172,7 @@ def fetch_gws(args):
                 columns["alt"]:str,
                 columns["pval"]:np.float64}
 
+    #data input: get genome-wide significant variants.
     temp_df=get_gws_variants(args.gws_fpath,sign_treshold=sig_tresh,dtype=dtype,columns=columns,compression="gzip")
     #remove ignored region if there is one
     if args.ignore_region:
@@ -168,6 +183,17 @@ def fetch_gws(args):
     if temp_df.empty:
         print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(args.gws_fpath,args.sig_treshold))
         return 1
+    
+    #data input: get credible set variants
+    join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
+    if args.cred_set_file != "":
+        cs_df=load_credible_sets(args.cred_set_file,columns)
+    else:
+        cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
+    #merge with gws_df, by using chrom,pos,ref,alt
+    temp_df = pd.merge(temp_df,cs_df,how="left",on=join_cols)
+
+    #create necessary columns for the data
     temp_df=temp_df.reset_index(drop=True)
     temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
@@ -204,6 +230,7 @@ if __name__=="__main__":
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
+    parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.")
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."

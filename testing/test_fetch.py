@@ -50,6 +50,7 @@ class TestGws(unittest.TestCase):
         args.column_labels=["#chrom","pos","ref","alt","pval"]
         args.ignore_region=""
         args.prefix=""
+        args.cred_set_file=""
         args.fetch_out=StringIO()
         gws_fetch.fetch_gws(args)
         args.fetch_out.seek(0)
@@ -62,7 +63,7 @@ class TestGws(unittest.TestCase):
         validation["locus_id"]=autils.create_variant_column(validation)
         validation=validation.reset_index(drop=True).sort_values(by="#variant")
         output=output.reset_index(drop=True)
-        for col in output.columns:
+        for col in validation.columns:
             self.assertEqual( list(output[col]) , list(validation[col]) )
 
     def test_simple_grouping(self):

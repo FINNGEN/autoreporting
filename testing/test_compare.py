@@ -58,24 +58,26 @@ class TestGws(unittest.TestCase):
         self.assertTrue(res.equals(validate) )
         # test two: populated dataframe, empty summary variant dataframe
         df=pd.read_csv("compare_resources/top_df.csv",sep="\t")
+        df["cs_id"]=np.nan
+        df["cs_prob"]=np.nan
         res=compare.create_top_level_report(df,summary_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_empty_summary.csv",sep="\t")
         validate=validate.fillna("")
-        for col in res.columns:
+        for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 3: populated dataframe, populated summary variant df, no traits
         summary_df=pd.read_csv("compare_resources/summary_df.csv",sep="\t")
         res=compare.create_top_level_report(df,summary_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_traits_1.csv",sep="\t")
         validate=validate.fillna("")
-        for col in res.columns:
+        for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 4: populated dataframes, common traits
         traits=["TRAIT_1","TRAIT_4"]
         res=compare.create_top_level_report(df,summary_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_traits_2.csv",sep="\t")
         validate=validate.fillna("")
-        for col in res.columns:
+        for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
     
     def test_load_summaries(self):
