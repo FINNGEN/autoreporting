@@ -93,7 +93,7 @@ Argument   |  Meaning   |   Example | Original script
 --plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 | gws_fetch.py
 --overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap | gws_fetch.py
 --ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 | gws_fetch.py
---credible-set-file| Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.| gws_fetch.py
+--credible-set-file| Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.| --credile-set-file file_containing_susie_snp_files | gws_fetch.py
 --gnomad-genome-path | path to gnomad genome annotation file. Must be tabixed. Required for annotation. | --gnomad-genome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
 --gnomad-exome-path | path to gnomad exome annotation file. Must be tabixed. Required for annotation. | --gnomad-exome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
 --include-batch-freq | Include batch frequencies from finngen annotation file | --include-batch-freq | annotate<span></span>.py
