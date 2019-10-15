@@ -36,7 +36,6 @@ class TestGws(unittest.TestCase):
         #test for equality
         for col in df:
             self.assertTrue(df[col].equals(df2[col]))
-        pass
 
     def test_simple_filtering(self):
         #test simple filtering
@@ -125,8 +124,28 @@ class TestGws(unittest.TestCase):
             self.assertTrue(validate[col].equals(retval[col]))
 
     def test_get_gws_vars(self):
-        pass
-    
+        #test the get_gws_variants function
+        #case 1: empty data, should return empty dataframe.
+        empty_read=[pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval"])]
+        with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=empty_read):
+            retval=gws_fetch.get_gws_variants("")
+        self.assertTrue(retval.empty)
+        #case 2: valid data and hits
+        valid_read = [pd.read_csv("fetch_resources/test_grouping.tsv.gz",sep="\t",compression="gzip")]
+        with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=valid_read):
+            retval=gws_fetch.get_gws_variants("",sign_treshold=0.4)
+        validate=valid_read[0]
+        validate=validate[validate["pval"]<0.4].reset_index(drop=True)
+        for col in validate.columns:
+            self.assertTrue(validate[col].equals(retval[col]))
+        #case 3: valid data, but no hits 
+        with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=valid_read):
+            retval=gws_fetch.get_gws_variants("",sign_treshold=5e-8)
+        validate=valid_read[0]
+        validate=validate[validate["pval"]<5e-8].reset_index(drop=True)
+        for col in validate.columns:
+            self.assertTrue(validate[col].equals(retval[col]))
+            
     @mock.patch('Scripts.gws_fetch.subprocess.Popen',side_effect=return_sp_mock)
     @mock.patch('Scripts.gws_fetch.subprocess.call')
     def test_cred_grouping(self,mocked_subprocess, mocked_call):
