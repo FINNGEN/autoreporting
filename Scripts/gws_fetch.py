@@ -65,7 +65,7 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
 
 def load_credible_sets(fname,columns):
     """
-    Load SuSiE credible sets from a file containing the credible set file anmes on its rows.
+    Load SuSiE credible sets from a file containing the credible set file names on its rows.
     In: fname, with the file containing filenames for all of the credible set files, columns dict
     Out: A Dataframe containing the credible sets for this one phenotype.
     """
@@ -110,7 +110,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_tres
     pr.wait()
     #get plink log
     plink_log=pr.stdout.readlines()
-    if pr.returncode!=0:
+    if pr.returncode != 0:
         print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
         [print(l) for l in plink_log]
         raise ValueError("Plink clumping returned code {}".format(pr.returncode))
@@ -142,6 +142,74 @@ def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_tres
     plink_files=glob.glob("{}.*".format(plink_fname))
     subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     return new_df
+
+def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,overlap,columns,prefix=""):
+    """
+    Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
+    In: df(containing the credible set information), alternate significance threshold, ld panel path, columns
+    Out: grouped df
+    """
+    df=data.copy()
+    ld_window=1000
+    lead_vars=[]
+    #determine group leads. Group leads are 'the variants with largest cs_prob in that credible set'.
+    for credible_set in df.loc[~df["cs_id"].isna(),"cs_id"].unique():
+        group_lead =  df.loc[ df.loc[df["cs_id"]==credible_set,"cs_prob"].idxmax(),:]
+        lead_vars.append(group_lead["#variant"])
+    #write lead_vars to a file, one per row
+    fname="{}_cred_lead_vars".format(prefix)
+    output="{}_ld".format(prefix)
+    with open(fname,"w") as f:
+        for var in lead_vars:
+            f.write("{}\n".format(var) )
+    #perform plink computation
+    plink_cmd = "plink --allow-extra-chr --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window {} --out {}".format(ld_panel_path,
+        fname,
+        ld_treshold,
+        locus_range,
+        ld_window,
+        output)
+    pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
+    pr.wait()
+    plink_log = pr.stdout.readlines()
+    if pr.returncode != 0:
+        print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
+        [print(l) for l in plink_log]
+        raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
+    #read in the variants
+    ld_data=pd.read_csv("{}.ld".format(output),sep="\s+")
+    #join
+    df["index"]=df.index
+    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"],"index"]],ld_data, how="inner",left_on="#variant",right_on="SNP_B") #does include all of the lead variants as well
+    ld_df=ld_df.set_index("index")
+    ld_df.index.name=None
+    #filter by p-value
+    ld_df = ld_df[ld_df[columns["pval"]] <= alt_sign_treshold ]
+    #Now should have columns variant, chrom, pos, pval, CHR_A,BP_A,SNP_A,CHR_B,BP_B, SNP_B, R2, with index being the same as in df.
+    out_df = pd.DataFrame(columns=data.columns)
+    #assign to lead variants greedily, taking into account possible overlap. REMEMBER to take into account the LD!!! That's the most important thing.
+    #create df with only lead variants
+    leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
+    while not leads.empty:
+        #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
+        lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"]
+        group_idx = ld_df[ld_df["SNP_A"] == lead_variant].index
+        group = df.loc[group_idx,:].copy()
+        #also add the variants that are in the credible set. Just in case they might 
+        credible_id = df.loc[df["#variant"]==lead_variant,"cs_id"].values[0]
+        credible_set= df.loc[df["cs_id"] == credible_id,:].copy()
+        #concat the two, remove duplicate entries
+        group=pd.concat([group,credible_set],ignore_index=True).drop_duplicates()
+        group["locus_id"]=lead_variant
+        group["pos_rmin"]=group["pos"].min()
+        group["pos_rmax"]=group["pos"].max()
+        out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
+        #convergence: remove lead_variant, remove group from df in case overlap is not done
+        leads=leads[~ (leads["#variant"] == lead_variant) ] 
+        if not overlap:
+            df=df[~df.index.isin(group_idx)]
+            df=df[~(df["cs_id"]==credible_id)]
+    return out_df
 
 def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"},compression="gzip"):
     """
@@ -205,7 +273,9 @@ def fetch_gws(args):
     if args.grouping and not df_p1.empty:
         if args.grouping_method=="ld":
             new_df=ld_grouping(df_p1,df_p2,args.sig_treshold,args.sig_treshold_2,args.loc_width,args.ld_r2,args.ld_panel_path,args.plink_mem,args.overlap,args.prefix,columns)
-        else:
+        elif args.grouping_method=="cred":
+            new_df = credible_set_grouping(df_p2,args.sig_treshold_2,args.ld_panel_path,args.ld_r2,args.loc_width,args.overlap,columns,args.prefix)
+        else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=args.overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
         new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
@@ -221,7 +291,7 @@ if __name__=="__main__":
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--fetch-out",dest="fetch_out",type=str,default="fetch_out.csv",help="GWS output filename, default is fetch_out.csv")
     parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
-    parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
+    parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, options ['ld','simple','cred']")
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
     parser.add_argument("--alt-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
