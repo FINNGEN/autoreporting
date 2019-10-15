@@ -123,6 +123,56 @@ class TestGws(unittest.TestCase):
         retval=retval.reset_index(drop=True)
         for col in validate.columns:
             self.assertTrue(validate[col].equals(retval[col]))
+
+    def test_get_gws_vars(self):
+        pass
+    
+    @mock.patch('Scripts.gws_fetch.subprocess.Popen',side_effect=return_sp_mock)
+    @mock.patch('Scripts.gws_fetch.subprocess.call')
+    def test_cred_grouping(self,mocked_subprocess, mocked_call):
+        #test credible grouping. Test at least two test cases: with empty credible sets, as well as when using proper data.
+        #case 1: empty data
+        input_ = "fetch_resources/test_grouping.tsv.gz"
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        data=pd.read_csv(input_,compression="gzip",sep="\t")
+        data["#variant"]=autils.create_variant_column(data)
+        data["locus_id"]=data["#variant"]
+        data["pos_rmax"]=data["pos"]
+        data["pos_rmin"]=data["pos"]
+        data["cs_id"]=np.nan
+        data["cs_prob"]=np.nan
+        sig_tresh_2 = 0.2
+        loc_width=1000
+        overlap=False
+        ld_treshold=0.2
+        ld_panel_path=""
+        plink_mem=12000
+        prefix=""
+        r2_out=None
+        _open=mock.mock_open()
+        with mock.patch("Scripts.gws_fetch.pd.DataFrame.to_csv"):
+            with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=r2_out):
+                with mock.patch("Scripts.gws_fetch.open",_open):
+                    retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,overlap,columns)
+        #return value should be empty, have same columns as data 
+        self.assertTrue(retval.empty)
+        self.assertEqual(data.columns.all(), retval.columns.all())
+        #case 2: not empty data, groups should be formed.
+        data.loc[1,"cs_id"] = "chr1_2500_A_C_1"
+        data.loc[1,"cs_prob"] = 0.999
+        data.loc[9,"cs_id"] = "chrX_1500_A_C_1"
+        data.loc[9,"cs_prob"] = 0.997
+        r2_out=pd.read_csv("fetch_resources/ld_report.csv",sep="\t")
+        with mock.patch("Scripts.gws_fetch.pd.DataFrame.to_csv"):
+            with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=r2_out):
+                with mock.patch("Scripts.gws_fetch.open",_open):
+                    retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,overlap,columns)
+        #validate
+        validate=pd.read_csv("fetch_resources/validate_cred.csv",sep="\t").fillna(-1)
+        retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1)
+        for col in validate.columns:
+            self.assertAlmostEqual(validate[col].all(),retval[col].all())
+        
 if __name__=="__main__":
     os.chdir("./testing")
     unittest.main()

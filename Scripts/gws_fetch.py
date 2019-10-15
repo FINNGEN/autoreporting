@@ -156,9 +156,11 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
     for credible_set in df.loc[~df["cs_id"].isna(),"cs_id"].unique():
         group_lead =  df.loc[ df.loc[df["cs_id"]==credible_set,"cs_prob"].idxmax(),:]
         lead_vars.append(group_lead["#variant"])
+    if len(lead_vars) == 0:
+        return pd.DataFrame(columns=df.columns)
     #write lead_vars to a file, one per row
-    fname="{}_cred_lead_vars".format(prefix)
-    output="{}_ld".format(prefix)
+    fname="{}plink_ld.variants".format(prefix)
+    output="{}plink_ld".format(prefix)
     with open(fname,"w") as f:
         for var in lead_vars:
             f.write("{}\n".format(var) )
@@ -187,7 +189,6 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
     ld_df = ld_df[ld_df[columns["pval"]] <= alt_sign_treshold ]
     #Now should have columns variant, chrom, pos, pval, CHR_A,BP_A,SNP_A,CHR_B,BP_B, SNP_B, R2, with index being the same as in df.
     out_df = pd.DataFrame(columns=data.columns)
-    #assign to lead variants greedily, taking into account possible overlap. REMEMBER to take into account the LD!!! That's the most important thing.
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
@@ -209,6 +210,10 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         if not overlap:
             df=df[~df.index.isin(group_idx)]
             df=df[~(df["cs_id"]==credible_id)]
+    #cleanup: delete variant file, plink files
+    cleanup_cmd= "rm {}".format(fname)
+    plink_files = glob.glob( "{}.*".format(output) )
+    subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return out_df
 
 def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"},compression="gzip"):
