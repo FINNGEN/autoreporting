@@ -108,7 +108,10 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         chrom=loc_variants[columns["chrom"]].values[0]
         start=np.amin(loc_variants[columns["pos"]])
         end=np.amax(loc_variants[columns["pos"]])
-        func_descriptors = ["start_lost", "stop_gained" "stop_lost","inframe_deletion","inframe_insertion"]#TODO: find the correct ones for this
+        func_descriptors = ["3_prime_UTR_variant", "5_prime_UTR_variant", "downstream_gene_variant", "frameshift_variant", "inframe_deletion",
+            "inframe_insertion", "missense_variant", "NA", "non_coding_transcript_exon_variant", 
+            "regulatory_region_variant", "splice_acceptor_variant", "splice_donor_variant", "splice_region_variant", "start_lost", 
+            "stop_gained", "stop_lost", "synonymous_variant", "upstream_gene_variant"]#TODO: find the correct ones for this
         try:#in case the annotation has not been done
             enrich=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].values[0]
             most_sev_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].values[0]
