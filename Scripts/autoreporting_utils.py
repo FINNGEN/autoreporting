@@ -46,6 +46,16 @@ def get_gzip_header(fname):
                 out.append(line.decode().strip().split("\t"))
     return out[0]
 
+def load_tb_df(df,tb,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"}):
+    tbxlst=[]
+    for _,row in df.iterrows():
+        tbxlst=tbxlst+list(pytabix(tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) ) )
+    header=get_gzip_header(fpath)
+    out_df=pd.DataFrame(tbxlst,columns=header )
+    out_df=out_df.replace(na_value,np.nan)
+    out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
+    return out_df
+
 def prune_regions(df,columns={"chrom":"#chrom"}):
     """Prune overlapping tabix regions so that no duplicate calls are made
     In: dataframe with the regions

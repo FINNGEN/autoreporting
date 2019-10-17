@@ -9,15 +9,6 @@ from autoreporting_utils import *
 #TODO: make a system for making sure we can calculate all necessary fields,
 #e.g by checking that the columns exist
 
-def load_tb_df(df,tb,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"}):
-    tbxlst=[]
-    for _,row in df.iterrows():
-        tbxlst=tbxlst+list(pytabix(tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) ) )
-    header=get_gzip_header(fpath)
-    out_df=pd.DataFrame(tbxlst,columns=header )
-    out_df=out_df.replace(na_value,np.nan)
-    out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
-    return out_df
 
 def calculate_enrichment(gnomad_df,fi_af_col,count_nfe_lst,number_nfe_lst):
     """Calculate enrichment for finns vs the other group, 
