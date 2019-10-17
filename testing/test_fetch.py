@@ -191,6 +191,28 @@ class TestGws(unittest.TestCase):
         retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1)
         for col in validate.columns:
             self.assertAlmostEqual(validate[col].all(),retval[col].all())
+
+    def test_cred_merge(self):
+        # test merging of data
+        # mock: tabix, load_tb_df
+        columns={"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+
+        df={"chrom":["1","1","1","1"],"pos":[1,2,3,4],"ref":["A","G","C","T"],"alt":["G","C","T","A"],"pval":[0.01,0.001,0.0001,0.00001]}
+        df=pd.DataFrame(df)
+        cs_df={"chrom":["1","1"],"pos":[5,6],"ref":["G","C"],"alt":["T","A"],"cs_id":["CS_ID_1","CS_ID_2"],"cs_prob":[0.9,0.8]}
+        cs_df=pd.DataFrame(cs_df)
+        load_retval ={"chrom":["1","1"],"pos":[5,6],"ref":["G","C"],"alt":["T","A"],"pval":[0.1,0.2]}
+        load_retval=pd.DataFrame(load_retval)
+        validate={"chrom":["1","1","1","1","1","1"],"pos":[1,2,3,4,5,6],"ref":["A","G","C","T","G","C"],
+        "alt":["G","C","T","A","T","A"],"pval":[0.01,0.001,0.0001,0.00001,0.1,0.2],"cs_id":[np.nan,np.nan,np.nan,np.nan,"CS_ID_1","CS_ID_2"],"cs_prob":[np.nan,np.nan,np.nan,np.nan,0.9,0.8]}
+        validate=pd.DataFrame(validate)
+        fname="test_fname"
+        with mock.patch("Scripts.gws_fetch.tabix.open") as mock_tabix:
+            with mock.patch("Scripts.gws_fetch.load_tb_df",return_value=load_retval) as mock_load_df:
+                outdf = gws_fetch.merge_credset(df,cs_df,fname,columns)
+        self.assertTrue(mock_tabix.called_once_with(fname))
+        self.assertTrue(outdf.equals(validate))
+        pass
         
 if __name__=="__main__":
     os.chdir("./testing")
