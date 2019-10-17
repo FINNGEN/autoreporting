@@ -4,7 +4,7 @@ import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 import sys,os,io
 import pandas as pd, numpy as np
-#import tabix
+import tabix
 from autoreporting_utils import *
 
 def parse_region(region):
@@ -234,6 +234,28 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chr
         retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True )
     return retval
 
+def merge_credset(gws_df,cs_df,fname,columns):
+    """
+    Merge credible set to the genome-wide significant variants. 
+    In case variants in the credible set are not included in the gws variants, 
+    the rows corresponding to them are fetched using tabix.
+    In: Dataframe containing gws variants, dataframe containing credible sets, filename for summary statistic.
+    Out: Dataframe containing the gws variants + any credible set variants that are not gws. Columns 'cs_id','cs_prob' added to the dataframe. 
+    """
+    join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
+    # fetch rows using tabix
+    ## make tabix file constructor
+    tb=tabix.open(fname)
+    cred_row_df = load_tb_df(cs_df,tb,fname,columns=columns)
+    # ensure only the credible sets were included
+    cred_row_df = pd.merge(cred_row_df,cs_df[join_cols],how="right",on=join_cols)
+    # concat to gws_df, remove duplicate rows using drop_duplicates
+    df=gws_df.copy()
+    df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False).drop_duplicates(subset=list( join_cols ) )
+    # merge the credible set
+    merged = pd.merge(df,cs_df,how="left",on=join_cols)
+    return merged
+
 def fetch_gws(args):
     #column names
     columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
@@ -264,7 +286,8 @@ def fetch_gws(args):
     else:
         cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
     #merge with gws_df, by using chrom,pos,ref,alt
-    temp_df = pd.merge(temp_df,cs_df,how="left",on=join_cols)
+    #temp_df = pd.merge(temp_df,cs_df,how="left",on=join_cols)
+    temp_df = merge_credset(temp_df,cs_df,args.gws_fpath,columns)
 
     #create necessary columns for the data
     temp_df=temp_df.reset_index(drop=True)
