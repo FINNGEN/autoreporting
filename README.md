@@ -3,17 +3,17 @@
 ## A tool for finding gws results from GWAS summary statistics
 
 This pipeline is used to
-1) Filter out and group gws variants from FINNGEN summary statistics 
-2) Perform finemapping on the filtered SNPs (TBD)
-3) Annotate the gws variants using gnoMAD and FINNGEN annotations 
-4) Cross-reference the variants to previous results, e.g. gwascatalog summary statistic database or hand-picked results from studies 
-Currently, steps 1,3 and 4 are operational. 
+<!--2) Perform finemapping on the filtered SNPs (TBD) -->
+1) Filter out and group gws variants from FINNGEN summary statistics.
+2) Annotate the gws variants using gnoMAD and FINNGEN annotations.
+3) Cross-reference the variants to previous results, e.g. gwascatalog summary statistic database or hand-picked results from studies.
+<!--Currently, steps 1,3 and 4 are operational.--> 
 
 __NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files__
 
 ## Dependencies
 
-packages:python 3, pip, latest plink, ldstore (tested on 1.1), zlib development libraries for pytabix
+packages:python 3 (version 3.6+), pip, latest plink, ldstore (tested on 1.1), zlib development libraries for pytabix
 
 python 3 libraries: requests, numpy, pandas, pytabix 
 

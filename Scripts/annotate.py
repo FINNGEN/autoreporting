@@ -67,6 +67,9 @@ def annotate(args):
     tb_f=tabix.open(args.finngen_path)
     if args.fg_ann_version=="r3":
         fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        fg_df=fg_df.drop(labels="#variant",axis="columns")
+        fg_df["chr"]=fg_df["chr"].apply(lambda x: x.strip("chr")) #change chrom column from chrCHROM to CHROM
+        fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     else:
         fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
