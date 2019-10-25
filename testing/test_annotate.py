@@ -67,8 +67,6 @@ class TestAnnotate(unittest.TestCase):
                     with io.StringIO(tmp) as args.annotate_fpath:
                         in_df = pd.read_csv(args.annotate_fpath,sep="\t")
                         out = annotate.annotate(in_df,args).astype(object)
-                        #with open(args.annotate_out,"r") as f:
-                        #df=pd.read_csv(f,sep="\t")
                         df2=pd.read_csv("{}_{}.csv".format(correct_value_path,i+1),sep="\t").astype(object)
                         pd.testing.assert_frame_equal(out,df2)
         except:
