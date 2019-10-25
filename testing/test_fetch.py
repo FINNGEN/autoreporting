@@ -50,7 +50,10 @@ class TestGws(unittest.TestCase):
         args.ignore_region=""
         args.prefix=""
         args.cred_set_file=""
-        output = gws_fetch.fetch_gws(args)
+        #output = gws_fetch.fetch_gws(args)
+        output = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method="", locus_width=args.loc_width,
+        sig_tresh_2=args.sig_treshold_2, ld_panel_path="", ld_r2=0.0, plink_memory=0, overlap=False, column_labels=args.column_labels,
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file)
         validation=pd.read_csv("fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
         validation=validation.loc[validation["pval"]<=args.sig_treshold,:]
         validation["pos_rmin"]=validation["pos"]

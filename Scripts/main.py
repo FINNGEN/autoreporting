@@ -19,7 +19,9 @@ def main(args):
     print("filter & group SNPs")
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
-    fetch_df=gws_fetch.fetch_gws(args)
+    fetch_df = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
+        sig_tresh_2=args.sig_treshold_2, ld_panel_path=args.ld_panel_path, ld_r2=args.ld_r2, plink_memory=args.plink_mem, overlap=args.overlap, column_labels=args.column_labels,
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file)
     
     #write fetch_df as a file, so that other parts of the script work
     fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)

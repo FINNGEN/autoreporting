@@ -289,16 +289,16 @@ def merge_credset(gws_df,cs_df,fname,columns):
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
-def fetch_gws(args):
+def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_panel_path,ld_r2,plink_memory,overlap,column_labels,ignore_region,cred_set_file):
     """
     Filter and group variants.
     In: arguments
     Out: Dataframe of filtered (and optionally grouped) variants.
     """
     #column names
-    columns=columns_from_arguments(args.column_labels)
-    sig_tresh=max(args.sig_treshold,args.sig_treshold_2)
-    r=args.loc_width*1000#range for location width, originally in kb
+    columns=columns_from_arguments(column_labels)
+    sig_tresh=max(sig_tresh_1,sig_tresh_2)
+    r=locus_width*1000#range for location width, originally in kb
     dtype={columns["chrom"]:str,
                 columns["pos"]:np.int32,
                 columns["ref"]:str,
@@ -306,26 +306,26 @@ def fetch_gws(args):
                 columns["pval"]:np.float64}
 
     #data input: get genome-wide significant variants.
-    temp_df=get_gws_variants(args.gws_fpath,sign_treshold=sig_tresh,dtype=dtype,columns=columns,compression="gzip")
+    temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh,dtype=dtype,columns=columns,compression="gzip")
     #remove ignored region if there is one
-    if args.ignore_region:
-        ignore_region=parse_region(args.ignore_region)
-        ign_idx=( ( temp_df[columns["chrom"]]==ignore_region["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region["end"] )&( temp_df[columns["pos"]]>=ignore_region["start"] ) )
+    if ignore_region:
+        ignore_region_=parse_region(ignore_region)
+        ign_idx=( ( temp_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region_["end"] )&( temp_df[columns["pos"]]>=ignore_region_["start"] ) )
         temp_df=temp_df.loc[~ign_idx,:]
     
     if temp_df.empty:
-        print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(args.gws_fpath,args.sig_treshold))
+        print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(gws_fpath,sig_tresh_1))
         return None
     
     #data input: get credible set variants
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
-    if args.cred_set_file != "":
-        cs_df=load_credsets(args.cred_set_file,columns)
+    if cred_set_file != "":
+        cs_df=load_credible_sets(cred_set_file,columns)
     else:
         cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
     #merge with gws_df, by using chrom,pos,ref,alt
     #temp_df = pd.merge(temp_df,cs_df,how="left",on=join_cols)
-    temp_df = merge_credset(temp_df,cs_df,args.gws_fpath,columns)
+    temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
 
     #create necessary columns for the data
     temp_df=temp_df.reset_index(drop=True)
@@ -333,16 +333,16 @@ def fetch_gws(args):
     temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
     temp_df.loc[:,"pos_rmax"]=temp_df.loc[:,columns["pos"]]
     temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
-    df_p1=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold,: ].copy()
-    df_p2=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold_2,: ].copy()
+    df_p1=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_1,: ].copy()
+    df_p2=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_2,: ].copy()
     #grouping
-    if args.grouping:
-        if args.grouping_method=="ld":
-            new_df=ld_grouping(df_p1,df_p2,args.sig_treshold,args.sig_treshold_2,args.loc_width,args.ld_r2,args.ld_panel_path,args.plink_mem,args.overlap,args.prefix,columns)
-        elif args.grouping_method=="cred":
-            new_df = credible_set_grouping(df_p2,args.sig_treshold_2,args.ld_panel_path,args.ld_r2,args.loc_width,args.plink_mem,args.overlap,columns,args.prefix)
+    if group:
+        if grouping_method=="ld":
+            new_df=ld_grouping(df_p1,df_p2,sig_tresh_1,sig_tresh_2,locus_width,ld_r2,ld_panel_path,plink_memory,overlap,prefix,columns)
+        elif grouping_method=="cred":
+            new_df = credible_set_grouping(df_p2,sig_tresh_2,ld_panel_path,ld_r2,locus_width,overlap,columns,prefix)
         else :
-            new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=args.overlap,columns=columns)
+            new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
         #new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
         retval = new_df
@@ -373,5 +373,7 @@ if __name__=="__main__":
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
-    fetch_df = fetch_gws(args)
+    fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
+        sig_tresh_2=args.sig_treshold_2, ld_panel_path=args.ld_panel_path, ld_r2=args.ld_r2, plink_memory=args.plink_mem, overlap=args.overlap, column_labels=args.column_labels,
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file)
     fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
