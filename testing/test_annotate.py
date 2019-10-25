@@ -66,7 +66,8 @@ class TestAnnotate(unittest.TestCase):
                     tmp="".join(test_lines)
                     with io.StringIO(tmp) as args.annotate_fpath:
                         in_df = pd.read_csv(args.annotate_fpath,sep="\t")
-                        out = annotate.annotate(in_df,args).astype(object)
+                        out = annotate.annotate(df=in_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,fg_ann_version=args.fg_ann_version,
+                            functional_path=args.functional_path, prefix=args.prefix, column_labels=args.column_labels).astype(object)
                         df2=pd.read_csv("{}_{}.csv".format(correct_value_path,i+1),sep="\t").astype(object)
                         pd.testing.assert_frame_equal(out,df2)
         except:

@@ -30,14 +30,16 @@ def create_rename_dict(list_of_names, prefix):
         d[value]="{}{}".format(prefix,value)
     return d
 
-def annotate(df,args):
+def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,fg_ann_version, functional_path, prefix, column_labels):
     """
     Annotates variants with allele frequencies, 
     enrichment numbers, and most severe gene/consequence data
     Annotations from gnomad exome data, gnomad genome data,
-    finngen annotation file 
+    finngen annotation file, functional annotation file.
+    In: dataframe, gnomad genome path, gnomad exome path, bool of include batch freqs, finngen path, functional category file path, prefix, column labels
+    Out: Annotated dataframe
     """
-    columns=columns_from_arguments(args.column_labels)
+    columns=columns_from_arguments(column_labels)
     #columns that we want to take from gnomad and finngen annotations
     gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
     gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
@@ -50,40 +52,38 @@ def annotate(df,args):
         #df.to_csv(path_or_buf="{}".format(args.annotate_out),sep="\t",index=False)
         return df
     #load gnomad_genomes
-    if not os.path.exists("{}.tbi".format(args.gnomad_genome_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.gnomad_genome_path))
-    tb_g=tabix.open(args.gnomad_genome_path)
-    gnomad_genomes=load_tb_df(df,tb_g,args.gnomad_genome_path,columns=columns)
+    if not os.path.exists("{}.tbi".format(gnomad_genome_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_genome_path))
+    tb_g=tabix.open(gnomad_genome_path)
+    gnomad_genomes=load_tb_df(df,tb_g,gnomad_genome_path,columns=columns)
 
     #load gnomad_exomes
-    if not os.path.exists("{}.tbi".format(args.gnomad_exome_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.gnomad_exome_path))
-    tb_e=tabix.open(args.gnomad_exome_path)
-    gnomad_exomes=load_tb_df(df,tb_e,args.gnomad_exome_path,columns=columns)
+    if not os.path.exists("{}.tbi".format(gnomad_exome_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_exome_path))
+    tb_e=tabix.open(gnomad_exome_path)
+    gnomad_exomes=load_tb_df(df,tb_e,gnomad_exome_path,columns=columns)
 
     #load finngen annotations
-    if not os.path.exists("{}.tbi".format(args.finngen_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.finngen_path))
-    tb_f=tabix.open(args.finngen_path)
-    if args.fg_ann_version=="r3":
-        fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
+    if not os.path.exists("{}.tbi".format(finngen_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
+    tb_f=tabix.open(finngen_path)
+    if fg_ann_version=="r3":
+        fg_df=load_tb_df(df,tb_f,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
         fg_df["chr"]=fg_df["chr"].apply(lambda x: x.strip("chr")) #change chrom column from chrCHROM to CHROM
         fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     else:
-        fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+        fg_df=load_tb_df(df,tb_f,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
         fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-    fg_df=fg_df.drop_duplicates(subset=["#variant"])
-
     #load functional annotations. 
-    if args.functional_path == "":
+    if functional_path == "":
         func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
     else:
-        if not os.path.exists("{}.tbi".format(args.functional_path)):
-            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.functional_path))
-        tb_func=tabix.open(args.functional_path)
-        func_df = load_tb_df(df,tb_func,args.functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        if not os.path.exists("{}.tbi".format(functional_path)):
+            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
+        tb_func=tabix.open(functional_path)
+        func_df = load_tb_df(df,tb_func,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
         func_cols=["chrom","pos","ref","alt","consequence"]
         func_df = func_df[func_cols]
 
@@ -158,7 +158,7 @@ def annotate(df,args):
     fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
     fg_df=fg_df.rename(columns=fg_batch_rename)
     fg_batch_lst=["FG_{}".format(x) for x in fg_batch_lst]
-    if args.batch_freq:
+    if batch_freq:
         finngen_cols=finngen_cols+fg_batch_lst
     fg_df=fg_df.loc[:,["#variant"]+finngen_cols]
 
@@ -190,5 +190,6 @@ if __name__=="__main__":
         print("Annotation files missing, aborting...")
     else:    
         input_df = pd.read_csv(args.annotate_fpath,sep="\t")
-        df = annotate(input_df,args)
+        df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,fg_ann_version=args.fg_ann_version,
+        functional_path=args.functional_path, prefix=args.prefix, column_labels=args.column_labels)
         df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
