@@ -195,6 +195,7 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
         lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"]
         group_idx = ld_df[ld_df["SNP_A"] == lead_variant].index
+        group_idx = group_idx[group_idx.isin(df.index)]#make sure that the index is present in both dataframes
         group = df.loc[group_idx,:].copy()
         #also add the variants that are in the credible set. Just in case they might 
         credible_id = df.loc[df["#variant"]==lead_variant,"cs_id"].values[0]
