@@ -197,11 +197,11 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         group_idx = ld_df[ld_df["SNP_A"] == lead_variant].index
         group_idx = group_idx[group_idx.isin(df.index)]#make sure that the index is present in both dataframes
         group = df.loc[group_idx,:].copy()
-        #also add the variants that are in the credible set. Just in case they might 
-        credible_id = df.loc[df["#variant"]==lead_variant,"cs_id"].values[0]
-        credible_set= df.loc[df["cs_id"] == credible_id,:].copy()
+        #also add the variants that are in the credible set. Just in case they might not be included in the 
+        credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
+        credible_set= data.loc[data["cs_id"] == credible_id,:].copy()
         #concat the two, remove duplicate entries
-        group=pd.concat([group,credible_set],ignore_index=True).drop_duplicates()
+        group=pd.concat([group,credible_set],ignore_index=True,sort=False).drop_duplicates(subset=["#variant","cs_id"])
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group["pos"].min()
         group["pos_rmax"]=group["pos"].max()
