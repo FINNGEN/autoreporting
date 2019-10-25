@@ -37,7 +37,8 @@ def main(args):
         args.compare_fname=args.annotate_fpath
     else:
         print("Annotate SNPs")
-        annotate.annotate(args)
+        annotate_df = annotate.annotate(fetch_df,args)
+    annotate_df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
     ###########################
     ######Compare results######
     ###########################

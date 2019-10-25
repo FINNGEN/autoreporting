@@ -30,7 +30,7 @@ def create_rename_dict(list_of_names, prefix):
         d[value]="{}{}".format(prefix,value)
     return d
 
-def annotate(args):
+def annotate(df,args):
     """
     Annotates variants with allele frequencies, 
     enrichment numbers, and most severe gene/consequence data
@@ -45,10 +45,10 @@ def annotate(args):
     finngen_cols=["most_severe_gene","most_severe_consequence"]
 
     #load main file
-    df=pd.read_csv(args.annotate_fpath,sep="\t")
+    #df=pd.read_csv(args.annotate_fpath,sep="\t")
     if df.empty:
-        df.to_csv(path_or_buf="{}".format(args.annotate_out),sep="\t",index=False)
-        return
+        #df.to_csv(path_or_buf="{}".format(args.annotate_out),sep="\t",index=False)
+        return df
     #load gnomad_genomes
     if not os.path.exists("{}.tbi".format(args.gnomad_genome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.gnomad_genome_path))
@@ -168,7 +168,7 @@ def annotate(args):
     df=df.merge(func_df,how="left",on="#variant")
     df=df.merge(fg_df,how="left",on="#variant")
 
-    df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
+    return df #df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Annotate results using gnoMAD and additional annotations")
@@ -189,4 +189,6 @@ if __name__=="__main__":
     if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
         print("Annotation files missing, aborting...")
     else:    
-        annotate(args)
+        input_df = pd.read_csv(args.annotate_fpath,sep="\t")
+        df = annotate(input_df,args)
+        df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
