@@ -68,6 +68,17 @@ def annotate(args):
     fg_df=load_tb_df(df,tb_f,args.finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
     fg_df=fg_df.drop_duplicates(subset=["#variant"])
 
+    #load functional annotations. 
+    if args.functional_path == "":
+        func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
+    else:
+        if not os.path.exists("{}.tbi".format(args.functional_path)):
+            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(args.functional_path))
+        tb_func=tabix.open(args.functional_path)
+        func_df = load_tb_df(df,tb_func,args.functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        func_cols=["chrom","pos","ref","alt","consequence"]
+        func_df = func_df[func_cols]
+
     if not gnomad_genomes.empty:
         gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
         gnomad_genomes.loc[:,"#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
@@ -105,6 +116,21 @@ def annotate(args):
         for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe","#variant"]:
             gnomad_exomes[val]=None
     
+    if not func_df.empty:
+        #rename columns
+        func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
+        #remove values that are not in the coding categories
+        functional_categories = ["pLoF","LC","start_lost","stop_lost","inframe_indel","missense_variant"]
+        func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
+        func_df[columns["chrom"]] = func_df[columns["chrom"]].apply(lambda x:x.strip("chr"))
+        func_df = func_df.dropna(axis="index")
+        func_df.loc[:,"#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        func_df = func_df[["#variant","functional_category"]]
+    else:
+        for val in ["#variant","functional_category"]:
+            func_df[val]=None
+        func_df = func_df[["#variant","functional_category"]]
+
     #rename gnomad_exomes and gnomad_genomes
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
     gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
@@ -131,6 +157,7 @@ def annotate(args):
     #merge the wanted columns into df
     df=df.merge(gnomad_genomes,how="left",on="#variant")
     df=df.merge(gnomad_exomes,how="left",on="#variant")
+    df=df.merge(func_df,how="left",on="#variant")
     df=df.merge(fg_df,how="left",on="#variant")
 
     df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
@@ -142,6 +169,7 @@ if __name__=="__main__":
     parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default=None,help="Finngen annotation file filepath")
+    parser.add_argument("--functional-path",dest="functional_path",type=str,default=None,help="File path to functional annotations file")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.csv",help="Output filename, default is out.csv")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")

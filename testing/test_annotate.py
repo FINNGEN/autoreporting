@@ -49,6 +49,7 @@ class TestAnnotate(unittest.TestCase):
         args.gnomad_exome_path="annotate_resources/gnomad_exomes.tsv.gz"
         args.finngen_path="annotate_resources/finngen_anno.tsv.gz"
         args.annotate_out="annotate_resources/test_out.csv"
+        args.functional_path=""
         args.prefix=""
         correct_value_path="annotate_resources/ann_validate"
         args.batch_freq=False
