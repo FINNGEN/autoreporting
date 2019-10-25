@@ -1,11 +1,11 @@
-# Automatic hit reporting tool for FINNGEN
+# Automatic hit reporting tool for FinnGen
 
 ## A tool for finding gws results from GWAS summary statistics
 
 This pipeline is used to
 <!--2) Perform finemapping on the filtered SNPs (TBD) -->
-1) Filter out and group gws variants from FINNGEN summary statistics.
-2) Annotate the gws variants using gnoMAD and FINNGEN annotations.
+1) Filter out and group gws variants from FinnGen summary statistics.
+2) Annotate the gws variants using gnoMAD and FinnGen annotations.
 3) Cross-reference the variants to previous results, e.g. gwascatalog summary statistic database or hand-picked results from studies.
 <!--Currently, steps 1,3 and 4 are operational.--> 
 
@@ -33,7 +33,7 @@ pip3 install pytabix requests numpy pandas
 Copy repository to folder
 
 ```
-git clone https://github.com/FINNGEN/autoreporting.git
+git clone https://github.com/FinnGen/autoreporting.git
 ```
 
 ## Resources
@@ -61,7 +61,8 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                [--credible-set-file CRED_SET_FILE]
                [--gnomad-genome-path GNOMAD_GENOME_PATH]
                [--gnomad-exome-path GNOMAD_EXOME_PATH] [--include-batch-freq]
-               [--finngen-path FINNGEN_PATH] [--annotate-out ANNOTATE_OUT]
+               [--finngen-path FinnGen_PATH] [--annotate-out ANNOTATE_OUT]
+               [--finngen-annotation-version FG_ANN_VERSION]
                [--compare-style COMPARE_STYLE] [--summary-fpath SUMMARY_FPATH]
                [--endpoint-fpath ENDPOINTS] [--check-for-ld]
                [--report-out RAPORT_OUT] [--ld-report-out LD_RAPORT_OUT]
@@ -99,6 +100,7 @@ Argument   |  Meaning   |   Example | Original script
 --include-batch-freq | Include batch frequencies from finngen annotation file | --include-batch-freq | annotate<span></span>.py
 --finngen-path | Path to finngen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
+--finngen-annotation-version | Specify whether the finngen annotations are r3_0 or before or r3_1 or after. Values 'r3' and 'r4' allowed. use 'r4' for annotations with version r3_1 or higher. Default value 'r3'. | --finngen-annotation-version r4 | annotate<span></span>.py
 --compare-style | Whether to use gwascatalog and/or additional summary statistics to compare findings to literature. Use values 'file', 'gwascatalog' or 'both', default 'gwascatalog' | --compare-style 'gwascatalog' | compare<span></span>.py
 --summary-fpath | path to a file containing external summary statistic file paths. List one summary file per line. | --summary-fpath summary_file_list | compare<span></span>.py
 --endpoint-fpath | path to a file containing endpoints for summary statistic files. List one endpoint per line. The endpoints should be in the same order as the summary files in --summary-fpath file | --endpoint-fpath endpoint_list | compare<span></span>.py
@@ -149,7 +151,7 @@ python3 gws_fetch.py --sign-treshold 2.5e-8 path_to_ss/summary_statistic.tsv.gz
 
 #### A more detailed description of the script:  
 __Input__:  
-gws_fpath: a FINNGEN summary statistic that is gzipped and tabixed.  
+gws_fpath: a FinnGen summary statistic that is gzipped and tabixed.  
 ld_panel_path (optional): a plink .bed file that is used to calculate linkage disequilibrium for the variants.  
 __Output__:  
 fetch_out: a .tsv-file, with one genome-wide significant variant per row. The variants can optionally be grouped into possible signals, based on either width around group variants or width and linkage disequilibrium between variants.  
@@ -174,13 +176,14 @@ The grouping based on linkage disequilibrium is based on plink 1.9's --clump opt
 ```
 usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--gnomad-exome-path GNOMAD_EXOME_PATH]
-                   [--include-batch-freq] [--finngen-path FINNGEN_PATH]
+                   [--include-batch-freq] [--finngen-path FinnGen_PATH]
                    [--prefix PREFIX] [--annotate-out ANNOTATE_OUT]
                    [--column-labels CHROM POS REF ALT PVAL]
+                   [--finngen-annotation-version FG_ANN_VERSION]
                    annotate_fpath
 ```
 
-The annotate<span></span>.py-script is used to annotate the previously filtered genome-wide significant variants, using annotation files from gnoMAD as well as annotation files specific to the FINNGEN project. The arguments are the same as in main<span></span>.py, except for annotate_fpath, which is the path to the filtered variants. For example, to annotate variants the script can be called like this:
+The annotate<span></span>.py-script is used to annotate the previously filtered genome-wide significant variants, using annotation files from gnoMAD as well as annotation files specific to the FinnGen project. For the FinnGen annotations, specify the version/release used with the --finngen-annotation-version. Allowed values are 'r3' and 'r4'. Finngen annotations with version 3_0 or lower should be used with value 'r3', and versions 3_1 or higher (e.g. 4_1) should use the 'r4' value. The rest of the arguments are the same as in main<span></span>.py, except for annotate_fpath, which is the path to the filtered variants. For example, to annotate variants the script can be called like this:
 ```
 python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_gnomad/gnomad_genomes.tsv.gz --gnomad-exome-path path_to_gnomad/gnomad_exomes.tsv.gz --finngen-path path_to_finngen_annotation/finngen_annotation.tsv.gz --annotate-out annotation_output.tsv
 ```
@@ -223,7 +226,7 @@ ld_report_out: A tsv report of those variants that are in LD with external summa
 top_report_out: A tsv report of variant groups and their gwascatalog matched phenotypes. More specific match information is presented in report_out.   
 
 __Script function__:
-The comparison script takes in a filtered and annotated variant tsv file, and reports if those variants have been announced in earlier studies. In case GWAScatalog is used, the script forms chromosome &  basepair ranges, such as 1:200000-300000 for 1st chromosome and all variants through 200000 to 300000, and the GWAScatalog summary statistic API is then queried for all hits inside this range that have a p-value under a designated p-value treshold. In case of external summary statistic files, the variants are just combined from these files. The filtered and annotated FINNGEN summary statistic variants are then compared against this group of variants, and for each variant all exact matches are reported. Optionally, genome-wide significant variants are also tested for ld with these variants for earlier studies, and variants for which the ld value is larger than `--ld-treshold` value are reported.
+The comparison script takes in a filtered and annotated variant tsv file, and reports if those variants have been announced in earlier studies. In case GWAScatalog is used, the script forms chromosome &  basepair ranges, such as 1:200000-300000 for 1st chromosome and all variants through 200000 to 300000, and the GWAScatalog summary statistic API is then queried for all hits inside this range that have a p-value under a designated p-value treshold. In case of external summary statistic files, the variants are just combined from these files. The filtered and annotated FinnGen summary statistic variants are then compared against this group of variants, and for each variant all exact matches are reported. Optionally, genome-wide significant variants are also tested for ld with these variants for earlier studies, and variants for which the ld value is larger than `--ld-treshold` value are reported.
 
 
 ## WDL pipeline
