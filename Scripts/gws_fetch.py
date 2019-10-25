@@ -290,6 +290,11 @@ def merge_credset(gws_df,cs_df,fname,columns):
     return merged
 
 def fetch_gws(args):
+    """
+    Filter and group variants.
+    In: arguments
+    Out: Dataframe of filtered (and optionally grouped) variants.
+    """
     #column names
     columns=columns_from_arguments(args.column_labels)
     sig_tresh=max(args.sig_treshold,args.sig_treshold_2)
@@ -310,7 +315,7 @@ def fetch_gws(args):
     
     if temp_df.empty:
         print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(args.gws_fpath,args.sig_treshold))
-        return 1
+        return None
     
     #data input: get credible set variants
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
@@ -339,11 +344,13 @@ def fetch_gws(args):
         else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=args.overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
-        new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+        #new_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+        retval = new_df
     else:
         #take only gws hits, no groups. Therefore, use df_p1
-        df_p1.sort_values(["locus_id","#variant"]).to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
-    return 0
+        #df_p1.sort_values(["locus_id","#variant"]).to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+        retval = df_p1.sort_values(["locus_id","#variant"])
+    return retval
     
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetch and group genome-wide significant variants from summary statistic")
@@ -366,4 +373,5 @@ if __name__=="__main__":
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
-    fetch_gws(args)
+    fetch_df = fetch_gws(args)
+    fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)

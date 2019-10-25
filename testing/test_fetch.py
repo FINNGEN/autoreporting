@@ -50,10 +50,7 @@ class TestGws(unittest.TestCase):
         args.ignore_region=""
         args.prefix=""
         args.cred_set_file=""
-        args.fetch_out=StringIO()
-        gws_fetch.fetch_gws(args)
-        args.fetch_out.seek(0)
-        output=pd.read_csv(args.fetch_out,sep="\t")
+        output = gws_fetch.fetch_gws(args)
         validation=pd.read_csv("fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
         validation=validation.loc[validation["pval"]<=args.sig_treshold,:]
         validation["pos_rmin"]=validation["pos"]

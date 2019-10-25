@@ -19,10 +19,10 @@ def main(args):
     print("filter & group SNPs")
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
-    val=gws_fetch.fetch_gws(args)
-    if val!= 0:
-        return
+    fetch_df=gws_fetch.fetch_gws(args)
     
+    #write fetch_df as a file, so that other parts of the script work
+    fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
     ###########################
     ##########Finemap##########
     ###########################
