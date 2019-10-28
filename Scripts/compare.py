@@ -117,14 +117,14 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
             most_sev_gene=np.nan
             most_sev_cons=np.nan
         try:
-            func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),"#variant"].drop_duplicates().values
-            func_set="; ".join(func_s)
+            func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category"] ].drop_duplicates()
+            func_set=";".join("{}|{}".format(t._1,t.functional_category) for t in  func_s.itertuples())
         except:
             func_set=np.nan
         pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
         #credible set variants in the group
-        cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_id"] ].drop_duplicates()
-        cred_set=";".join( " {}:{}".format(t._1,t.cs_id) for t in  cred_s.itertuples() )
+        cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
+        cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
         #find all of the traits that have hits
         if not summary_df.empty:
             all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
