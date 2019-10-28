@@ -172,7 +172,7 @@ class TestGws(unittest.TestCase):
         with mock.patch("Scripts.gws_fetch.pd.DataFrame.to_csv"):
             with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=r2_out):
                 with mock.patch("Scripts.gws_fetch.open",_open):
-                    retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,overlap,columns)
+                    retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,plink_mem,overlap,columns)
         #return value should be empty, have same columns as data 
         self.assertTrue(retval.empty)
         self.assertEqual(data.columns.all(), retval.columns.all())
@@ -185,7 +185,7 @@ class TestGws(unittest.TestCase):
         with mock.patch("Scripts.gws_fetch.pd.DataFrame.to_csv"):
             with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=r2_out):
                 with mock.patch("Scripts.gws_fetch.open",_open):
-                    retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,overlap,columns)
+                    retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,plink_mem,overlap,columns)
         #validate
         validate=pd.read_csv("fetch_resources/validate_cred.csv",sep="\t").fillna(-1)
         retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1)

@@ -152,7 +152,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_tres
     subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     return new_df
 
-def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,overlap,columns,prefix=""):
+def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,plink_memory,overlap,columns,prefix=""):
     """
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
     In: df(containing the credible set information), alternate significance threshold, ld panel path, columns
@@ -174,12 +174,13 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         for var in lead_vars:
             f.write("{}\n".format(var) )
     #perform plink computation
-    plink_cmd = "plink --allow-extra-chr --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window {} --out {}".format(ld_panel_path,
+    plink_cmd = "plink --allow-extra-chr --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window {} --out {} --memory {}".format(ld_panel_path,
         fname,
         ld_treshold,
         locus_range,
         ld_window,
-        output)
+        output,
+        plink_memory)
     pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
     pr.wait()
     plink_log = pr.stdout.readlines()
@@ -312,7 +313,7 @@ def fetch_gws(args):
         if args.grouping_method=="ld":
             new_df=ld_grouping(df_p1,df_p2,args.sig_treshold,args.sig_treshold_2,args.loc_width,args.ld_r2,args.ld_panel_path,args.plink_mem,args.overlap,args.prefix,columns)
         elif args.grouping_method=="cred":
-            new_df = credible_set_grouping(df_p2,args.sig_treshold_2,args.ld_panel_path,args.ld_r2,args.loc_width,args.overlap,columns,args.prefix)
+            new_df = credible_set_grouping(df_p2,args.sig_treshold_2,args.ld_panel_path,args.ld_r2,args.loc_width,args.plink_memory,args.overlap,columns,args.prefix)
         else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=args.overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
