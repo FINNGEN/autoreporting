@@ -7,12 +7,16 @@ task report {
     File gnomad_exome_tb=gnomad_exome+".tbi"
     File gnomad_genome
     File gnomad_genome_tb=gnomad_genome+".tbi"
-    String ld_panel_path
-    File ld_panel_bed=ld_panel_path+".bed"
-    File ld_panel_bim=ld_panel_path+".bim"
-    File ld_panel_fam=ld_panel_path+".fam"
+    String ld_panel
+    File ld_panel_bed=ld_panel+".bed"
+    File ld_panel_bim=ld_panel+".bim"
+    File ld_panel_fam=ld_panel+".fam"
     File finngen_annotation
     File finngen_annotation_tb=finngen_annotation+".tbi"
+    File functional_annotation
+    File functional_annotation_tb=functional_annotation+".tbi"
+    String credible_set_path
+    File ? credible_set = credible_set_path + sub(sub(basename(summ_stat),".gz",""), "finngen_R4_", "") + ".SUSIE.snp.bgz"
     #File ld_chrom_input_file
     #Array[File] ld_chrom_files = read_lines(ld_chrom_input_file)
     File? summary_stat_listing
@@ -46,7 +50,7 @@ task report {
     String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
     String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
     String dollar = "$"  
-
+    String annotation_version
     command {
         mod_ld=$( echo ${ld_panel_bed} | sed 's/.bed//g' )
         
@@ -55,8 +59,9 @@ task report {
         main.py ${summ_stat} --sign-treshold ${sign_treshold} --alt-sign-treshold ${alt_sign_treshold}  \
         ${true='--group' false='' group} --grouping-method ${grouping_method} --locus-width-kb ${grouping_locus_width} \
         --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_memory} ${true='--overlap' false='' overlap} \
-        ${ignore_cmd} ${ignore_region}\
+        ${ignore_cmd} ${ignore_region} \
         --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' include_batch_freq} --finngen-path ${finngen_annotation} \
+        --functional-path ${ functional_annotation} --credible-set-file ${default= "" credible_set} --finngen-annotation-version ${annotation_version} \
         --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
         --ldstore-threads ${cpus} --gwascatalog-threads ${gwascatalog_threads} \
         ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \
@@ -71,7 +76,7 @@ task report {
         docker: "${docker}"
         cpu: "${cpus}"
         memory: "16 GB"
-        disks: "local-disk 300 HDD"
+        disks: "local-disk 150 HDD"
         zones: "europe-west1-b"
         preemptible: 2 
     }
@@ -79,10 +84,11 @@ task report {
 
 workflow autoreporting{
     File phenotypelist
+    String docker
     Array[File] phenotypes = read_lines(phenotypelist)
     scatter (pheno in phenotypes){
         call report {
-            input: summ_stat=pheno
+            input: summ_stat=pheno,docker=docker
         }
     }
     

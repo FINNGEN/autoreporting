@@ -13,11 +13,17 @@ task report {
     File ld_panel_fam=ld_panel+".fam"
     File finngen_annotation
     File finngen_annotation_tb=finngen_annotation+".tbi"
+    #functional annotations
+    File functional_annotation
+    File functional_annotation_tb=functional_annotation+".tbi"
+    #credible set annotation, no tabix
+    #formula: summ_stat
     #File ld_chrom_input_file
     #Array[File] ld_chrom_files = read_lines(ld_chrom_input_file)
     File? summary_stat_listing
     File? endpoint_listing
     #trick wdl to write the external summary stats paths as a file
+    #NOTE: does not work with partially serialized widdle. 
     Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
     File? local_gwcatalog
 
