@@ -63,19 +63,28 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
             group_df=group_df.loc[~t_dropidx,:]
     return new_df
 
-def load_credible_sets(fname,columns):
+def load_credsets(fname,columns):
     """
-    Load SuSiE credible sets from a file containing the credible set file names on its rows.
-    In: fname, with the file containing filenames for all of the credible set files, columns dict
-    Out: A Dataframe containing the credible sets for this one phenotype.
+    Load SuSiE credible sets from one bgzipped file.
+    In: filename of the SuSie credible set file
+    Out: A Dataframe containing all credible sets for this phenotype.
     """
-    retval=pd.DataFrame()
-    with open(fname,"r") as f:
-        for line in f.readlines():
-            #load individual credible set regions
-            d=load_credible_set(line.strip("\n"),columns )
-            retval=pd.concat([retval,d])
-    return retval
+    input_data = pd.read_csv(fname,sep="\t",compression="gzip")
+    if input_data.empty:
+        return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id"])
+    input_data = input_data[input_data["cs"]!=-1]#filter to credible sets
+    input_data["credsetid"]=input_data[["region","cs"]].apply(lambda x: "".join([str(y) for y in x]),axis=1)
+    data=input_data.rename(columns={"chromosome":columns["chrom"], "position": columns["pos"], "allele1": columns["ref"], "allele2": columns["alt"], "prob": "cs_prob"}).copy()
+    data[columns["chrom"]] = data[columns["chrom"]].str.strip("chr")
+    data["cs_id"]=np.NaN
+    for i in data["credsetid"].unique():
+        cs=data[data["credsetid"]==i]
+        rsid=cs.loc[cs["cs_prob"].idxmax(),"rsid"]
+        idx=cs.loc[cs["cs_prob"].idxmax(),"cs"]
+        data.loc[data["credsetid"]==i,"cs_id"] = "{}_{}".format(rsid,idx)
+    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id" ]
+    data=data.loc[:,cols]
+    return data
 
 def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_treshold,ld_panel_path,plink_memory,overlap, prefix, columns):
     """
@@ -283,7 +292,7 @@ def fetch_gws(args):
     #data input: get credible set variants
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     if args.cred_set_file != "":
-        cs_df=load_credible_sets(args.cred_set_file,columns)
+        cs_df=load_credsets(args.cred_set_file,columns)
     else:
         cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
     #merge with gws_df, by using chrom,pos,ref,alt
@@ -329,7 +338,7 @@ if __name__=="__main__":
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
-    parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.")
+    parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."
