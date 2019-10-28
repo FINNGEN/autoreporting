@@ -313,7 +313,7 @@ def fetch_gws(args):
         if args.grouping_method=="ld":
             new_df=ld_grouping(df_p1,df_p2,args.sig_treshold,args.sig_treshold_2,args.loc_width,args.ld_r2,args.ld_panel_path,args.plink_mem,args.overlap,args.prefix,columns)
         elif args.grouping_method=="cred":
-            new_df = credible_set_grouping(df_p2,args.sig_treshold_2,args.ld_panel_path,args.ld_r2,args.loc_width,args.plink_memory,args.overlap,columns,args.prefix)
+            new_df = credible_set_grouping(df_p2,args.sig_treshold_2,args.ld_panel_path,args.ld_r2,args.loc_width,args.plink_mem,args.overlap,columns,args.prefix)
         else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=args.overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
