@@ -273,6 +273,10 @@ def merge_credset(gws_df,cs_df,fname,columns):
     ## make tabix file constructor
     tb=tabix.open(fname)
     cred_row_df = load_tb_df(cs_df,tb,fname,columns=columns)
+    #print(cred_row_df.dtypes)
+    #print(cs_df.dtypes)
+    cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
+    cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     # ensure only the credible sets were included
     cred_row_df = pd.merge(cred_row_df,cs_df[join_cols],how="right",on=join_cols)
     # concat to gws_df, remove duplicate rows using drop_duplicates

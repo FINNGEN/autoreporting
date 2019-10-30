@@ -89,7 +89,7 @@ def annotate(args):
 
     if not gnomad_genomes.empty:
         gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
-        gnomad_genomes.loc[:,"#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomad genomes, nfe, nfe without est
         gn_gen_nfe_counts=["AC_nfe","AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
         gn_gen_nfe_nums=["AN_nfe","AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
@@ -105,7 +105,7 @@ def annotate(args):
     
     if not gnomad_exomes.empty:
         gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
-        gnomad_exomes.loc[:,"#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
         gn_exo_nfe_counts=["AC_nfe","AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
         gn_exo_nfe_nums=["AN_nfe","AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
@@ -132,7 +132,7 @@ def annotate(args):
         func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
         func_df[columns["chrom"]] = func_df[columns["chrom"]].apply(lambda x:x.strip("chr"))
         func_df = func_df.dropna(axis="index")
-        func_df.loc[:,"#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         func_df = func_df[["#variant","functional_category"]]
     else:
         for val in ["#variant","functional_category"]:
