@@ -16,7 +16,8 @@ task report {
     File functional_annotation
     File functional_annotation_tb=functional_annotation+".tbi"
     String credible_set_path
-    File ? credible_set = credible_set_path + sub(sub(basename(summ_stat),".gz",""), "finngen_R4_", "") + ".SUSIE.snp.bgz"
+    String credible_set_ = credible_set_path + sub(sub(basename(summ_stat),".gz",""), "finngen_R4_", "") + ".SUSIE.snp.bgz"
+    File ? credible_set = credible_set_
     #File ld_chrom_input_file
     #Array[File] ld_chrom_files = read_lines(ld_chrom_input_file)
     File? summary_stat_listing
@@ -35,6 +36,7 @@ task report {
     Float ld_treshold
     Int cpus
     Int gwascatalog_threads
+    Int docker_memory
 
     Boolean group
     Boolean overlap
@@ -75,20 +77,67 @@ task report {
     runtime {
         docker: "${docker}"
         cpu: "${cpus}"
-        memory: "16 GB"
+        memory: "${docker_memory} GB"
         disks: "local-disk 150 HDD"
         zones: "europe-west1-b"
         preemptible: 2 
     }
 }
 
+task credset_filter{
+    String additional_prefix
+    String docker
+    File phenotypelist
+    File credsetlist
+    command <<<
+        python3 <<CODE
+        with open("${phenotypelist}","r") as f:
+            with open("${credsetlist}","r") as f2:
+                ph_list = f.readlines()
+                cr_list = f2.readlines()
+                ph_list= [x.strip("\n") for x in ph_list]
+                cr_list= [x.strip("\n") for x in cr_list]
+                ph_path = "/".join( ph_list[0].split("/")[:-1] )
+                ph_suffix = ".".join( ph_list[0].split(".")[1:] )
+                ph_list = [x.split("/")[-1] for x in ph_list]
+                cr_list = [x.split("/")[-1] for x in cr_list]
+                ph_list = [x.split(".")[0] for x in ph_list]
+                cr_list = [x.split(".")[0] for x in cr_list]
+                if "${additional_prefix}" != '':
+                    ph_list = [x.split("${additional_prefix}")[1] for x in ph_list ]#remove finngen_R4_ from ph_list
+                common_phenos=[x for x in ph_list if x in cr_list]
+                pheno_list = ["{}/{}{}.{}\n".format(ph_path,"${additional_prefix}",x,ph_suffix) for x in common_phenos ]
+                with open("output_phenolist","w") as f3:
+                    f3.writelines(pheno_list)
+        CODE
+    >>>
+
+    output {
+        File filtered_pheno_list = "output_phenolist"
+    }
+    runtime {
+        docker: "${docker}"
+        cpu: 1
+        memory: "2 GB"
+        disks: "local-disk 10 HDD"
+        zones: "europe-west1-b"
+        preemptible: 2 
+    }
+
+}
+
 workflow autoreporting{
     File phenotypelist
+    File credsetlist
     String docker
-    Array[File] phenotypes = read_lines(phenotypelist)
+    Int memory
+    call credset_filter {
+        input:additional_prefix="finngen_R4_",phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
+    }
+    Array[File] phenotypes = read_lines(credset_filter.filtered_pheno_list)
     scatter (pheno in phenotypes){
         call report {
-            input: summ_stat=pheno,docker=docker
+            input: summ_stat=pheno,docker=docker,docker_memory=memory
         }
     }
     
