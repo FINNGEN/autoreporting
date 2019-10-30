@@ -167,29 +167,44 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         lead_vars.append(group_lead["#variant"])
     if len(lead_vars) == 0:
         return pd.DataFrame(columns=df.columns)
-    #write lead_vars to a file, one per row
-    fname="{}plink_ld.variants".format(prefix)
-    output="{}plink_ld".format(prefix)
-    with open(fname,"w") as f:
-        for var in lead_vars:
-            f.write("{}\n".format(var) )
-    #perform plink computation
-    plink_cmd = "plink --allow-extra-chr --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window {} --out {} --memory {}".format(ld_panel_path,
-        fname,
-        ld_treshold,
-        locus_range,
-        ld_window,
-        output,
-        plink_memory)
-    pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
-    pr.wait()
-    plink_log = pr.stdout.readlines()
-    if pr.returncode != 0:
-        print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-        [print(l) for l in plink_log]
-        raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
-    #read in the variants
-    ld_data=pd.read_csv("{}.ld".format(output),sep="\s+")
+    ## Calculate the ld regions per chromosome to save on memory. Merge the results into a result dataframe.
+    # The error 'no valid variants specified by...' Should not come, UNLESS the summary statistic and ld panel differ.
+    #better handle it, anyways.
+    ld_data = pd.DataFrame()
+    lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
+    for chrom in lead_df[columns["chrom"]].unique():
+        leads_ = lead_df.loc[lead_df[ columns["chrom"] ]==chrom,"#variant"] 
+        #write lead_vars to a file, one per row
+        
+        fname="{}plink_ld.variants".format(prefix)
+        leads_.to_csv(path_or_buf=fname,index=False,sep="\t",header=False)
+        output="{}plink_ld".format(prefix)
+        #with open(fname,"w") as f:
+        #    for var in lead_vars:
+        #        f.write("{}\n".format(var) )
+        #perform plink computation
+        plink_cmd = "plink --allow-extra-chr --chr {} --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window {} --out {} --memory {}".format(
+            chrom,
+            ld_panel_path,
+            fname,
+            ld_treshold,
+            locus_range,
+            ld_window,
+            output,
+            plink_memory)
+        pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
+        pr.wait()
+        plink_log = pr.stdout.readlines()
+        if pr.returncode != 0:
+            print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
+            [print(l) for l in plink_log]
+            raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
+        #read in the variants
+        ld_data_=pd.read_csv("{}.ld".format(output),sep="\s+")
+        ld_data = pd.concat([ld_data,ld_data_],axis="index",sort=False,ignore_index=True)
+        cleanup_cmd= "rm {}".format(fname)
+        plink_files = glob.glob( "{}.*".format(output) )
+        subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     #join
     df["index"]=df.index
     ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"],"index"]],ld_data, how="inner",left_on="#variant",right_on="SNP_B") #does include all of the lead variants as well
@@ -222,9 +237,9 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
             df=df[~df.index.isin(group_idx)]
             df=df[~(df["cs_id"]==credible_id)]
     #cleanup: delete variant file, plink files
-    cleanup_cmd= "rm {}".format(fname)
-    plink_files = glob.glob( "{}.*".format(output) )
-    subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    #cleanup_cmd= "rm {}".format(fname)
+    #plink_files = glob.glob( "{}.*".format(output) )
+    #subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return out_df
 
 def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"},compression="gzip"):
