@@ -93,6 +93,9 @@ def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_tres
     In: variant group 1, variant group 2, p-value threshold 1, p-value threshold 2, group width, ld threshold, prefix,  columns
     Out: grouped dataframe
     """
+    #if empty variant group 1, return it
+    if df_p1.empty:
+        return df_p1
     #1:create PLINK variant list
     temp_variants="{}clump_variants.csv".format(prefix)
     df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
@@ -328,7 +331,7 @@ def fetch_gws(args):
     df_p1=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold,: ].copy()
     df_p2=temp_df.loc[temp_df[columns["pval"]] <= args.sig_treshold_2,: ].copy()
     #grouping
-    if args.grouping and not df_p1.empty:
+    if args.grouping:
         if args.grouping_method=="ld":
             new_df=ld_grouping(df_p1,df_p2,args.sig_treshold,args.sig_treshold_2,args.loc_width,args.ld_r2,args.ld_panel_path,args.plink_mem,args.overlap,args.prefix,columns)
         elif args.grouping_method=="cred":
