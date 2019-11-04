@@ -320,7 +320,7 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     #data input: get credible set variants
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     if cred_set_file != "":
-        cs_df=load_credible_sets(cred_set_file,columns)
+        cs_df=load_credsets(cred_set_file,columns)
     else:
         cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
     #merge with gws_df, by using chrom,pos,ref,alt
@@ -340,7 +340,8 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
         if grouping_method=="ld":
             new_df=ld_grouping(df_p1,df_p2,sig_tresh_1,sig_tresh_2,locus_width,ld_r2,ld_panel_path,plink_memory,overlap,prefix,columns)
         elif grouping_method=="cred":
-            new_df = credible_set_grouping(df_p2,sig_tresh_2,ld_panel_path,ld_r2,locus_width,overlap,columns,prefix)
+            new_df = credible_set_grouping(data=df_p2,alt_sign_treshold=sig_tresh_2,ld_panel_path=ld_panel_path,ld_treshold=ld_r2,locus_range=locus_width,
+            plink_memory=plink_memory,overlap=overlap,columns=columns,prefix=prefix)
         else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
