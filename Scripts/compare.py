@@ -270,13 +270,19 @@ def extract_ld_variants(df,summary_df,locus,args,columns):
     Popen(shlex.split(rmcmd)+corr_files,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
     return ld
 
-def compare(args):
+def compare(df, args):
     """
-    Compares our findings to gwascatalog results and/or supplied summary statistic files
+    Compares found significant variants to gwascatalog results and/or supplied summary statistic files
+    In: df, args
+    #TBD v 
+    Out:report_df: the dataframe containing all of the variants and their previous associations, as well as annotations
+        top_report: A dataframe containing all of the groups as well as their associations, causal variants and functional variants. More of a top-level view.
+        ld_df (optional): a dataframe containing the LD paired associations of variants
+        
     """
     columns=columns_from_arguments(args.column_labels)
     #load original file
-    df=pd.read_csv(args.compare_fname,sep="\t")
+    #df=pd.read_csv(args.compare_fname,sep="\t")
     if df.empty:
         print("No variants, {}, {} and {} will not be produced".format(args.top_report_out, args.raport_out,args.ld_raport_out))
         return
@@ -417,4 +423,5 @@ if __name__ == "__main__":
     args.raport_out = "{}{}".format(args.prefix,args.raport_out)
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_raport_out = "{}{}".format(args.prefix,args.ld_raport_out)
-    compare(args)
+    df=pd.read_csv(args.compare_fname,sep="\t")
+    compare(df,args)

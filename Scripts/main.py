@@ -34,7 +34,8 @@ def main(args):
     ###########################
     if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
         print("Annotation files missing, skipping gnomad & finngen annotation...")
-        args.compare_fname=args.annotate_fpath
+        #args.compare_fname=args.annotate_fpath
+        annotate_df = fetch_df
     else:
         print("Annotate SNPs")
         #annotate_df = annotate.annotate(fetch_df,args)
@@ -45,7 +46,7 @@ def main(args):
     ######Compare results######
     ###########################
     print("Compare results to previous findings")
-    compare.compare(args)
+    compare.compare(annotate_df, args)
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="FINNGEN automatic hit reporting tool")
