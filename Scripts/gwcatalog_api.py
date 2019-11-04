@@ -112,16 +112,7 @@ class SummaryApi(ExtDB):
         return retval
 
     def get_trait(self, trait_code):
-        base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        r=requests.get(url=base_url+trait_code)
-        if r.status_code == 404:
-            print("Trait {} not found in GWASCatalog".format(trait_code))
-            return trait_code
-        elif r.status_code != 200:
-            print("Request for trait {} returned status code {}".format(trait_code,r.status_code))
-            return trait_code
-        else:
-            return r.json()["trait"]
+        return get_trait_name(trait_code)
 
 def parse_efo(code):
     if type(code) != type("string"):
@@ -237,16 +228,7 @@ class LocalDB(ExtDB):
         return retval.loc[:,retcols].to_dict("records")
     
     def get_trait(self, trait_code):
-        base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        r=requests.get(url=base_url+trait_code)
-        if r.status_code == 404:
-            print("Trait {} not found in GWASCatalog".format(trait_code))
-            return trait_code
-        elif r.status_code != 200:
-            print("Request for trait {} returned status code {}".format(trait_code,r.status_code))
-            return trait_code
-        else:
-            return r.json()["trait"]
+        return get_trait_name(trait_code)
 
 class GwasApi(ExtDB):
     """ 
@@ -295,16 +277,7 @@ class GwasApi(ExtDB):
         return retval.loc[:,retcols].to_dict("records")
 
     def get_trait(self, trait_code):
-        base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-        r=requests.get(url=base_url+trait_code)
-        if r.status_code == 404:
-            print("Trait {} not found in GWASCatalog".format(trait_code))
-            return trait_code
-        elif r.status_code != 200:
-            print("Request for trait {} returned status code {}".format(trait_code,r.status_code))
-            return trait_code
-        else:
-            return r.json()["trait"]
+        return get_trait_name(trait_code)
 
 
 
