@@ -78,32 +78,23 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
+def create_top_level_report(report_df,efo_traits,columns):
     """
     Create a top level report from which it is easy to see which loci are novel
-    In: df, gwascatalog summary df, traits that appear in matching_pheno_gwas_catalog_hits, column names
+    In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
     #copy dfs to make sure that the original dataframes are NOT modified 
-    df=input_df.copy()
-    summary_df=input_summary_df.copy()
-    #create mapping column
-    df=map_column(df,"map_variant",columns)
+    df=report_df.copy()
     if df.empty:
         return pd.DataFrame(columns=["locus_id","chr","start","end","enrichment","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"])
-    if not summary_df.empty:
-        summary_df=map_column(summary_df,"map_variant",columns)
-        summary_df=summary_df.loc[:,["map_variant","trait","trait_name"]]
-        merged=df.merge(summary_df,on="map_variant",how="left")
-    else:
-        merged=df.copy()
     list_of_loci=list(df["locus_id"].unique())
     #compile new simple top level dataframe
     top_level_columns=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits","credible_set_variants","functional_variants"]
     top_level_df=pd.DataFrame(columns=top_level_columns)
     for locus_id in list_of_loci:
         #get variants of this locus
-        loc_variants=merged.loc[merged["locus_id"]==locus_id,:]
+        loc_variants=df.loc[df["locus_id"]==locus_id,:]
         #chr,start, end
         chrom=loc_variants[columns["chrom"]].values[0]
         start=np.amin(loc_variants[columns["pos"]])
@@ -126,8 +117,8 @@ def create_top_level_report(input_df,input_summary_df,efo_traits,columns):
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
         cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
         #find all of the traits that have hits
-        if not summary_df.empty:
-            all_traits=list(loc_variants["trait"].drop_duplicates().dropna())
+        all_traits=sorted(list(loc_variants["trait"].drop_duplicates().dropna()) )
+        if len(all_traits) != 0:
             trait_dict={}
             for row in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
                 if row.trait_name =="NA":
@@ -339,11 +330,6 @@ def compare(args):
     if args.compare_style not in ["file","gwascatalog","both"]:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(args.compare_style))
     summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
-    #top level df
-    if summary_df_2.empty:
-        print("no hits from gwascatalog, therefore top report will NOT have any traits shown.")
-    top_df=create_top_level_report(df,summary_df_2,args.efo_traits,columns)
-    top_df.to_csv(args.top_report_out,sep="\t",index=False)
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
         print("No summary variants, raport will be incomplete")
@@ -361,6 +347,9 @@ def compare(args):
         raport_out_df=raport_out_df.drop(columns=["map_variant"])
         raport_out_df=raport_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
         raport_out_df=raport_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+    #top level df
+    top_df=create_top_level_report(raport_out_df,args.efo_traits,columns)
+    top_df.to_csv(args.top_report_out,sep="\t",index=False)
     raport_out_df.to_csv(args.raport_out,sep="\t",index=False)
     #Calculate ld between our variants and external variants
     if args.ld_check and (not summary_df.empty):

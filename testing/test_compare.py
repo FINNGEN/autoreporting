@@ -9,6 +9,16 @@ from Scripts import compare
 from Scripts import autoreporting_utils as autils
 from Scripts import gwcatalog_api
 
+def top_merge(df,summary_df,columns):
+    summary_df=compare.map_column(summary_df,"map_variant",columns)
+    df=compare.map_column(df,"map_variant",columns)
+    necessary_columns=["pval","#variant","map_variant","trait","trait_name"]
+    raport_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
+    raport_out_df=raport_out_df.drop(columns=["map_variant"])
+    raport_out_df=raport_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
+    raport_out_df=raport_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+    return raport_out_df
+
 class TestGws(unittest.TestCase):
 
     def test_solve_indels(self):
@@ -53,28 +63,31 @@ class TestGws(unittest.TestCase):
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         df=pd.DataFrame(columns=cols)
         summary_df=pd.DataFrame(columns=summary_cols)
-        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        raport_df = top_merge(df,summary_df,columns)
+        res=compare.create_top_level_report(raport_df,traits,columns)
         validate=pd.DataFrame(columns=end_result_cols)
         self.assertTrue(res.equals(validate) )
         # test two: populated dataframe, empty summary variant dataframe
         df=pd.read_csv("compare_resources/top_df.csv",sep="\t")
         df["cs_id"]=np.nan
         df["cs_prob"]=np.nan
-        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        raport_df = top_merge(df,summary_df,columns)
+        res=compare.create_top_level_report(raport_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_empty_summary.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 3: populated dataframe, populated summary variant df, no traits
         summary_df=pd.read_csv("compare_resources/summary_df.csv",sep="\t")
-        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        raport_df = top_merge(df,summary_df,columns)
+        res=compare.create_top_level_report(raport_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_traits_1.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 4: populated dataframes, common traits
         traits=["TRAIT_1","TRAIT_4"]
-        res=compare.create_top_level_report(df,summary_df,traits,columns)
+        res=compare.create_top_level_report(raport_df,traits,columns)
         validate=pd.read_csv("compare_resources/top_result_traits_2.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
