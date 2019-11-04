@@ -5,6 +5,25 @@ from typing import List, Text, Dict,Any
 from io import StringIO
 import pandas as pd, numpy as np
 
+class ExtDB(object):
+
+    @abc.abstractmethod
+    def get_associations(self,chromosome: str,start: int,end: int,pval: float,size: int)-> List[Dict[str,Any]]:
+        """ Return associations of range chr:start-end that have pval smaller than pval. Get results in at most size sized chunks.
+            Args: chromosome start end pval size
+            Returns: List of Dictionaries with elements "chrom":chromosome "pos":position "ref":ref_allele 
+            "alt":alt_allele "pval":p-value "trait":phenotype_code "code":harmonization_code
+        """
+        return
+
+    @abc.abstractmethod
+    def get_trait(self, trait_code : str)-> str:
+        """ Return trait given trait code
+            Args: trait_code
+            Returns: Trait name
+        """
+        return
+
 def parse_output(dumplst):
     rows=[]
     for d in dumplst:
@@ -46,27 +65,6 @@ def parse_float(number):
     exponent=int("{:e}".format(number).split("e")[1])-len(numpart)+1
     retval="{}e{}".format(numpart,exponent)
     return retval
-
-class ExtDB(object):
-
-    @abc.abstractmethod
-    def get_associations(self,chromosome: str,start: int,end: int,pval: float,size: int)-> List[Dict[str,Any]]:
-        """ Return associations of range chr:start-end that have pval smaller than pval. Get results in at most size sized chunks.
-            Args: chromosome start end pval size
-            Returns: List of Dictionaries with elements "chrom":chromosome "pos":position "ref":ref_allele 
-            "alt":alt_allele "pval":p-value "trait":phenotype_code "code":harmonization_code
-        """
-        return
-
-    @abc.abstractmethod
-    def get_trait(self, trait_code : str)-> str:
-        """ Return trait given trait code
-            Args: trait_code
-            Returns: Trait name
-        """
-        return
-
-
 
 class SummaryApi(ExtDB):
     """ 
@@ -115,7 +113,7 @@ class SummaryApi(ExtDB):
 
 def parse_efo(code):
     if type(code) != type("string"):
-        print("Invalid EFO code:".format(code) )
+        print("Invalid EFO code:{}".format(code) )
         return "NAN"
     else: 
         return code.split("/").pop()
@@ -234,17 +232,6 @@ class GwasApi(ExtDB):
     Gwas Catalog + ensembl api, returning values identical to the gwas catalog website.
     """
 
-
-    def __parse_ensembl(self,json_data):
-        out=[]
-        for key in json_data.keys():
-            alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
-            other_allele=alleles[0]
-            minor_allele=alleles[1]
-            rsid=key
-            out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele})
-        return out
-
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
         url="https://www.ebi.ac.uk/gwas/api/search/downloads?q=chromosomeName: {} AND chromosomePosition:[ {} TO {}"\
             "]&pvalfilter={}&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
@@ -279,41 +266,3 @@ class GwasApi(ExtDB):
         return get_trait_name(trait_code)
 
 
-"""
-def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=5e-8,p_lower=2.4704e-324,size=1000):
-    base_url="https://www.ebi.ac.uk/gwas/summary-statistics/api/chromosomes/"
-    association="/associations"
-    payload={"p_upper":p_upper,"p_lower":p_lower,
-        "reveal":"all","bp_lower":bp_lower,"bp_upper":bp_upper,"start":0,"size":size}
-    url="{}{}{}".format(base_url,chromosome,association)
-    r=try_request(url,params=payload)
-    print(r.url)
-    if r.status_code not in {200,400,404}:
-        print("Request returned status code {}.\n url:{}".format(r.status_code,r.url))
-        return
-    if r.status_code in [400,404]:
-        print("No variants found in {}:{}-{}".format(chromosome,bp_lower,bp_upper))
-        return
-    dump=r.json()
-    dumplst=[]
-    if "_links" not in dump.keys():
-        return None
-    dumplst.append(dump["_embedded"]["associations"])
-    i=1
-    while "next" in dump["_links"].keys():
-        time.sleep(5)
-        #payload["start"]+=20
-        print(i)
-        r=try_request(dump["_links"]["next"]["href"],params={"reveal":"all"})
-        #r=requests.get(url,params=payload)
-        print(r.url)
-        if r.status_code != 200:
-            print("Request {} with params {} returned status code {}".format(url,payload,r.status_code))
-            break
-        dump=r.json()
-        if "_links" not in dump.keys():
-            break
-        dumplst.append(dump["_embedded"]["associations"])
-        i+=1
-    return dumplst
-"""
