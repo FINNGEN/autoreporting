@@ -14,8 +14,7 @@ def parse_output(dumplst):
 
 def get_trait_name(trait):
     base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-    trait_=trait.upper()
-    r=requests.get(url=base_url+trait_)
+    r=requests.get(url=base_url+trait)
     if r.status_code == 404:
         print("Trait {} not found in GWASCatalog".format(trait))
         return "NA"
@@ -280,7 +279,7 @@ class GwasApi(ExtDB):
         return get_trait_name(trait_code)
 
 
-
+"""
 def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=5e-8,p_lower=2.4704e-324,size=1000):
     base_url="https://www.ebi.ac.uk/gwas/summary-statistics/api/chromosomes/"
     association="/associations"
@@ -317,4 +316,4 @@ def get_all_associations(chromosome=1,bp_lower=1000000,bp_upper=2000000,p_upper=
         dumplst.append(dump["_embedded"]["associations"])
         i+=1
     return dumplst
-    
+"""
