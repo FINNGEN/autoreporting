@@ -124,25 +124,77 @@ class SummaryApi(ExtDB):
             return r.json()["trait"]
 
 def parse_efo(code):
-    if type(code) != type("asd"):
+    if type(code) != type("string"):
+        print("Invalid EFO code:".format(code) )
         return "NAN"
     else: 
         return code.split("/").pop()
 
+def in_chunks(lst, chunk_size):
+    return (lst[pos:pos + chunk_size] for pos in range(0, len(lst), chunk_size))
+
+def parse_ensembl(json_data):
+    out=[]
+    for key in json_data.keys():
+        alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
+        other_allele=alleles[0]
+        minor_allele=alleles[1]
+        rsid=key
+        out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele})
+    return out
+
+def ensembl_request(rsids):
+    """
+    For a list of rsids, return list of variant information (alleles). Uses the ensembl human genomic variation API.
+    In: list of RSIDs
+    Out: list of dicts, with fields ['rsid','ref','alt']
+    """
+    ensembl_url="https://rest.ensembl.org/variation/human"
+    out=[]
+    headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
+    for rsid_chunk in in_chunks(rsids,200):
+        list_str='["{}"]'.format('", "'.join(rsid_chunk))
+        data='{{ "ids":{} }}'.format(list_str)
+        for _ in range(0,5):
+            try:
+                ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
+                if ensembl_response.status_code == 200:
+                    try:
+                        out=out+ parse_ensembl(ensembl_response.json())
+                    except ValueError:
+                        pass#this should be handled in some way, no?
+                    break
+                else:
+                    print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
+            except:
+                print("Ensembl API request timed out. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
+    return out
+
+def split_traits(df):
+    """
+    Split gwascatalog trait column to single traits. Does this by duplicating rows with multiple traits to multiple rows, each containing only one trait.
+    In: Dataframe containing information and the trait column, by name 'trait'
+    Out: Same dataframe with 
+    """
+    retval=[]
+    for row in df.itertuples(index=False):
+        if type(row.MAPPED_TRAIT_URI) == type("string"):
+            if "," in row.MAPPED_TRAIT_URI:
+                efos=row.MAPPED_TRAIT_URI.split(",")
+                traits=row.MAPPED_TRAIT.split(",")
+                efos=[e.strip() for e in efos]
+                traits=[t.strip() for t in traits]
+                for idx, (efo,trait) in enumerate(zip(efos,traits)):
+                    new_row=row._replace(MAPPED_TRAIT_URI=efo,MAPPED_TRAIT=trait)
+                    retval.append(new_row)
+            else:
+                retval.append(row)
+        else:
+            retval.append(row)
+    retval=pd.DataFrame.from_records(retval,columns=df.columns)
+    return retval
+
 class LocalDB(ExtDB):
-
-    def __in_chunks(self,lst, chunk_size):
-        return (lst[pos:pos + chunk_size] for pos in range(0, len(lst), chunk_size))
-
-    def __parse_ensembl(self,json_data):
-        out=[]
-        for key in json_data.keys():
-            alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
-            other_allele=alleles[0]
-            minor_allele=alleles[1]
-            rsid=key
-            out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele})
-        return out
 
     def __init__(self,db_path):
         try:
@@ -166,51 +218,15 @@ class LocalDB(ExtDB):
         df=df.loc[df["P-VALUE"]<=float(pval) ,:]
         rsids=list(df["SNPS"])
         rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
-        ensembl_url="https://rest.ensembl.org/variation/human"
-        out=[]
-        headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
-        for rsid_chunk in self.__in_chunks(rsids,200):
-            list_str='["{}"]'.format('", "'.join(rsid_chunk))
-            data='{{ "ids":{} }}'.format(list_str)
-            for _ in range(0,5):
-                try:
-                    ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
-                    if ensembl_response.status_code == 200:
-                        try:
-                            #tmp_json=json.loads(ensembl_response.text)
-                            out=out+ self.__parse_ensembl(ensembl_response.json())
-                        except ValueError:
-                            pass
-                        break
-                    else:
-                        print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
-                except:
-                    print("Ensembl API request timed out. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
-        rsid_df=pd.DataFrame(out)
+        out = ensembl_request(rsids)
+        rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         if rsid_df.empty:
             return
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
-        retval=[]
-        for row in tmpdf.itertuples(index=False):
-            if type(row.MAPPED_TRAIT_URI) == type("string"):
-                if "," in row.MAPPED_TRAIT_URI:
-                    efos=row.MAPPED_TRAIT_URI.split(",")
-                    traits=row.MAPPED_TRAIT.split(",")
-                    efos=[e.strip() for e in efos]
-                    traits=[e.strip() for e in traits]
-                    for idx, (efo,trait) in enumerate(zip(efos,traits)):
-                        new_row=row._replace(MAPPED_TRAIT_URI=efo,MAPPED_TRAIT=trait)
-                        retval.append(new_row)
-                else:
-                    retval.append(row)
-            else:
-                retval.append(row)
-        if not retval:
-            return None
-        retval=pd.DataFrame.from_records(retval,columns=tmpdf.columns)
+        retval = split_traits(tmpdf)
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
@@ -237,8 +253,6 @@ class GwasApi(ExtDB):
     Gwas Catalog + ensembl api, returning values identical to the gwas catalog website.
     """
 
-    def __in_chunks(self,lst, chunk_size):
-        return (lst[pos:pos + chunk_size] for pos in range(0, len(lst), chunk_size))
 
     def __parse_ensembl(self,json_data):
         out=[]
@@ -263,48 +277,14 @@ class GwasApi(ExtDB):
         if df.empty:
             return
         rsids=list(df["SNPS"])
-        rsids=[a for a in rsids if ' x ' not in a] 
-        ensembl_url="https://rest.ensembl.org/variation/human"
-        out=[]
-        headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
-        for rsid_chunk in self.__in_chunks(rsids,200):
-            list_str='["{}"]'.format('", "'.join(rsid_chunk))
-            data='{{ "ids":{} }}'.format(list_str)
-            for _ in range(0,5):
-                try:
-                    ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
-                    if ensembl_response.status_code == 200:
-                        try:
-                            #tmp_json=json.loads(ensembl_response.text)
-                            out=out+ self.__parse_ensembl(ensembl_response.json())
-                        except ValueError:
-                            pass
-                        break
-                    else:
-                        print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
-                except:
-                    print("Ensembl API request timed out. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
+        rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
+        out = ensembl_request(rsids)
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
-        retval=[]
-        for row in tmpdf.itertuples(index=False):
-            if type(row.MAPPED_TRAIT_URI) == type("string"):
-                if "," in row.MAPPED_TRAIT_URI:
-                    efos=row.MAPPED_TRAIT_URI.split(",")
-                    efos=[e.strip() for e in efos]
-                    for efo in efos:
-                        new_row=row._replace(MAPPED_TRAIT_URI=efo)
-                        retval.append(new_row)
-                else:
-                    retval.append(row)
-            else:
-                retval.append(row)
-        if not retval:
-            return None
-        retval=pd.DataFrame.from_records(retval,columns=tmpdf.columns)
+        retval = split_traits(tmpdf)
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
