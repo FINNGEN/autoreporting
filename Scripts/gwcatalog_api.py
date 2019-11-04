@@ -165,24 +165,27 @@ class LocalDB(ExtDB):
         df=df.loc[ (df["CHR_POS"] >=int(start))& (df["CHR_POS"] <=int(end) ) ,:]
         df=df.loc[df["P-VALUE"]<=float(pval) ,:]
         rsids=list(df["SNPS"])
-        rsids=[a for a in rsids if ' x ' not in a] 
+        rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
         ensembl_url="https://rest.ensembl.org/variation/human"
         out=[]
         headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
         for rsid_chunk in self.__in_chunks(rsids,200):
+            list_str='["{}"]'.format('", "'.join(rsid_chunk))
+            data='{{ "ids":{} }}'.format(list_str)
             for _ in range(0,5):
-                list_str='["{}"]'.format('", "'.join(rsid_chunk))
-                data='{{ "ids":{} }}'.format(list_str)
-                ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
-                if ensembl_response.status_code == 200:
-                    try:
-                        #tmp_json=json.loads(ensembl_response.text)
-                        out=out+ self.__parse_ensembl(ensembl_response.json())
-                    except ValueError:
-                        pass
-                    break
-                else:
-                    print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
+                try:
+                    ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
+                    if ensembl_response.status_code == 200:
+                        try:
+                            #tmp_json=json.loads(ensembl_response.text)
+                            out=out+ self.__parse_ensembl(ensembl_response.json())
+                        except ValueError:
+                            pass
+                        break
+                    else:
+                        print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
+                except:
+                    print("Ensembl API request timed out. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
         rsid_df=pd.DataFrame(out)
         if rsid_df.empty:
             return
@@ -265,19 +268,22 @@ class GwasApi(ExtDB):
         out=[]
         headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
         for rsid_chunk in self.__in_chunks(rsids,200):
+            list_str='["{}"]'.format('", "'.join(rsid_chunk))
+            data='{{ "ids":{} }}'.format(list_str)
             for _ in range(0,5):
-                list_str='["{}"]'.format('", "'.join(rsid_chunk))
-                data='{{ "ids":{} }}'.format(list_str)
-                ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
-                if ensembl_response.status_code == 200:
-                    try:
-                        #tmp_json=json.loads(ensembl_response.text)
-                        out=out+ self.__parse_ensembl(ensembl_response.json())
-                    except ValueError:
-                        pass
-                    break
-                else:
-                    print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
+                try:
+                    ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
+                    if ensembl_response.status_code == 200:
+                        try:
+                            #tmp_json=json.loads(ensembl_response.text)
+                            out=out+ self.__parse_ensembl(ensembl_response.json())
+                        except ValueError:
+                            pass
+                        break
+                    else:
+                        print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
+                except:
+                    print("Ensembl API request timed out. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
