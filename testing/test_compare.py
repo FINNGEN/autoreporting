@@ -13,11 +13,11 @@ def top_merge(df,summary_df,columns):
     summary_df=compare.map_column(summary_df,"map_variant",columns)
     df=compare.map_column(df,"map_variant",columns)
     necessary_columns=["pval","#variant","map_variant","trait","trait_name"]
-    raport_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
-    raport_out_df=raport_out_df.drop(columns=["map_variant"])
-    raport_out_df=raport_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
-    raport_out_df=raport_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
-    return raport_out_df
+    report_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
+    report_out_df=report_out_df.drop(columns=["map_variant"])
+    report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
+    report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+    return report_out_df
 
 class TestGws(unittest.TestCase):
 

@@ -9,9 +9,9 @@ def main(args):
     print("input file: {}".format(args.gws_fpath))
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
     args.annotate_out = "{}{}".format(args.prefix,args.annotate_out)
-    args.raport_out = "{}{}".format(args.prefix,args.raport_out)
+    args.report_out = "{}{}".format(args.prefix,args.report_out)
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
-    args.ld_raport_out = "{}{}".format(args.prefix,args.ld_raport_out)
+    args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
     args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
     ###########################
     ###Filter and Group SNPs###
@@ -46,7 +46,11 @@ def main(args):
     ######Compare results######
     ###########################
     print("Compare results to previous findings")
-    compare.compare(annotate_df, args)
+    [report_df,ld_out_df] = compare.compare(annotate_df, args)
+    if report_df != None:
+    report_df.to_csv(args.top_report_out,sep="\t")
+    if ld_out_df != None:
+        ld_out_df.to_csv(args.ld_report_out,sep="\t")
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="FINNGEN automatic hit reporting tool")
@@ -82,8 +86,8 @@ if __name__=="__main__":
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
-    parser.add_argument("--report-out",dest="raport_out",type=str,default="report_out.csv",help="Comparison report output path")
-    parser.add_argument("--ld-report-out",dest="ld_raport_out",type=str,default="ld_report_out.csv",help="LD check report output path")
+    parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.csv",help="Comparison report output path")
+    parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.csv",help="LD check report output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")

@@ -284,8 +284,8 @@ def compare(df, args):
     #load original file
     #df=pd.read_csv(args.compare_fname,sep="\t")
     if df.empty:
-        print("No variants, {}, {} and {} will not be produced".format(args.top_report_out, args.raport_out,args.ld_raport_out))
-        return
+        print("No variants, {}, {} and {} will not be produced".format(args.top_report_out, args.report_out,args.ld_report_out))
+        return (None, None)
     necessary_columns=[ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","locus_id","pos_rmin","pos_rmax"]
     df_cols=df.columns.to_list()
     if not all(nec_col in df_cols for nec_col in necessary_columns):
@@ -339,25 +339,26 @@ def compare(df, args):
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
         print("No summary variants, raport will be incomplete")
-        raport_out_df=df.copy()
-        raport_out_df["variant_hit"]="NA"
-        raport_out_df["pval_trait"]="NA"
-        raport_out_df["trait"]="NA"
-        raport_out_df["trait_name"]="NA"
+        report_out_df=df.copy()
+        report_out_df["variant_hit"]="NA"
+        report_out_df["pval_trait"]="NA"
+        report_out_df["trait"]="NA"
+        report_out_df["trait_name"]="NA"
     else:
         summary_df.to_csv("{}summary_df.csv".format(args.prefix),sep="\t",index=False)
         summary_df=map_column(summary_df,"map_variant",columns)
         df=map_column(df,"map_variant",columns)
         necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name"]
-        raport_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
-        raport_out_df=raport_out_df.drop(columns=["map_variant"])
-        raport_out_df=raport_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
-        raport_out_df=raport_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+        report_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
+        report_out_df=report_out_df.drop(columns=["map_variant"])
+        report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
+        report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
     #top level df
-    top_df=create_top_level_report(raport_out_df,args.efo_traits,columns)
+    top_df=create_top_level_report(report_out_df,args.efo_traits,columns)
     top_df.to_csv(args.top_report_out,sep="\t",index=False)
-    raport_out_df.to_csv(args.raport_out,sep="\t",index=False)
+    report_out_df.to_csv(args.report_out,sep="\t",index=False)
     #Calculate ld between our variants and external variants
+    ld_out=None
     if args.ld_check and (not summary_df.empty):
         #if no groups in base data
         if (("pos_rmin" not in df.columns.to_list()) or ("pos_rmax" not in df.columns.to_list())):
@@ -389,9 +390,10 @@ def compare(df, args):
             ld_df=ld_df.merge(summary_df.loc[:,["map_variant","trait","trait_name"]].rename(columns={"map_variant":"RSID2_map"}),how="inner",on="RSID2_map")
             ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
             ld_out=ld_out.drop(columns=["RSID1","map_variant","RSID2_map"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
-            ld_out.to_csv(args.ld_raport_out,sep="\t",index=False)
+            ld_out.to_csv(args.ld_report_out,sep="\t",index=False)
         else:
-            print("No variants in ld found, no {} produced.".format(args.ld_raport_out))
+            print("No variants in ld found, no {} produced.".format(args.ld_report_out))
+    return (report_out_df, ld_out)
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
@@ -404,8 +406,8 @@ if __name__ == "__main__":
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
-    parser.add_argument("--report-out",dest="raport_out",type=str,default="report_out.csv",help="Report output path")
-    parser.add_argument("--ld-report-out",dest="ld_raport_out",type=str,default="ld_report_out.csv",help="LD check report output path")
+    parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.csv",help="Report output path")
+    parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.csv",help="LD check report output path")
     parser.add_argument("--gwascatalog-pval",type=str,default="5e-8",help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
@@ -420,8 +422,12 @@ if __name__ == "__main__":
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."
-    args.raport_out = "{}{}".format(args.prefix,args.raport_out)
+    args.report_out = "{}{}".format(args.prefix,args.report_out)
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
-    args.ld_raport_out = "{}{}".format(args.prefix,args.ld_raport_out)
+    args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
     df=pd.read_csv(args.compare_fname,sep="\t")
-    compare(df,args)
+    [report_df,ld_out_df] = compare(df,args)
+    if report_df != None:
+        report_df.to_csv(args.top_report_out,sep="\t")
+    if ld_out_df != None:
+        ld_out_df.to_csv(args.ld_report_out,sep="\t")
