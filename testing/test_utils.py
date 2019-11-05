@@ -59,6 +59,16 @@ class TestUtils(unittest.TestCase):
 
     #TODO: test get gzip header
 
+    def test_column_labels(self):
+        collabs = ["chrom","pos","ref","alt","pval"]
+        collabs2 = ["1","2","3","4","5"]
+        columns= autoreporting_utils.columns_from_arguments(collabs)
+        columns2= autoreporting_utils.columns_from_arguments(collabs2)
+        validate= {"chrom":"chrom","pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval"}
+        validate2= {"chrom":"1","pos":"2", "ref":"3", "alt":"4", "pval":"5"}
+        self.assertEqual(columns, validate)
+        self.assertEqual(columns2, validate2)
+
 if __name__=="__main__":
     os.chdir("./testing")
     unittest.main()

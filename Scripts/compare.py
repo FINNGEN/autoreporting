@@ -274,7 +274,7 @@ def compare(args):
     """
     Compares our findings to gwascatalog results and/or supplied summary statistic files
     """
-    columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
+    columns=columns_from_arguments(args.column_labels)
     #load original file
     df=pd.read_csv(args.compare_fname,sep="\t")
     if df.empty:

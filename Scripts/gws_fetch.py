@@ -291,7 +291,7 @@ def merge_credset(gws_df,cs_df,fname,columns):
 
 def fetch_gws(args):
     #column names
-    columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
+    columns=columns_from_arguments(args.column_labels)
     sig_tresh=max(args.sig_treshold,args.sig_treshold_2)
     r=args.loc_width*1000#range for location width, originally in kb
     dtype={columns["chrom"]:str,

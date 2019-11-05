@@ -83,3 +83,11 @@ def prune_regions(df,columns={"chrom":"#chrom"}):
         else:
             regions.append({columns["chrom"]:t._1,"min":t.pos_rmin,"max":t.pos_rmax})
     return pd.DataFrame(regions)
+
+def columns_from_arguments(column_labels):
+    """
+    Return a dict of columns (used pervasively throughout the script) from the argument column_labels
+    In: column labels, as a list
+    Out: Dictionary with the members 'chrom','pos','ref','alt','pval'
+    """
+    return {"chrom":column_labels[0],"pos":column_labels[1],"ref":column_labels[2],"alt":column_labels[3],"pval":column_labels[4]}

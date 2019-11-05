@@ -37,7 +37,7 @@ def annotate(args):
     Annotations from gnomad exome data, gnomad genome data,
     finngen annotation file 
     """
-    columns={"chrom":args.column_labels[0],"pos":args.column_labels[1],"ref":args.column_labels[2],"alt":args.column_labels[3],"pval":args.column_labels[4]}
+    columns=columns_from_arguments(args.column_labels)
     #columns that we want to take from gnomad and finngen annotations
     gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
     gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
