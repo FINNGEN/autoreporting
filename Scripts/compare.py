@@ -353,9 +353,6 @@ def compare(df, args):
         report_out_df=report_out_df.drop(columns=["map_variant"])
         report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
         report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
-    #top level df
-    top_df=create_top_level_report(report_out_df,args.efo_traits,columns)
-    top_df.to_csv(args.top_report_out,sep="\t",index=False)
     report_out_df.to_csv(args.report_out,sep="\t",index=False)
     #Calculate ld between our variants and external variants
     ld_out=None
@@ -427,7 +424,11 @@ if __name__ == "__main__":
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
     df=pd.read_csv(args.compare_fname,sep="\t")
     [report_df,ld_out_df] = compare(df,args)
-    if report_df != None:
+    if type(report_df) != type(None):
         report_df.to_csv(args.top_report_out,sep="\t")
-    if ld_out_df != None:
+        #top level df
+        columns=columns_from_arguments(args.column_labels)
+        top_df=create_top_level_report(report_df,args.efo_traits,columns)
+        top_df.to_csv(args.top_report_out,sep="\t",index=False)
+    if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t")

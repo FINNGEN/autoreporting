@@ -47,9 +47,14 @@ def main(args):
     ###########################
     print("Compare results to previous findings")
     [report_df,ld_out_df] = compare.compare(annotate_df, args)
-    if report_df != None:
-    report_df.to_csv(args.top_report_out,sep="\t")
-    if ld_out_df != None:
+    if type(report_df) != type(None):
+        report_df.to_csv(args.top_report_out,sep="\t")
+        #create top report
+        #top level df 
+        columns=autoreporting_utils.columns_from_arguments(args.column_labels)
+        top_df=compare.create_top_level_report(report_df,args.efo_traits,columns)
+        top_df.to_csv(args.top_report_out,sep="\t",index=False)
+    if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t")
 
 if __name__=="__main__":
