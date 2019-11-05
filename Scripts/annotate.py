@@ -25,6 +25,14 @@ def calculate_enrichment(gnomad_df,fi_af_col,count_nfe_lst,number_nfe_lst):
     return enrichment
 
 def create_rename_dict(list_of_names, prefix):
+    """
+    Create a dictionary for renaming columns from different annotation files
+    For eaxmple, given column names ["AF_1","AF_2","AF_3"] and a prefix "GNOMAD_",
+    return rename_dict={"AF_1":"GNOMAD_AF1","AF_2":"GNOMAD_AF2","AF_3":"GNOMAD_AF3"}
+    This can then be used as df.rename(columns=rename_dict)
+    In: list of column names, prefix
+    Out: dictionary with entries "oldname":"prefixoldname"
+    """
     d={}
     for value in list_of_names:
         d[value]="{}{}".format(prefix,value)
