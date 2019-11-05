@@ -76,6 +76,7 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         fg_df=load_tb_df(df,tb_f,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
         fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    fg_df = fg_df.drop_duplicates(subset=["#variant"])
     #load functional annotations. 
     if functional_path == "":
         func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])

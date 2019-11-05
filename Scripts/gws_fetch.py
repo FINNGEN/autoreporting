@@ -162,7 +162,7 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
     Out: grouped df
     """
     df=data.copy()
-    ld_window=1000
+    ld_window=10000
     lead_vars=[]
     #determine group leads. Group leads are 'the variants with largest cs_prob in that credible set'.
     for credible_set in df.loc[~df["cs_id"].isna(),"cs_id"].unique():

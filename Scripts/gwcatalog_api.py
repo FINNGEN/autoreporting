@@ -215,6 +215,8 @@ class LocalDB(ExtDB):
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
+        if retval.empty:
+            return
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
@@ -253,6 +255,8 @@ class GwasApi(ExtDB):
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
+        if retval.empty:
+            return
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval.loc[:,"code"]=20
