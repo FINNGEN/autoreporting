@@ -46,7 +46,11 @@ def main(args):
     ######Compare results######
     ###########################
     print("Compare results to previous findings")
-    [report_df,ld_out_df] = compare.compare(annotate_df, args)
+    [report_df,ld_out_df] = compare.compare(annotate_df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
+                                    plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
+                                    gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
+                                    ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, column_labels=args.column_labels,
+                                    localdb_path=args.localdb_path, database_choice=args.database_choice, args=args)
     if type(report_df) != type(None):
         report_df.to_csv(args.top_report_out,sep="\t")
         #create top report
