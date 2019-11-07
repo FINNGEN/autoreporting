@@ -48,9 +48,9 @@ def try_request(url, params=None,timeout=5):
     """
     try:
         r=requests.get(url, params=params)
-        tries=0
+        tries=2
         while r.status_code not in (200,400,404):
-            time.sleep(1)
+            time.sleep(0.5)
             r=requests.get(url, params=params)
             if tries >= timeout:
                 print("Request {} with parameters {} returned code {} with attempt {}".format(url, params, r.status_code,tries+1))
@@ -71,12 +71,12 @@ def try_request_post(url, headers, data ,timeout=5):
     """
     try:
         r=requests.post(url, headers=headers,data=data)
-        tries=0
+        tries=2
         while r.status_code not in (200,400,404):
-            time.sleep(1)
-            print("POST Request to {} returned code {} with attempt {}".format(url, r.status_code,tries+1))
+            time.sleep(0.5)
             r=requests.post(url, headers=headers,data=data)
             if tries >= timeout:
+                print("POST Request to {} returned code {} with attempt {}".format(url, r.status_code,tries+1))
                 break
             tries+=1
     except Exception as e:
