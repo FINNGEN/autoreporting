@@ -33,26 +33,57 @@ def parse_output(dumplst):
 
 def get_trait_name(trait):
     base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-    r=requests.get(url=base_url+trait)
-    if r.status_code == 404:
+    r=try_request("{}{}".format(base_url,trait) )
+    if type(r)==type(None):
         print("Trait {} not found in GWASCatalog".format(trait))
-        return "NA"
-    elif r.status_code != 200:
-        print("Request for trait {} returned status code {}".format(trait,r.status_code))
         return "NA"
     else:
         return r.json()["trait"]
 
 def try_request(url, params=None,timeout=5):
-    r=requests.get(url, params=params)
-    tries=0
-    while r.status_code not in (200,400,404):
-        time.sleep(1)
-        print("Request {} with parameters {} returned code {} with attempt {}".format(url, params, r.status_code,tries+1))
+    """
+    Make a GET request and handle possible errors
+    In: url, parameters, number fo times to retry the request
+    Out: Request or None
+    """
+    try:
         r=requests.get(url, params=params)
-        if tries >= timeout:
-            break
-        tries+=1
+        tries=0
+        while r.status_code not in (200,400,404):
+            time.sleep(1)
+            r=requests.get(url, params=params)
+            if tries >= timeout:
+                print("Request {} with parameters {} returned code {} with attempt {}".format(url, params, r.status_code,tries+1))
+                break
+            tries+=1
+    except Exception as e:
+        print("Request caused an exception:{}".format(e))
+        return None
+    if r.status_code not in (200,):
+        return None
+    return r
+
+def try_request_post(url, headers, data ,timeout=5):
+    """
+    Make a POST request and handle possible errors
+    In: url, headers, data, numer of times to retry the request
+    Out: Request or None
+    """
+    try:
+        r=requests.post(url, headers=headers,data=data)
+        tries=0
+        while r.status_code not in (200,400,404):
+            time.sleep(1)
+            print("POST Request to {} returned code {} with attempt {}".format(url, r.status_code,tries+1))
+            r=requests.post(url, headers=headers,data=data)
+            if tries >= timeout:
+                break
+            tries+=1
+    except Exception as e:
+        print("Request caused an exception:{}".format(e))
+        return None
+    if r.status_code not in (200,):
+        return None
     return r
 
 def parse_float(number):
@@ -78,10 +109,7 @@ class SummaryApi(ExtDB):
         payload={"p_upper":pval,"p_lower":p_lower,
             "reveal":"all","bp_lower":start,"bp_upper":end,"start":0,"size":size}
         r=try_request(url,params=payload)
-        if r.status_code not in {200,400,404}:
-            print("Request returned status code {}.\n url:{}".format(r.status_code,r.url))
-            return
-        if r.status_code in [400,404]:
+        if type(r) == type(None):
             print("No variants found in {}:{}-{}".format(chromosome,start,end))
             return
         dump=r.json()
@@ -91,15 +119,13 @@ class SummaryApi(ExtDB):
         dumplst.append(dump["_embedded"]["associations"])
         i=1
         while "next" in dump["_links"].keys():
-            time.sleep(1)
             r=try_request(dump["_links"]["next"]["href"],params={"reveal":"all"})
-            if r.status_code != 200:
-                print("Request {} with params {} returned status code {}".format(url,payload,r.status_code))
+            if type(r) == type(None):
                 break
             dump=r.json()
+            dumplst.append(dump["_embedded"]["associations"])
             if "_links" not in dump.keys():
                 break
-            dumplst.append(dump["_embedded"]["associations"])
             i+=1
         retval_=parse_output(dumplst)
         retval=[]
@@ -143,19 +169,14 @@ def ensembl_request(rsids):
     for rsid_chunk in in_chunks(rsids,200):
         list_str='["{}"]'.format('", "'.join(rsid_chunk))
         data='{{ "ids":{} }}'.format(list_str)
-        for _ in range(0,5):
+        r = try_request_post(ensembl_url,headers=headers,data=data)
+        if r==None:
+            print("No valid response from Ensembl API. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
+        else:
             try:
-                ensembl_response=requests.post(url=ensembl_url,headers=headers,data=data)
-                if ensembl_response.status_code == 200:
-                    try:
-                        out=out+ parse_ensembl(ensembl_response.json())
-                    except ValueError:
-                        pass#this should be handled in some way, no?
-                    break
-                else:
-                    print("The response for request with try {} was {}. Retrying for {} times.".format(_,ensembl_response.status_code,4-_) )
-            except:
-                print("Ensembl API request timed out. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
+                out=out + parse_ensembl(r.json())
+            except ValueError:
+                pass
     return out
 
 def split_traits(df):
@@ -238,10 +259,13 @@ class GwasApi(ExtDB):
         url="https://www.ebi.ac.uk/gwas/api/search/downloads?q=chromosomeName: {} AND chromosomePosition:[ {} TO {}"\
             "]&pvalfilter={}&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
             chromosome,start,end,parse_float(float(pval) ))
-        gwcat_response=requests.get(url)
-        while gwcat_response.status_code!=200:
-            print(gwcat_response.status_code)
-            gwcat_response=requests.get(url)
+        #gwcat_response=requests.get(url)
+        gwcat_response=try_request(url)
+        if type(gwcat_response)==type(None):
+            return
+        #while gwcat_response.status_code!=200:
+        #    print(gwcat_response.status_code)
+        #    gwcat_response=requests.get(url)
         s_io=StringIO(gwcat_response.text)
         df=pd.read_csv(s_io,sep="\t")
         if df.empty:
