@@ -114,6 +114,55 @@ class TestGwcat(unittest.TestCase):
         mock_print.assert_called_with("Request caused an exception:{}".format(TimeoutError("Timeout")))
         pass 
 
+    def test_get_trait_name(self):
+        """
+        Test get_trait_name
+        Test cases:
+            Call with a trait that 'does exist' in gwascatalog
+            Call with a trait that 'does not exist' in gwascatalog
+        """
+        #does exist
+        trait="trait1"
+        trait_name="trait_name"
+        tryurl="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/{}".format(trait)
+        response_mock=mock.Mock()
+        response_mock.json=lambda:{"trait":trait_name}
+        with mock.patch("Scripts.gwcatalog_api.try_request",return_value = response_mock) as mock_try:
+            return_value=gwcatalog_api.get_trait_name(trait)
+        self.assertEqual(return_value,trait_name)
+        mock_try.assert_called_with(tryurl)
+        #does not exist
+        with mock.patch("Scripts.gwcatalog_api.try_request",return_value = None) as mock_try:
+            with mock.patch("Scripts.gwcatalog_api.print"):
+                return_value=gwcatalog_api.get_trait_name(trait)
+        self.assertEqual("NA",return_value)
+
+    def test_parse_float(self):
+        """
+        Test parse_float
+        Test cases:
+            number: 5e-8    => '5e-8'
+            number: 1.2e-8  => '12e-9'
+            number: 0       => '0e0'
+            number: 12 => '1'
+        """
+        num=5e-8
+        validate='5e-8'
+        retval=gwcatalog_api.parse_float(num)
+        self.assertEqual(retval,validate)
+        num=1.2e-8
+        validate='12e-9'
+        retval=gwcatalog_api.parse_float(num)
+        self.assertEqual(retval,validate)
+        num=0.0
+        validate='0'
+        retval=gwcatalog_api.parse_float(num)
+        self.assertEqual(retval,validate)
+        num=12.0
+        validate='1'
+        retval=gwcatalog_api.parse_float(num)
+        self.assertEqual(retval,validate)
+
 if __name__=="__main__":
     os.chdir("./testing")
     unittest.main()
