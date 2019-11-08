@@ -163,6 +163,26 @@ class TestGwcat(unittest.TestCase):
         retval=gwcatalog_api.parse_float(num)
         self.assertEqual(retval,validate)
 
+    def test_parse_efo(self):
+        """
+        Test parse_efo
+        Test cases:
+            Valid efo code
+            Invalid type
+        """
+        #valid code
+        efo = "asd/EFO_CODE"
+        validate="EFO_CODE"
+        retval=gwcatalog_api.parse_efo(efo)
+        self.assertEqual(retval,validate)
+        #invalid type, here int
+        efo=123456
+        with mock.patch("Scripts.gwcatalog_api.print") as mock_print:
+            retval=gwcatalog_api.parse_efo(efo)
+        mock_print.assert_called_with("Invalid EFO code:{}".format(efo))
+        self.assertEqual("NAN",retval)
+
+
 if __name__=="__main__":
     os.chdir("./testing")
     unittest.main()
