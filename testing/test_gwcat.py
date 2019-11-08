@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock as mock
 import sys,os,json, requests
+import pandas as pd
 sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
@@ -181,6 +182,29 @@ class TestGwcat(unittest.TestCase):
             retval=gwcatalog_api.parse_efo(efo)
         mock_print.assert_called_with("Invalid EFO code:{}".format(efo))
         self.assertEqual("NAN",retval)
+
+    def test_split_traits(self):
+        """
+        Test stplit_traits
+        Test cases:
+            A dataframe that works
+            A dataframe with no proper columns
+        """
+        #correct dataframe
+        variants=["1","2","3","4"]
+        traits=["A","B,C","D,E","F"]
+        trait_uris=["1","2,3","4,5","6"]
+        data=pd.DataFrame({"variant":variants,"MAPPED_TRAIT":traits,"MAPPED_TRAIT_URI":trait_uris})
+        validationvar=["1","2","2","3","3","4"]
+        validationtraits=["A","B","C","D","E","F"]
+        validationuris=["1","2","3","4","5","6"]
+        validationdata=pd.DataFrame({"variant":validationvar,"MAPPED_TRAIT":validationtraits,"MAPPED_TRAIT_URI":validationuris})
+        data2=gwcatalog_api.split_traits(data)
+        self.assertTrue(validationdata.equals(data2))
+        #faulty dataframe: no correct columns
+        data=pd.DataFrame({"variant":variants,"MT":traits,"MTU":trait_uris})
+        data2=gwcatalog_api.split_traits(data)
+        self.assertEqual(type(data2),type(None))
 
 
 if __name__=="__main__":

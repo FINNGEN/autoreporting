@@ -185,22 +185,25 @@ def ensembl_request(rsids):
                 pass
     return out
 
-def split_traits(df):
+def split_traits(df,traitname="MAPPED_TRAIT",traituriname="MAPPED_TRAIT_URI"):
     """
-    Split gwascatalog trait column to single traits. Does this by duplicating rows with multiple traits to multiple rows, each containing only one trait.
-    In: Dataframe containing information and the trait column, by name 'trait'
-    Out: Same dataframe with 
+    Split gwascatalog trait column to single traits. 
+    Does this by duplicating rows with multiple traits to multiple rows, each containing only one trait.
+    In: Dataframe containing information and the trait columns, 'MAPPED_TRAIT' and 'MAPPED_TRAIT_URI'
+    Out: Same dataframe with the information and columns 'MAPPED_TRAIT' and 'MAPPED_TRAIT_URI'
     """
     retval=[]
+    if (traitname not in df.columns) or (traituriname not in df.columns) :
+        return None
     for row in df.itertuples(index=False):
-        if type(row.MAPPED_TRAIT_URI) == type("string"):
-            if "," in row.MAPPED_TRAIT_URI:
-                efos=row.MAPPED_TRAIT_URI.split(",")
-                traits=row.MAPPED_TRAIT.split(",")
+        if type(getattr(row,traituriname)) == type("string"):
+            if "," in getattr(row,traituriname):
+                efos=getattr(row,traituriname).split(",")
+                traits=getattr(row,traitname).split(",")
                 efos=[e.strip() for e in efos]
                 traits=[t.strip() for t in traits]
                 for idx, (efo,trait) in enumerate(zip(efos,traits)):
-                    new_row=row._replace(MAPPED_TRAIT_URI=efo,MAPPED_TRAIT=trait)
+                    new_row=row._replace(**{traitname:trait, traituriname:efo})
                     retval.append(new_row)
             else:
                 retval.append(row)
