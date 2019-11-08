@@ -3,27 +3,39 @@
 ## A tool for finding gws results from GWAS summary statistics
 
 This pipeline is used to
-<!--2) Perform finemapping on the filtered SNPs (TBD) -->
 1) Filter out and group gws variants from FinnGen summary statistics.
 2) Annotate the gws variants using gnoMAD and FinnGen annotations.
-3) Cross-reference the variants to previous results, e.g. gwascatalog summary statistic database or hand-picked results from studies.
+3) Cross-reference the variants to previous results, e.g. GWAS Catalog or summary statistics from hand-picked studies.
 <!--Currently, steps 1,3 and 4 are operational.--> 
 
-__NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files__
+__NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files.__
 
 ## Dependencies
 
-packages:python 3 (version 3.6+), pip, latest plink, ldstore (tested on 1.1), zlib development libraries for pytabix
-
-python 3 libraries: requests, numpy, pandas, pytabix 
-
+Packages:
+```
+python 3 (version 3.6+)
+pip
+plink (latest binary)
+ldstore (tested on 1.1)
+zlib
+```
+Python 3 libraries:
+``` 
+requests
+numpy
+pandas
+pytabix 
+```
 ## Installation
 
 Install dependencies
 
 ```
 sudo apt install tabix python3 python3-pip zlib1g-dev
-wget http://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_latest.zip && unzip plink_linux_x86_64_latest.zip  && sudo cp plink /bin
+wget http://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_latest.zip 
+unzip plink_linux_x86_64_latest.zip 
+sudo cp plink /usr/local/bin/
 wget http://www.christianbenner.com/ldstore_v1.1_x86_64.tgz
 tar xvf ldstore_v1.1_x86_64.tgz
 sudo cp ldstore_v1.1_x86_64/ldstore /usr/local/bin/ldstore
@@ -39,15 +51,18 @@ git clone https://github.com/FinnGen/autoreporting.git
 ## Resources
 
 The resources to use this tool (gnomad & finngen annotations, LD panel) can be found here:
-- gnomad genome&exome annotations: gs://finngen-production-library-green/autoreporting_annotations/gnomad_data/
-- finngen annotations: gs://finngen-production-library-green/autoreporting_annotations/finngen_annotation/
-- LD panel (based on 1000 genomes data): gs://finngen-production-library-green/autoreporting_annotations/1kg_ld 
+- gnomad genome&exome annotations: ```gs://finngen-production-library-green/autoreporting_annotations/gnomad_data/```
+- finngen annotations: ```gs://finngen-production-library-green/autoreporting_annotations/finngen_annotation/```
+- functional annotations: ```gs://fg-datateam-analysisteam-share/gnomad/fin_enriched_genomes_select_columns.txt.bgz```
+- LD panel (based on 1000 genomes data): ```gs://finngen-production-library-green/autoreporting_annotations/1kg_ld```
 
 
 ## Usage
 
-In the project folder, the script can be used by either calling the whole script or calling the individual scripts by themselves.
+The script can be used by either calling the whole script or calling the individual scripts by themselves in the project folder.
 ### main:
+
+The complete autoreporting tool pipeline can be used by executing the ```Scripts/main.py``` script. The pipeline will then filter, group, annotate and compare the variants. Grouping method, file paths to resources, operation parameters, output file paths, comparison database and other options can be set using different command-line arguments.
 
 ```
 usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
@@ -75,7 +90,6 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
                [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
                gws_fpath
-
 ```
 
 Command-line arguments:
@@ -149,14 +163,22 @@ The gws_fetch.py-script is used to filter genome-wide significant variants from 
 python3 gws_fetch.py --sign-treshold 2.5e-8 path_to_ss/summary_statistic.tsv.gz
 ```
 
-#### A more detailed description of the script:  
+#### A Detailed description of the script:  
 __Input__:  
-gws_fpath: a FinnGen summary statistic that is gzipped and tabixed.  
-ld_panel_path (optional): a plink .bed file that is used to calculate linkage disequilibrium for the variants.  
+gws_fpath: a FinnGen summary statistic that is gzipped and tabixed. The default column labels for the file are '#chrom','pos', 'ref', 'alt', 'pval'. These can be changed with ```--column-labels```.  
+ld_panel_path (optional): a plink .bed file that is used to calculate linkage disequilibrium for the variants.
+credible_set_file: A .SUSIE.snp.bgz file, containing credible sets that were finemapped from the summary statistic.  
 __Output__:  
-fetch_out: a .tsv-file, with one genome-wide significant variant per row. The variants can optionally be grouped into possible signals, based on either width around group variants or width and linkage disequilibrium between variants.  
+fetch_out: a .tsv-file, with one genome-wide significant variant per row. The name of the output file can be changed using ```--fetch-out```, and a prefix can be added with ```--prefix```.  
+__Filtering__:  
+The tool filters the summary statistic using the p-value of the variants. The p-value threshold for filtering can be changed with ```--sign-treshold```.  
+__Grouping__:
+The variants can optionally be grouped into possible signals, based on one of the tree grouping methods. The grouping method is enabled with the ```--group``` flag. The grouping method can be chosen using the ```--grouping-method``` flag:
+- simple (location range-based grouping): Group the variants by choosing the most significant variant and adding variants in a range around it to the group. ```--locus-width-kb``` can be used to control the range, in kilobases. ```--alt-sign-treshold``` can be used to control the p-value threshold to include variants in the groups. ```--overlap``` can be used to allow group overlap.
+- ld (plink --clump): perform ld-based grouping, e.g. PLINK 1.9's --clump[1] operation on the variants. Requires the ld panel to be given to the script. ```--ld-r2``` can be used to control the plink --clump r-squared threshold. ```--plink-memory``` can be used to control the amount of memory given to plink. The same parameters as in simple grouping can be used.
+- cred (credible set grouping): Assign the groups to be the credible set plus their ld-neighbors. A group always contains its own credible set, regardless of the p-value or ld threshold. In case the credible set file does not contain any credible sets, the output is an empty table. Requires the credible set file as well as the ld panel to be defined. Same parameters as in simple and ld grouping can be used.  
 
-__Script function__:  
+<!-- __Script function__:  
 First, the summary statistic, a tabixed and gzipped tsv, is loaded into the script, and all variants with p-values under signifigance treshold are selected. In case no grouping is performed, they are written to a file. If grouping is performed, these variants receive an id, under column 'locus_id' in the result file, that designates which group they belong to. Grouping can be done in two ways: The variants can be simply grouped by setting a group width, or by using linkage disequilibrium to determine, how the variants are grouped. Pseudocode for the grouping by width:  
 ```
 let group of variants G
@@ -168,7 +190,7 @@ while |G| > 0:
     remove variants v and v' from G
 ```
 Optionally, the groups can be set to overlap, i.e. a single variant can be included in one or more groups, if it is inside the range of the group. However, variants that are already included in a group can not form groups.  
-The grouping based on linkage disequilibrium is based on plink 1.9's --clump option, which is similar in its function. Based on plink documentation, the groups are formed by taking all of the variants that are not clumped and that are inside the group's range, as well as those variants that are in ld with the group variant.[1] As such, it only differs from the simple grouping by including variants that are in ld with the group variant in the group.  
+The grouping based on linkage disequilibrium is based on plink 1.9's --clump option, which is similar in its function. Based on plink documentation, the groups are formed by taking all of the variants that are not clumped and that are inside the group's range, as well as those variants that are in ld with the group variant.[1] As such, it only differs from the simple grouping by including variants that are in ld with the group variant in the group.   -->
 [1]http://zzz.bwh.harvard.edu/plink/clump.shtml
 
 ### annotate<span></span>.py:
@@ -176,17 +198,28 @@ The grouping based on linkage disequilibrium is based on plink 1.9's --clump opt
 ```
 usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--gnomad-exome-path GNOMAD_EXOME_PATH]
-                   [--include-batch-freq] [--finngen-path FinnGen_PATH]
-                   [--prefix PREFIX] [--annotate-out ANNOTATE_OUT]
+                   [--include-batch-freq] [--finngen-path FINNGEN_PATH]
+                   [--functional-path FUNCTIONAL_PATH] [--prefix PREFIX]
+                   [--annotate-out ANNOTATE_OUT]
                    [--column-labels CHROM POS REF ALT PVAL]
                    [--finngen-annotation-version FG_ANN_VERSION]
                    annotate_fpath
 ```
+#### A Detailed description of the script: 
 
-The annotate<span></span>.py-script is used to annotate the previously filtered genome-wide significant variants, using annotation files from gnoMAD as well as annotation files specific to the FinnGen project. For the FinnGen annotations, specify the version/release used with the --finngen-annotation-version. Allowed values are 'r3' and 'r4'. Finngen annotations with version 3_0 or lower should be used with value 'r3', and versions 3_1 or higher (e.g. 4_1) should use the 'r4' value. The rest of the arguments are the same as in main<span></span>.py, except for annotate_fpath, which is the path to the filtered variants. For example, to annotate variants the script can be called like this:
+__input__:  
+annotate_fpath: The output of gws_fetch.py  
+gnomad_genome_path: A tabixed, bgzipped gnoMAD genome annotation file.  
+gnomad_exome_path: A tabixed, bgzipped gnoMAD exome annotation file.  
+finngen_path: A tabixed, bgzipped FinnGen annotation file. Batch-specific information can be included with the flag ```--include-batch-freq```. Due to file formatting changes, the FinnGen version matters. The version can be given with the ```--finngen-annotation-version``` flag. Finngen annotation files made with releases 3 or earlier should use the value 'r3', and files made with releases 4 and above should use value 'r4'. The default value is 'r3'. Given an invalid version, the script will not be able to parse the FinnGen annotation file.  
+functional_path: A tabixed, bgzipped file containing the functional consequences (missense variant, pLoF etc.) for variants.  
+__output__:  
+annotate_out: A file with the same columns as annotate_fpath, as well as additional annotation columns from gnoMAD, FinnGen and functional annotations.  
+
+<!-- The annotate<span></span>.py-script is used to annotate the previously filtered genome-wide significant variants, using annotation files from gnoMAD as well as annotation files specific to the FinnGen project. For the FinnGen annotations, specify the version/release used with the --finngen-annotation-version. Allowed values are 'r3' and 'r4'. Finngen annotations with version 3_0 or lower should be used with value 'r3', and versions 3_1 or higher (e.g. 4_1) should use the 'r4' value. The rest of the arguments are the same as in main<span></span>.py, except for annotate_fpath, which is the path to the filtered variants. For example, to annotate variants the script can be called like this:
 ```
 python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_gnomad/gnomad_genomes.tsv.gz --gnomad-exome-path path_to_gnomad/gnomad_exomes.tsv.gz --finngen-path path_to_finngen_annotation/finngen_annotation.tsv.gz --annotate-out annotation_output.tsv
-```
+``` -->
 
 ### compare<span></span>.py:
 
@@ -195,7 +228,7 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--summary-fpath SUMMARY_FPATH] [--endpoint-fpath ENDPOINTS]
                   [--check-for-ld] [--plink-memory PLINK_MEM]
                   [--ld-panel-path LD_PANEL_PATH] [--prefix PREFIX]
-                  [--report-out RAPORT_OUT] [--ld-report-out LD_RAPORT_OUT]
+                  [--report-out REPORT_OUT] [--ld-report-out LD_REPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--gwascatalog-threads GWASCATALOG_THREADS]
@@ -206,7 +239,6 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
                   [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
                   compare_fname
-
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
 ```
@@ -214,16 +246,16 @@ python3 Scripts/compare.py variant_file.tsv --compare-style gwascatalog --gwasca
 ```
 Additional flags, such as `--check-for-ld`, can be used to check if the summary statistics are in ld with the variants, and to report them if they are.
 
-A more detailed description of the script:  
+#### A more detailed description of the script:  
 __Input__:  
 compare_fname: genome-wide significant variants that are filtered & grouped by gws_fetch.py and annotated by annotate<span></span>.py.  
-ld_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). Same file that's used in gws_fetch. 
-summary_fpath (optional): A file containing the summary file paths. List one file path per line. Actual summary statistics must be tab-separated value files and in build 38.
-endpoint_fpath (optional):  A file containing endpoints for the summary files listed in summary_fpath. List one endpoint per line. 
+ld_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). Same file that's used in gws_fetch.  
+summary_fpath (optional): A file containing the summary file paths. List one file path per line. Actual summary statistics must be tab-separated value files and in build 38.  
+endpoint_fpath (optional):  A file containing endpoints for the summary files listed in summary_fpath. List one endpoint per line.  
 __Output__:  
 report_out: a tsv report of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also reported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
 ld_report_out: A tsv report of those variants that are in LD with external summary statistic/gwascatalog variants.  
-top_report_out: A tsv report of variant groups and their gwascatalog matched phenotypes. More specific match information is presented in report_out.   
+top_report_out: A tsv report of variant groups and their gwascatalog matched phenotypes. More specific match information is presented in report_out.  
 
 __Script function__:
 The comparison script takes in a filtered and annotated variant tsv file, and reports if those variants have been announced in earlier studies. In case GWAScatalog is used, the script forms chromosome &  basepair ranges, such as 1:200000-300000 for 1st chromosome and all variants through 200000 to 300000, and the GWAScatalog summary statistic API is then queried for all hits inside this range that have a p-value under a designated p-value treshold. In case of external summary statistic files, the variants are just combined from these files. The filtered and annotated FinnGen summary statistic variants are then compared against this group of variants, and for each variant all exact matches are reported. Optionally, genome-wide significant variants are also tested for ld with these variants for earlier studies, and variants for which the ld value is larger than `--ld-treshold` value are reported.
