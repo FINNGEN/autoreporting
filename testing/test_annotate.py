@@ -33,14 +33,6 @@ class TestAnnotate(unittest.TestCase):
         for idx,_val in result.iteritems():
             self.assertAlmostEqual(result[idx],test[idx]) 
 
-    def test_rename_dict(self):
-        prefix="prefix"
-        values=[1,2,3,4,5]
-        values=[str(a) for a in values]
-        rename=annotate.create_rename_dict(values,prefix)
-        validate={"1":"prefix1","2":"prefix2","3":"prefix3","4":"prefix4","5":"prefix5"}
-        self.assertEqual(rename,validate)
-
     def test_annotate(self):
         #define args
         #needed files: gnomad_genome_tabixed file, exome gnomad, finngen annotations
