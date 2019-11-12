@@ -1,6 +1,7 @@
 task report {
     #variables
     String docker
+    Int memory
     Array[File] summ_stat
     Array[File] summ_stat_tb
     Array[File] credsets
@@ -82,7 +83,7 @@ task report {
     runtime {
         docker: "${docker}"
         cpu: "${cpus}"
-        memory: "16 GB"
+        memory: "${memory} GB"
         disks: "local-disk 300 HDD"
         zones: "europe-west1-b"
         preemptible: 2 
@@ -198,6 +199,7 @@ workflow autoreporting{
     File phenotypelist
     File credsetlist
     Int phenos_per_worker
+    Int memory
     String docker 
     call credset_filter {
         input:additional_prefix="finngen_R4_",phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
@@ -210,7 +212,7 @@ workflow autoreporting{
     Array[Array[File]] credset_arr = read_tsv(preprocess_chunks.out_credset_tsv)
     scatter (i in range(length(pheno_arr))) {
         call report{
-            input: summ_stat=pheno_arr[i], summ_stat_tb=pheno_tbi_arr[i], credsets=credset_arr[i], docker=docker
+            input: summ_stat=pheno_arr[i], summ_stat_tb=pheno_tbi_arr[i], credsets=credset_arr[i], docker=docker,memory=memory
         }
     }
 }
