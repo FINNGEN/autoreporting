@@ -274,8 +274,7 @@ def merge_credset(gws_df,cs_df,fname,columns):
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     # fetch rows using tabix
     ## make tabix file constructor
-    tb=tabix.open(fname)
-    cred_row_df = load_tb_df(cs_df,tb,fname,columns=columns)
+    cred_row_df = load_tb_df(cs_df,fname,columns=columns)
     #print(cred_row_df.dtypes)
     #print(cs_df.dtypes)
     cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})

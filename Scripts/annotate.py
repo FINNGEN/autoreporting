@@ -62,26 +62,23 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     #load gnomad_genomes
     if not os.path.exists("{}.tbi".format(gnomad_genome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_genome_path))
-    tb_g=tabix.open(gnomad_genome_path)
-    gnomad_genomes=load_tb_df(df,tb_g,gnomad_genome_path,columns=columns)
+    gnomad_genomes=load_tb_df(df,gnomad_genome_path,columns=columns)
 
     #load gnomad_exomes
     if not os.path.exists("{}.tbi".format(gnomad_exome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_exome_path))
-    tb_e=tabix.open(gnomad_exome_path)
-    gnomad_exomes=load_tb_df(df,tb_e,gnomad_exome_path,columns=columns)
+    gnomad_exomes=load_tb_df(df,gnomad_exome_path,columns=columns)
 
     #load finngen annotations
     if not os.path.exists("{}.tbi".format(finngen_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
-    tb_f=tabix.open(finngen_path)
     if fg_ann_version=="r3":
-        fg_df=load_tb_df(df,tb_f,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        fg_df=load_tb_df(df,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
         fg_df["chr"]=fg_df["chr"].apply(lambda x: x.strip("chr")) #change chrom column from chrCHROM to CHROM
         fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     else:
-        fg_df=load_tb_df(df,tb_f,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+        fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
         fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     fg_df = fg_df.drop_duplicates(subset=["#variant"])
@@ -91,8 +88,7 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     else:
         if not os.path.exists("{}.tbi".format(functional_path)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
-        tb_func=tabix.open(functional_path)
-        func_df = load_tb_df(df,tb_func,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        func_df = load_tb_df(df,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
         func_cols=["chrom","pos","ref","alt","consequence"]
         func_df = func_df[func_cols]
 

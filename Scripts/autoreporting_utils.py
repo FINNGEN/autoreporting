@@ -46,7 +46,8 @@ def get_gzip_header(fname):
                 out.append(line.decode().strip().split("\t"))
     return out[0]
 
-def load_tb_df(df,tb,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"}):
+def load_tb_df(df,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"}):
+    tb=tabix.open(fpath)
     tbxlst=[]
     for _,row in df.iterrows():
         tbxlst=tbxlst+list(pytabix(tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) ) )
