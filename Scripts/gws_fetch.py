@@ -30,7 +30,7 @@ def solve_groups(all_variants,group_data):
             group=group+sp2_split
         group_df=all_variants[ all_variants["#variant"].isin(group) ].copy()
         group_df.loc[:,"locus_id"]=t.SNP
-        retval=pd.concat([retval,group_df],axis="index",sort=True)
+        retval=pd.concat([retval,group_df],axis="index",sort=False)
     return retval
 
 def simple_grouping(df_p1,df_p2,r,overlap,columns):
@@ -138,7 +138,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_tres
             new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=new_df.loc[new_df["locus_id"]==var,"pos"].max()
         p1_group_leads = df_p1["#variant"].isin(new_df["#variant"])
         p1_singletons = ~p1_group_leads
-        new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index",sort=True).sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+        new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index",sort=False,ignore_index=True).sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
         new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
         new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
     #if there is not data
@@ -296,7 +296,7 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     """
     #column names
     columns=columns_from_arguments(column_labels)
-    sig_tresh=max(sig_tresh_1,sig_tresh_2)
+    sig_tresh_2=max(sig_tresh_1,sig_tresh_2)
     r=locus_width*1000#range for location width, originally in kb
     dtype={columns["chrom"]:str,
                 columns["pos"]:np.int32,
@@ -305,7 +305,7 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
                 columns["pval"]:np.float64}
 
     #data input: get genome-wide significant variants.
-    temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh,dtype=dtype,columns=columns,compression="gzip")
+    temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip")
     #remove ignored region if there is one
     if ignore_region:
         ignore_region_=parse_region(ignore_region)
