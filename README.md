@@ -194,7 +194,7 @@ gnomad_genome=path_to_annotation/gnomad_genomes.gz          # gnomad genome anno
 gnomad_exome=path_to_annotation/gnomad_exomes.gz            # gnomad exome annotation file
 finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
 functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
-finngen_ann_version=r4                                      # finngen annotation version, r3 for <r3_0, r4 for >r3_1
+finngen_ann_version=r4                                      # finngen annotation version, r3 for <=r3_0, r4 for >=r3_1
 compare_style=gwascatalog                                   # comparison data from gwas catalog. Options are [gwascatalog, file, both]
 db=gwas                                                     # GWAS Catalog database: local copy (local), normal (gwas), or summary statistic API (summ_stats)
 
@@ -208,9 +208,9 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --credible-set-file $credsetfile \
         --gnomad-genome-path $gnomad_genome \
         --gnomad-exome-path $gnomad_exome \
-        --finngen-path $finngen_annotation \
+        --finngen-path $finngen_ann \
         --finngen-annotation-version $finngen_ann_version \
-        --functional-path $functional_annotation \
+        --functional-path $functional_ann \
         --compare-style $compare_style --db $db
 ```
 
@@ -230,9 +230,29 @@ usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                     [--credible-set-file CRED_SET_FILE]
                     gws_fpath
 ```
-The gws_fetch.py-script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, either based on a range around top hits, or by using plink's --clump functionality. The arguments used are the same as the ones in main<span></span>.py. For example, to just filter variants according to a p-value, the script can be called by
+The gws_fetch.py script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, using either location-based grouping, ld-based goruping or grouping around credible sets. The arguments used are the same as the ones in main<span></span>.py. For example, Here is a small bash script for running the gws_fetch.py script:
 ```
-python3 gws_fetch.py --sign-treshold 2.5e-8 path_to_ss/summary_statistic.tsv.gz
+#! /bin/bash
+
+file=path_to_input/summary_statistic.gz                     # input file
+sig_p='5e-8'                                                # significance threshold
+sig_p2='0.001'                                              # alternate significance threshold, used with grouping
+prefix='fetch_prefix'                                       # output file prefix
+grouping_method=ld                                          # grouping method, one of [simple, ld, cred]
+loc_w=1500                                                  # range for grouping
+ld_panel=path_to_ld/ld_panel                                # the path to the .bed LD panel, without file suffix
+ld_r2=0.1                                                   # grouping (ld, cred only) LD threshold
+plink_mem=14000                                             # plink memory in MB
+ignore_region='6:23000000-38000000'                         # Result region to ignore: corresponds to MHC region
+credsetfile=path_to_cs/credible_set.SUSIE.snp.bgz           # SuSiE credible set output
+
+python3 Scripts/gws_fetch.py $file --sign-treshold $sig_p  \
+        --alt-sign-treshold $sig_p2 --prefix $prefix \
+        --group --grouping-method $grouping_method \
+        --locus-width-kb $loc_w \
+        --ld-panel-path $ld_panel --ld-r2 $ld_r2 \
+        --plink-memory $plink_mem --ignore-region $ignore_region \
+        --credible-set-file $credsetfile
 ```
 
 ####  4.2.1. <a name='ADetaileddescriptionofthescript:'></a>A Detailed description of the script:  
@@ -277,6 +297,28 @@ usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--finngen-annotation-version FG_ANN_VERSION]
                    annotate_fpath
 ```
+
+The annotate<span></span>.py script is used to annotate filtered and grouped genome-wide significant variants with annotations from gnomAD and FinnGen. This script is run as a part of the main<span></span>.py, but can be run on its own as well. Here's an example bash script for running the annotate<span></span>.py script:
+```
+
+#! /bin/bash
+
+file=fetch_output                                           # input file
+prefix='annotate_prefix'                                    # output file prefix
+gnomad_genome=path_to_annotation/gnomad_genomes.gz          # gnomad genome annotation file
+gnomad_exome=path_to_annotation/gnomad_exomes.gz            # gnomad exome annotation file
+finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
+functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
+finngen_ann_version=r4                                      # finngen annotation version, r3 for <=r3_0, r4 for >=r3_1
+
+python3 Scripts/annotate.py $file --prefix $prefix \
+        --gnomad-genome-path $gnomad_genome \
+        --gnomad-exome-path $gnomad_exome \
+        --finngen-path $finngen_ann \
+        --finngen-annotation-version $finngen_ann_version \
+        --functional-path $functional_ann \
+``` 
+
 ####  4.3.1. <a name='ADetaileddescriptionofthescript:-1'></a>A Detailed description of the script: 
 
 __input__:  
@@ -312,11 +354,23 @@ usage: compare.py [-h] [--compare-style COMPARE_STYLE]
                   [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
                   compare_fname
 ```
-The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The arguments are the same as in main<span></span>.py, except for compare_fname, which is the input variant file. For example, to simply check if the variants have any corresponding hits in GWAScatalog summary statistics, one can use the following command:
+The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The optional arguments are the same as the arguments to main<span></span>.py. Here's an example bash script for running compare<span></span>.py:
 ```
-python3 Scripts/compare.py variant_file.tsv --compare-style gwascatalog --gwascatalog-pval 5e-8 --report-out output_report.tsv
+#! /bin/bash
+
+file=annotate_output                                        # input file
+prefix='compare_prefix'                                     # output file prefix
+gwascatalog_pval='5e-8'                                     # The result p-value threshold for gwas catalog hits 
+gwascatalog_threads=10                                      # how many concurrent requests to gwascatalog
+compare_style=gwascatalog                                   # comparison data from gwas catalog or external summaries. Options are [gwascatalog, file, both]
+db=gwas                                                     # GWAS Catalog database: local copy (local), normal (gwas), or summary statistic API (summ_stats)
+
+
+python3 Scripts/compare.py $file --prefix $prefix \
+        --gwascatalog-pval $gwascatalog_pval \
+        --gwascatalog-threads $gwascatalog_threads \
+        --compare-style $compare_style --db $db
 ```
-Additional flags, such as `--check-for-ld`, can be used to check if the summary statistics are in ld with the variants, and to report them if they are.
 
 ####  4.4.1. <a name='Amoredetaileddescriptionofthescript:'></a>A more detailed description of the script:  
 __Input__:  
