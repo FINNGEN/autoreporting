@@ -261,6 +261,7 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chr
     retval=pd.DataFrame()
     for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
         retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True )
+    retval=retval[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ] ]
     return retval
 
 def merge_credset(gws_df,cs_df,fname,columns):
@@ -273,15 +274,12 @@ def merge_credset(gws_df,cs_df,fname,columns):
     """
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     # fetch rows using tabix
-    ## make tabix file constructor
     cred_row_df = load_tb_df(cs_df,fname,columns=columns)
-    #print(cred_row_df.dtypes)
-    #print(cs_df.dtypes)
+    cred_row_df = cred_row_df[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ] ]
     cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     # ensure only the credible sets were included
     cred_row_df = pd.merge(cred_row_df,cs_df[join_cols],how="right",on=join_cols)
-    # concat to gws_df, remove duplicate rows using drop_duplicates
     df=gws_df.copy()
     df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False).drop_duplicates(subset=list( join_cols ) )
     # merge the credible set
