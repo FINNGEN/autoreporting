@@ -29,7 +29,7 @@
 
 This pipeline is used to
 1) Filter and group genome-wide significant variants from FinnGen summary statistics.
-2) Annotate the genome-wide significant variants using gnoMAD and FinnGen annotations.
+2) Annotate the genome-wide significant variants using gnomAD and FinnGen annotations.
 3) Cross-reference the variants to previous results, e.g. GWAS Catalog or summary statistics from hand-picked studies.
 <!--Currently, steps 1,3 and 4 are operational.--> 
 
@@ -80,7 +80,7 @@ git clone https://github.com/FinnGen/autoreporting.git
 ##  3. <a name='Resources'></a>Resources
 
 The resources to use this tool (gnomAD & FinnGen annotations, LD panel) can be found here:
-- gnoMAD genome & exome annotations: ```gs://finngen-production-library-green/autoreporting_annotations/gnomad_data/```
+- gnomAD genome & exome annotations: ```gs://finngen-production-library-green/autoreporting_annotations/gnomad_data/```
 - FinnGen annotations: ```gs://finngen-production-library-green/autoreporting_annotations/finngen_annotation/```
 - functional annotations: ```gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz```
 - LD panel (based on 1000 genomes data): ```gs://finngen-production-library-green/autoreporting_annotations/1kg_ld```
@@ -140,8 +140,8 @@ Argument   |  Meaning   |   Example | Original script
 --overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap | gws_fetch.py
 --ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 | gws_fetch.py
 --credible-set-file| Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.| --credile-set-file file_containing_susie_snp_files | gws_fetch.py
---gnomad-genome-path | path to gnoMAD genome annotation file. Must be tabixed. Required for annotation. | --gnomad-genome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
---gnomad-exome-path | path to gnoMAD exome annotation file. Must be tabixed. Required for annotation. | --gnomad-exome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
+--gnomad-genome-path | path to gnomAD genome annotation file. Must be tabixed. Required for annotation. | --gnomad-genome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
+--gnomad-exome-path | path to gnomAD exome annotation file. Must be tabixed. Required for annotation. | --gnomad-exome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
 --include-batch-freq | Include batch frequencies from FinnGen annotation file | --include-batch-freq | annotate<span></span>.py
 --finngen-path | Path to FinnGen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
@@ -184,7 +184,7 @@ sig_p='5e-8'                                                # significance thres
 sig_p2='0.001'                                              # alternate significance threshold, used with grouping
 prefix='analysis_prefix'                                    # output file prefix
 grouping_method=ld                                          # grouping method, one of [simple, ld, cred]
-loc_w=1500                                                  # range for grouping
+loc_w=1500                                                  # range for grouping, in kilobases
 ld_panel=path_to_ld/ld_panel                                # the path to the .bed LD panel, without file suffix
 ld_r2=0.1                                                   # grouping (ld, cred only) LD threshold
 plink_mem=14000                                             # plink memory in MB
@@ -230,7 +230,7 @@ usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                     [--credible-set-file CRED_SET_FILE]
                     gws_fpath
 ```
-The gws_fetch.py script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, using either location-based grouping, ld-based goruping or grouping around credible sets. The arguments used are the same as the ones in main<span></span>.py. For example, Here is a small bash script for running the gws_fetch.py script:
+The gws_fetch.py script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, using either location-based grouping, ld-based grouping or grouping around credible sets. The arguments used are the same as the ones in main<span></span>.py. For example, Here is a small bash script for running the gws_fetch.py script:
 ```
 #! /bin/bash
 
@@ -239,7 +239,7 @@ sig_p='5e-8'                                                # significance thres
 sig_p2='0.001'                                              # alternate significance threshold, used with grouping
 prefix='fetch_prefix'                                       # output file prefix
 grouping_method=ld                                          # grouping method, one of [simple, ld, cred]
-loc_w=1500                                                  # range for grouping
+loc_w=1500                                                  # range for grouping, in kilobases
 ld_panel=path_to_ld/ld_panel                                # the path to the .bed LD panel, without file suffix
 ld_r2=0.1                                                   # grouping (ld, cred only) LD threshold
 plink_mem=14000                                             # plink memory in MB
@@ -323,14 +323,14 @@ python3 Scripts/annotate.py $file --prefix $prefix \
 
 __input__:  
 annotate_fpath: The output of gws_fetch.py  
-gnomad_genome_path: A tabixed, bgzipped gnoMAD genome annotation file.  
-gnomad_exome_path: A tabixed, bgzipped gnoMAD exome annotation file.  
+gnomad_genome_path: A tabixed, bgzipped gnomAD genome annotation file.  
+gnomad_exome_path: A tabixed, bgzipped gnomAD exome annotation file.  
 finngen_path: A tabixed, bgzipped FinnGen annotation file. Batch-specific information can be included with the flag ```--include-batch-freq```. Due to file formatting changes, the FinnGen version matters. The version can be given with the ```--finngen-annotation-version``` flag. Finngen annotation files made with releases 3 or earlier should use the value 'r3', and files made with releases 4 and above should use value 'r4'. The default value is 'r3'. Given an invalid version, the script will not be able to parse the FinnGen annotation file.  
 functional_path: A tabixed, bgzipped file containing the functional consequences (missense variant, pLoF etc.) for variants.  
 __output__:  
-annotate_out: A file with the same columns as annotate_fpath, as well as additional annotation columns from gnoMAD, FinnGen and functional annotations.  
+annotate_out: A file with the same columns as annotate_fpath, as well as additional annotation columns from gnomAD, FinnGen and functional annotations.  
 
-<!-- The annotate<span></span>.py-script is used to annotate the previously filtered genome-wide significant variants, using annotation files from gnoMAD as well as annotation files specific to the FinnGen project. For the FinnGen annotations, specify the version/release used with the --finngen-annotation-version. Allowed values are 'r3' and 'r4'. Finngen annotations with version 3_0 or lower should be used with value 'r3', and versions 3_1 or higher (e.g. 4_1) should use the 'r4' value. The rest of the arguments are the same as in main<span></span>.py, except for annotate_fpath, which is the path to the filtered variants. For example, to annotate variants the script can be called like this:
+<!-- The annotate<span></span>.py-script is used to annotate the previously filtered genome-wide significant variants, using annotation files from gnomAD as well as annotation files specific to the FinnGen project. For the FinnGen annotations, specify the version/release used with the --finngen-annotation-version. Allowed values are 'r3' and 'r4'. Finngen annotations with version 3_0 or lower should be used with value 'r3', and versions 3_1 or higher (e.g. 4_1) should use the 'r4' value. The rest of the arguments are the same as in main<span></span>.py, except for annotate_fpath, which is the path to the filtered variants. For example, to annotate variants the script can be called like this:
 ```
 python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_gnomad/gnomad_genomes.tsv.gz --gnomad-exome-path path_to_gnomad/gnomad_exomes.tsv.gz --finngen-path path_to_finngen_annotation/finngen_annotation.tsv.gz --annotate-out annotation_output.tsv
 ``` -->
