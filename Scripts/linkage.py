@@ -101,7 +101,6 @@ class PlinkLD(LDAccess):
             plink_files = glob.glob( "{}.*".format(plink_prefix) )
             subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         ld_data=ld_data.rename(columns={"SNP_A":"variant_1","BP_A":"pos_1","CHR_A":"chrom_1","SNP_B":"variant_2","BP_B":"pos_2","CHR_B":"chrom_2","R2":"r2"})
-        print(ld_data.columns)
         return ld_data.astype({"pos_1":int,"pos_2":int,"r2":float})
         #raise NotImplementedError("Not implemented yet")
 
@@ -118,5 +117,5 @@ class PlinkLD(LDAccess):
 
 #c=OnlineLD()
 #c=PlinkLD("../../../imputation_panel/wgs_all",17000)
-#data=pd.DataFrame({ "chr":["X"], "pos":[130355577], "ref": ["A"], "alt":["C"],"#variant":"chrX_130355577_A_C"  })
+#data=pd.DataFrame({ "chr":["1"], "pos":[113761186], "ref": ["C"], "alt":["A"],"#variant":"chr1_113761186_C_A"  })
 #print(c.get_ranges(data,1500000,0.5))

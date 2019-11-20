@@ -6,6 +6,7 @@ import sys,os,io
 import pandas as pd, numpy as np
 import tabix
 from autoreporting_utils import *
+from linkage import PlinkLD 
 
 def parse_region(region):
     chrom=region.split(":")[0]
@@ -175,54 +176,25 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
     #better handle it, anyways.
     ld_data = pd.DataFrame()
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
-    for chrom in lead_df[columns["chrom"]].unique():
-        leads_ = lead_df.loc[lead_df[ columns["chrom"] ]==chrom,"#variant"] 
-        #write lead_vars to a file, one per row
-        
-        fname="{}plink_ld.variants".format(prefix)
-        leads_.to_csv(path_or_buf=fname,index=False,sep="\t",header=False)
-        output="{}plink_ld".format(prefix)
-        #with open(fname,"w") as f:
-        #    for var in lead_vars:
-        #        f.write("{}\n".format(var) )
-        #perform plink computation
-        plink_cmd = "plink --allow-extra-chr --chr {} --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window {} --out {} --memory {}".format(
-            chrom,
-            ld_panel_path,
-            fname,
-            ld_treshold,
-            locus_range,
-            ld_window,
-            output,
-            plink_memory)
-        pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
-        pr.wait()
-        plink_log = pr.stdout.readlines()
-        if pr.returncode != 0:
-            print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-            [print(l) for l in plink_log]
-            raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
-        #read in the variants
-        ld_data_=pd.read_csv("{}.ld".format(output),sep="\s+")
-        ld_data = pd.concat([ld_data,ld_data_],axis="index",sort=False,ignore_index=True)
-        cleanup_cmd= "rm {}".format(fname)
-        plink_files = glob.glob( "{}.*".format(output) )
-        subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ld_api = PlinkLD(ld_panel_path,plink_memory) 
+    ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
+    ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,ld_treshold)
     #join
     df["index"]=df.index
-    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"],"index"]],ld_data, how="inner",left_on="#variant",right_on="SNP_B") #does include all of the lead variants as well
+    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"],"index"]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
     ld_df=ld_df.set_index("index")
     ld_df.index.name=None
+    ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     #filter by p-value
     ld_df = ld_df[ld_df[columns["pval"]] <= alt_sign_treshold ]
-    #Now should have columns variant, chrom, pos, pval, CHR_A,BP_A,SNP_A,CHR_B,BP_B, SNP_B, R2, with index being the same as in df.
+    #Now should have columns #variant, chrom, pos, ref, alt, pval, chrom_1, pos_1, variant_1, r2, with index being the same as in df.
     out_df = pd.DataFrame(columns=data.columns)
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
         #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
         lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"]
-        group_idx = ld_df[ld_df["SNP_A"] == lead_variant].index
+        group_idx = ld_df[ld_df["variant_1"] == lead_variant].index
         group_idx = group_idx[group_idx.isin(df.index)]#make sure that the index is present in both dataframes
         group = df.loc[group_idx,:].copy()
         #also add the variants that are in the credible set. Just in case they might not be included in the 
