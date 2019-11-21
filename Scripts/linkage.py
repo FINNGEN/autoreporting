@@ -21,9 +21,6 @@ class LDAccess(object):
         return
 
 
-
-
-
 class OnlineLD(LDAccess):
     def __init__(self):
         self.url="http://api.finngen.fi/api/ld"
@@ -46,13 +43,11 @@ class OnlineLD(LDAccess):
         return ld_data
 
     def get_ranges(self, variants, window,ld_threshold):
-        #The api works with requesting chr:pos:ref:alt keys
         data=variants[ [ "chr", "pos", "ref", "alt" ] ]
         ld_data=pd.DataFrame()
         for idx, row in variants.iterrows():
             variant_ld = self.__get_range(row["chr"],row["pos"],row["ref"],row["alt"],window,ld_threshold)
             ld_data=pd.concat([ld_data,variant_ld],ignore_index=True,sort=False)
-        #parse the LD data. parsing single columns at a time because result_type="expand" adds horrible (8x current running time) overhead.
         ld_data["variant_1"] = ld_data["variation1"].apply(self.__parse_variant)
         ld_data["variant_2"] = ld_data["variation2"].apply(self.__parse_variant)
         ld_data["chrom_1"] = ld_data["variation1"].apply(lambda x: x.split(":")[0])
@@ -72,7 +67,6 @@ class PlinkLD(LDAccess):
 
     def get_ranges(self, variants, window, ld_threshold):
         #assume columns are: [chrom, pos, ref, alt,#variant], and window is int
-        #calculate per-chromosome to save up on memory. Performance should be similar, if not faster.
         ld_data=pd.DataFrame()
         chromosomes = variants["chr"].unique()
         r=window//1000
@@ -104,20 +98,3 @@ class PlinkLD(LDAccess):
             subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         ld_data=ld_data.rename(columns={"SNP_A":"variant_1","BP_A":"pos_1","CHR_A":"chrom_1","SNP_B":"variant_2","BP_B":"pos_2","CHR_B":"chrom_2","R2":"r2"})
         return ld_data.astype({"pos_1":int,"pos_2":int,"r2":float})
-        #raise NotImplementedError("Not implemented yet")
-
-# class LDStoreLD(LDAccess):
-#     """
-#     Might be a bit tricky, as the ld panel has to be separated into chromosomes.
-#     """
-#     def __get_range(self,chrom,pos,ref,alt,window):
-#         raise NotImplementedError("Not implemented yet. Use get_ranges.")
-
-#     def get_ranges(self, variants, window):
-#         raise NotImplementedError("Not implemented yet")
-
-
-#c=OnlineLD()
-#c=PlinkLD("../../../imputation_panel/wgs_all",17000)
-#data=pd.DataFrame({ "chr":["1"], "pos":[113761186], "ref": ["C"], "alt":["A"],"#variant":"chr1_113761186_C_A"  })
-#print(c.get_ranges(data,1500000,0.5))

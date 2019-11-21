@@ -123,7 +123,7 @@ class TestGws(unittest.TestCase):
         emptydf=pd.DataFrame(columns=df_p1.columns)
         emptydf_2=pd.DataFrame(columns=df_p2.columns)
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
-            retval=gws_fetch.ld_grouping(emptydf,emptydf_2,sig_treshold,
+            retval=gws_fetch.ld_grouping(emptydf,emptydf_2,
             sig_treshold_2, loc_width, ld_treshold,
             ld_panel_path, plink_mem, overlap,prefix,"plink",columns)
         self.assertTrue(retval.empty)
@@ -134,7 +134,7 @@ class TestGws(unittest.TestCase):
                 return r2_out.copy()
         
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
-            retval=gws_fetch.ld_grouping(df_p1,df_p2,sig_treshold,
+            retval=gws_fetch.ld_grouping(df_p1,df_p2,
             sig_treshold_2, loc_width, ld_treshold,
             ld_panel_path, plink_mem, overlap,prefix,"plink",columns)
         retval=retval.sort_values(by=["#variant"]).astype(object).reset_index(drop=True)

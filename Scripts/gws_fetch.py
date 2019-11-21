@@ -87,7 +87,11 @@ def load_credsets(fname,columns):
     data=data.loc[:,cols]
     return data
 
-def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshold, ld_panel_path,plink_memory, overlap,prefix, api_choice, columns):
+def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, ld_panel_path,plink_memory, overlap,prefix, api_choice, columns):
+    """
+    Create groups based on the LD between variants.
+    In: df filtered with p1, df filtered with p2, 
+    """
     all_variants=df_p2.copy()
     group_leads = df_p1.copy()
     if api_choice == "plink":
@@ -118,7 +122,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshol
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
         group_leads=group_leads[~group_leads["#variant"].isin(group["#variant"].unique())]
-        group_leads=group_leads[~(group_leads["#variant"] == lead_variant)]#in case there were no ld information
+        group_leads=group_leads[~(group_leads["#variant"] == lead_variant)]
         #overlap
         if not overlap:
             all_variants=all_variants[~all_variants.index.isin(group_idx)]
@@ -280,7 +284,7 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     #grouping
     if group:
         if grouping_method=="ld":
-            new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,sig_treshold=sig_tresh_1,
+            new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,
             sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,
             ld_panel_path=ld_panel_path, plink_memory=plink_memory, overlap=overlap,
             prefix=prefix,api_choice=ld_api_choice,columns=columns)
