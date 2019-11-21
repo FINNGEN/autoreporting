@@ -87,8 +87,7 @@ def load_credsets(fname,columns):
     data=data.loc[:,cols]
     return data
 
-def ld_grouping_(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshold, ld_panel_path,plink_memory, overlap,prefix, columns):
-    ##
+def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshold, ld_panel_path,plink_memory, overlap,prefix, columns):
     all_variants=df_p2.copy()
     group_leads = df_p1.copy()
     ld_api = PlinkLD(ld_panel_path,plink_memory)
@@ -119,75 +118,6 @@ def ld_grouping_(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_tresho
             all_variants=all_variants[~all_variants.index.isin(group_idx)]
             all_variants=all_variants[~(all_variants["#variant"]==lead_variant)]
     return out_df
-
-def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_treshold,ld_panel_path,plink_memory,overlap, prefix, columns):
-    """
-    LD Clumping function
-    Groups the variants based on PLINK's ld-clumping
-    In: variant group 1, variant group 2, p-value threshold 1, p-value threshold 2, group width, ld threshold, prefix,  columns
-    Out: grouped dataframe
-    """
-    #if empty variant group 1, return it
-    if df_p1.empty:
-        return df_p1
-    #1:create PLINK variant list
-    temp_variants="{}clump_variants.csv".format(prefix)
-    df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
-    plink_fname="{}plink_clump".format(prefix)
-    #set up overlap flag for PLINK
-    allow_overlap=""
-    if overlap==True:
-        allow_overlap="--clump-allow-overlap"
-    plink_command="plink --allow-extra-chr --bfile {} --clump {} --clump-field {} --clump-snp-field '{}'  --clump-r2 {}"\
-        " --clump-kb {} --clump-p1 {} --clump-p2 {} --out {} --memory {} {}".format(
-        ld_panel_path,
-        temp_variants,
-        columns["pval"],
-        "#variant",
-        ld_treshold,
-        locus_width,
-        sig_treshold,
-        sig_treshold_2,
-        plink_fname,
-        plink_memory,
-        allow_overlap)
-    #run PLINK
-    pr = subprocess.Popen(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
-    pr.wait()
-    #get plink log
-    plink_log=pr.stdout.readlines()
-    if pr.returncode != 0:
-        print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-        [print(l) for l in plink_log]
-        raise ValueError("Plink clumping returned code {}".format(pr.returncode))
-    #Check if PLINK returned something or not
-    no_sig_res_string="Warning: No significant --clump results.  Skipping."
-    #if there is data
-    if os.path.exists("{}.clumped".format(plink_fname)):
-        group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
-        group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
-        new_df=solve_groups(df_p2.copy(),group_data)
-        for var in new_df["locus_id"].unique():
-            new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=new_df.loc[new_df["locus_id"]==var,"pos"].min()#r["min"]
-            new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=new_df.loc[new_df["locus_id"]==var,"pos"].max()
-        p1_group_leads = df_p1["#variant"].isin(new_df["#variant"])
-        p1_singletons = ~p1_group_leads
-        new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index",sort=False,ignore_index=True).sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
-        new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
-        new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
-    #if there is not data
-    else:
-        if any([no_sig_res_string in string for string in plink_log]):#no significant results
-            print("No significant results with PLINK clumping. All groups are singletons.")
-            new_df=df_p1.copy()
-        else:
-            print("Plink .clumped file not found. Check the logs for information:")
-            [print(l) for l in plink_log]
-            raise FileNotFoundError("Plink .clumped file not found.")
-    #cleanup plink files
-    plink_files=glob.glob("{}.*".format(plink_fname))
-    subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-    return new_df
 
 def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,plink_memory,overlap,columns,prefix=""):
     """
@@ -339,8 +269,7 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     #grouping
     if group:
         if grouping_method=="ld":
-            #new_df=ld_grouping(df_p1,df_p2,sig_tresh_1,sig_tresh_2,locus_width,ld_r2,ld_panel_path,plink_memory,overlap,prefix,columns)
-            new_df=ld_grouping_(df_p1=df_p1,df_p2=df_p2,sig_treshold=sig_tresh_1, sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,ld_panel_path=ld_panel_path, plink_memory=plink_memory, overlap=overlap, prefix=prefix,columns=columns)
+            new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,sig_treshold=sig_tresh_1, sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,ld_panel_path=ld_panel_path, plink_memory=plink_memory, overlap=overlap, prefix=prefix,columns=columns)
         elif grouping_method=="cred":
             new_df = credible_set_grouping(data=df_p2,alt_sign_treshold=sig_tresh_2,ld_panel_path=ld_panel_path,ld_treshold=ld_r2,locus_range=locus_width,
             plink_memory=plink_memory,overlap=overlap,columns=columns,prefix=prefix)

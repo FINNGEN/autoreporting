@@ -21,15 +21,17 @@ class LDAccess(object):
         return
 
 
-def parse_variant(variant):
-    parsed_variant="chr{}".format( "_".join(variant.split(":")) )
-    return parsed_variant
+
 
 
 class OnlineLD(LDAccess):
     def __init__(self):
         self.url="http://api.finngen.fi/api/ld"
     
+    def __parse_variant(self,variant):
+        parsed_variant="chr{}".format( "_".join(variant.split(":")) )
+        return parsed_variant
+
     def __get_range(self, chrom,pos,ref,alt,window,ld_threshold):
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
@@ -51,8 +53,8 @@ class OnlineLD(LDAccess):
             variant_ld = self.__get_range(row["chr"],row["pos"],row["ref"],row["alt"],window,ld_threshold)
             ld_data=pd.concat([ld_data,variant_ld],ignore_index=True,sort=False)
         #parse the LD data. parsing single columns at a time because result_type="expand" adds horrible (8x current running time) overhead.
-        ld_data["variant_1"] = ld_data["variation1"].apply(parse_variant)
-        ld_data["variant_2"] = ld_data["variation2"].apply(parse_variant)
+        ld_data["variant_1"] = ld_data["variation1"].apply(self.__parse_variant)
+        ld_data["variant_2"] = ld_data["variation2"].apply(self.__parse_variant)
         ld_data["chrom_1"] = ld_data["variation1"].apply(lambda x: x.split(":")[0])
         ld_data["pos_1"] = ld_data["variation1"].apply(lambda x: x.split(":")[1])
         ld_data["chrom_2"] = ld_data["variation2"].apply(lambda x: x.split(":")[0])

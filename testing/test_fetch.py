@@ -90,6 +90,7 @@ class TestGws(unittest.TestCase):
             self.assertEqual(list(output[col]),list(validate[col]))
 
     #@mock.patch('')
+    """
     @mock.patch('Scripts.gws_fetch.subprocess.Popen',side_effect=return_sp_mock)
     @mock.patch('Scripts.gws_fetch.subprocess.call')
     def test_ld_grouping(self,mocked_subprocess,mocked_call):
@@ -122,7 +123,7 @@ class TestGws(unittest.TestCase):
         retval=retval.reset_index(drop=True)
         for col in validate.columns:
             self.assertTrue(validate[col].equals(retval[col]))
-
+    """
     def test_get_gws_vars(self):
         #test the get_gws_variants function
         #case 1: empty data, should return empty dataframe.
