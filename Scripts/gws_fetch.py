@@ -87,6 +87,39 @@ def load_credsets(fname,columns):
     data=data.loc[:,cols]
     return data
 
+def ld_grouping_(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshold, ld_panel_path,plink_memory, overlap,prefix, columns):
+    ##
+    all_variants=df_p2.copy()
+    group_leads = df_p1.copy()
+    ld_api = PlinkLD(ld_panel_path,plink_memory)
+    ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
+    ld_data = ld_api.get_ranges(ld_ranges,locus_width*1000,ld_treshold)
+    all_variants["index"] = all_variants.index
+    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"], "index" ] ],ld_data,how="inner",left_on="#variant",right_on="variant_2" )
+    ld_df=ld_df.set_index("index")
+    ld_df.index.name=None
+    ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
+    ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
+    out_df = pd.DataFrame(columns=df_p2.columns)
+    #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
+    #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
+    while not group_leads.empty:
+        lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
+        group_idx = ld_df[ld_df["variant_1"] == lead_variant ].index
+        group_idx = group_idx[group_idx.isin(all_variants.index)]
+        group = all_variants.loc[group_idx,:].copy()
+        group["locus_id"]=lead_variant
+        group["pos_rmin"]=group[columns["pos"]].min()
+        group["pos_rmax"]=group[columns["pos"]].max()
+        out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
+        #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
+        group_leads=group_leads[~group_leads["#variant"].isin(group["#variant"].unique())]
+        #overlap
+        if not overlap:
+            all_variants=all_variants[~all_variants.index.isin(group_idx)]
+            all_variants=all_variants[~(all_variants["#variant"]==lead_variant)]
+    return out_df
+
 def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_treshold,ld_panel_path,plink_memory,overlap, prefix, columns):
     """
     LD Clumping function
@@ -171,9 +204,6 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         lead_vars.append(group_lead["#variant"])
     if len(lead_vars) == 0:
         return pd.DataFrame(columns=df.columns)
-    ## Calculate the ld regions per chromosome to save on memory. Merge the results into a result dataframe.
-    # The error 'no valid variants specified by...' Should not come, UNLESS the summary statistic and ld panel differ.
-    #better handle it, anyways.
     ld_data = pd.DataFrame()
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
     ld_api = PlinkLD(ld_panel_path,plink_memory) 
@@ -203,8 +233,8 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         #concat the two, remove duplicate entries
         group=pd.concat([group,credible_set],ignore_index=True,sort=False).drop_duplicates(subset=["#variant","cs_id"])
         group["locus_id"]=lead_variant
-        group["pos_rmin"]=group["pos"].min()
-        group["pos_rmax"]=group["pos"].max()
+        group["pos_rmin"]=group[columns["pos"]].min()
+        group["pos_rmax"]=group[columns["pos"]].max()
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         #convergence: remove lead_variant, remove group from df in case overlap is not done
         leads=leads[~ (leads["#variant"] == lead_variant) ] 
@@ -309,7 +339,8 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     #grouping
     if group:
         if grouping_method=="ld":
-            new_df=ld_grouping(df_p1,df_p2,sig_tresh_1,sig_tresh_2,locus_width,ld_r2,ld_panel_path,plink_memory,overlap,prefix,columns)
+            #new_df=ld_grouping(df_p1,df_p2,sig_tresh_1,sig_tresh_2,locus_width,ld_r2,ld_panel_path,plink_memory,overlap,prefix,columns)
+            new_df=ld_grouping_(df_p1=df_p1,df_p2=df_p2,sig_treshold=sig_tresh_1, sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,ld_panel_path=ld_panel_path, plink_memory=plink_memory, overlap=overlap, prefix=prefix,columns=columns)
         elif grouping_method=="cred":
             new_df = credible_set_grouping(data=df_p2,alt_sign_treshold=sig_tresh_2,ld_panel_path=ld_panel_path,ld_treshold=ld_r2,locus_range=locus_width,
             plink_memory=plink_memory,overlap=overlap,columns=columns,prefix=prefix)
