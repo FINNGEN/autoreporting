@@ -6,7 +6,7 @@ import sys,os,io
 import pandas as pd, numpy as np
 import tabix
 from autoreporting_utils import *
-from linkage import PlinkLD 
+from linkage import PlinkLD, OnlineLD
 
 def parse_region(region):
     chrom=region.split(":")[0]
@@ -87,10 +87,13 @@ def load_credsets(fname,columns):
     data=data.loc[:,cols]
     return data
 
-def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshold, ld_panel_path,plink_memory, overlap,prefix, columns):
+def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshold, ld_panel_path,plink_memory, overlap,prefix, api_choice, columns):
     all_variants=df_p2.copy()
     group_leads = df_p1.copy()
-    ld_api = PlinkLD(ld_panel_path,plink_memory)
+    if api_choice == "plink":
+        ld_api = PlinkLD(ld_panel_path,plink_memory)
+    elif api_choice == "online":
+        ld_api = OnlineLD()
     ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_data = ld_api.get_ranges(ld_ranges,locus_width*1000,ld_treshold)
     all_variants["index"] = all_variants.index
@@ -107,9 +110,8 @@ def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshol
         group_idx = ld_df[ld_df["variant_1"] == lead_variant ].index
         group_idx = group_idx[group_idx.isin(all_variants.index)]
         group = all_variants.loc[group_idx,:].copy()
-        #if group is empty, instead make it into the lead variant
-        if group.empty:
-            group=all_variants[all_variants["#variant"]==lead_variant].copy()
+        grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
+        group=pd.concat([group,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
@@ -123,7 +125,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshol
             all_variants=all_variants[~(all_variants["#variant"]==lead_variant)]
     return out_df
 
-def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,plink_memory,overlap,columns,prefix=""):
+def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,plink_memory,overlap,api_choice,columns,prefix=""):
     """
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
     In: df(containing the credible set information), alternate significance threshold, ld panel path, columns
@@ -140,7 +142,12 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         return pd.DataFrame(columns=df.columns)
     ld_data = pd.DataFrame()
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
-    ld_api = PlinkLD(ld_panel_path,plink_memory) 
+    if api_choice == "plink":
+        ld_api = PlinkLD(ld_panel_path,plink_memory)
+    elif api_choice == "online":
+        ld_api = OnlineLD()
+    else:
+        raise ValueError("Wrong argument for --ld-api:{}".format(api_choice)) 
     ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,ld_treshold)
     #join
@@ -224,7 +231,7 @@ def merge_credset(gws_df,cs_df,fname,columns):
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
-def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_panel_path,ld_r2,plink_memory,overlap,column_labels,ignore_region,cred_set_file):
+def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_panel_path,ld_r2,plink_memory,overlap,column_labels,ignore_region,cred_set_file, ld_api_choice):
     """
     Filter and group variants.
     In: arguments
@@ -273,10 +280,13 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     #grouping
     if group:
         if grouping_method=="ld":
-            new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,sig_treshold=sig_tresh_1, sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,ld_panel_path=ld_panel_path, plink_memory=plink_memory, overlap=overlap, prefix=prefix,columns=columns)
+            new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,sig_treshold=sig_tresh_1,
+            sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,
+            ld_panel_path=ld_panel_path, plink_memory=plink_memory, overlap=overlap,
+            prefix=prefix,api_choice=ld_api_choice,columns=columns)
         elif grouping_method=="cred":
             new_df = credible_set_grouping(data=df_p2,alt_sign_treshold=sig_tresh_2,ld_panel_path=ld_panel_path,ld_treshold=ld_r2,locus_range=locus_width,
-            plink_memory=plink_memory,overlap=overlap,columns=columns,prefix=prefix)
+            plink_memory=plink_memory,overlap=overlap,api_choice=ld_api_choice,columns=columns,prefix=prefix)
         else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
@@ -305,11 +315,12 @@ if __name__=="__main__":
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
+    parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2, ld_panel_path=args.ld_panel_path, ld_r2=args.ld_r2, plink_memory=args.plink_mem, overlap=args.overlap, column_labels=args.column_labels,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file)
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api_choice=args.ld_api_choice)
     fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
