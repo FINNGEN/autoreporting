@@ -433,7 +433,7 @@ if __name__ == "__main__":
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, column_labels=args.column_labels,
                                     localdb_path=args.localdb_path, database_choice=args.database_choice, args=args)
     if type(report_df) != type(None):
-        report_df.to_csv(args.top_report_out,sep="\t")
+        report_df.to_csv(args.top_report_out,sep="\t",index=False)
         #top level df
         columns=columns_from_arguments(args.column_labels)
         top_df=create_top_level_report(report_df,args.efo_traits,columns)
