@@ -88,14 +88,13 @@ class TestGws(unittest.TestCase):
         validate=pd.read_csv(val_path,sep="\t")
         for col in output.columns:
             self.assertEqual(list(output[col]),list(validate[col]))
-
-    #@mock.patch('')
-    """
-    @mock.patch('Scripts.gws_fetch.subprocess.Popen',side_effect=return_sp_mock)
-    @mock.patch('Scripts.gws_fetch.subprocess.call')
-    def test_ld_grouping(self,mocked_subprocess,mocked_call):
-        mocked_subprocess.return_value=0
-        mocked_subprocess.wait=lambda:True
+        
+    def test_ld_grouping(self):
+        """
+        Test the ld_grouping algorithm
+        Test cases: 1: empty dataframe
+                    2: valid dataframe
+        """
         input_="fetch_resources/test_grouping.tsv.gz"
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         data=pd.read_csv(input_,compression="gzip",sep="\t")
@@ -104,26 +103,44 @@ class TestGws(unittest.TestCase):
         data["pos_rmax"]=data["pos"]
         data["pos_rmin"]=data["pos"]
         sig_treshold=0.05
-        sig_treshold_2=0.05
+        sig_treshold_2=0.6
         loc_width=1000
         overlap=False
-        df_p1=data[data["pval"] <=sig_treshold]
-        df_p2=data[data["pval"] <=sig_treshold_2]
+        df_p1=data[data["pval"] <=sig_treshold].copy()
+        df_p2=data[data["pval"] <=sig_treshold_2].copy()
         ld_treshold=0.2
         ld_panel_path=""
         plink_mem=12000
         prefix=""
-        ld_out=pd.read_csv("fetch_resources/plink_out.csv",sep="\t")
-        with mock.patch("Scripts.gws_fetch.pd.DataFrame.to_csv") as mock_write:
-            with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=ld_out) as mock_read:
-                with mock.patch("Scripts.gws_fetch.os.path.exists") as mock_exists:
-                    retval=gws_fetch.ld_grouping(df_p1,df_p2,sig_treshold,sig_treshold_2,loc_width,ld_treshold,ld_panel_path,plink_mem,overlap,prefix,columns)
-        validate=pd.read_csv("fetch_resources/ld_group_validate.csv",sep="\t")
-        retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64})
-        retval=retval.reset_index(drop=True)
-        for col in validate.columns:
-            self.assertTrue(validate[col].equals(retval[col]))
-    """
+        r2_out=pd.read_csv("fetch_resources/ld_grouping_report.csv",sep="\t")
+        #1
+        class AugmentedMock(mock.Mock):
+            def get_ranges(*args):
+                return pd.DataFrame(columns=["chrom_1","pos_1","variant_1","chrom_2","pos_2","variant_2","r2"])
+        emptydf=pd.DataFrame(columns=df_p1.columns)
+        emptydf_2=pd.DataFrame(columns=df_p2.columns)
+        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
+            retval=gws_fetch.ld_grouping(emptydf,emptydf_2,sig_treshold,
+            sig_treshold_2, loc_width, ld_treshold,
+            ld_panel_path, plink_mem, overlap,prefix,columns)
+        self.assertTrue(retval.empty)
+
+        #2
+        class AugmentedMock(mock.Mock):
+            def get_ranges(*args):
+                return r2_out.copy()
+        
+        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
+            retval=gws_fetch.ld_grouping(df_p1,df_p2,sig_treshold,
+            sig_treshold_2, loc_width, ld_treshold,
+            ld_panel_path, plink_mem, overlap,prefix,columns)
+        retval=retval.sort_values(by=["#variant"]).astype(object).reset_index(drop=True)
+        validate=pd.read_csv("fetch_resources/ld_grouping_validate.csv",sep="\t").astype(object).reset_index(drop=True)
+        for col in retval.columns:
+            self.assertTrue(retval[col].equals(validate[col]))
+
+
+
     def test_get_gws_vars(self):
         #test the get_gws_variants function
         #case 1: empty data, should return empty dataframe.

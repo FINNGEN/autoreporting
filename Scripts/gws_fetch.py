@@ -107,12 +107,16 @@ def ld_grouping(df_p1,df_p2, sig_treshold, sig_treshold_2,locus_width,ld_treshol
         group_idx = ld_df[ld_df["variant_1"] == lead_variant ].index
         group_idx = group_idx[group_idx.isin(all_variants.index)]
         group = all_variants.loc[group_idx,:].copy()
+        #if group is empty, instead make it into the lead variant
+        if group.empty:
+            group=all_variants[all_variants["#variant"]==lead_variant].copy()
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
         group_leads=group_leads[~group_leads["#variant"].isin(group["#variant"].unique())]
+        group_leads=group_leads[~(group_leads["#variant"] == lead_variant)]#in case there were no ld information
         #overlap
         if not overlap:
             all_variants=all_variants[~all_variants.index.isin(group_idx)]
