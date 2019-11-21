@@ -52,7 +52,7 @@ def main(args):
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, column_labels=args.column_labels,
                                     localdb_path=args.localdb_path, database_choice=args.database_choice, args=args)
     if type(report_df) != type(None):
-        report_df.to_csv(args.top_report_out,sep="\t")
+        report_df.to_csv(args.top_report_out,sep="\t",index=False)
         #create top report
         #top level df 
         columns=autoreporting_utils.columns_from_arguments(args.column_labels)
