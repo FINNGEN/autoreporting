@@ -117,12 +117,10 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, ld_panel_pa
         group["pos_rmax"]=group[columns["pos"]].max()
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
-        group_leads=group_leads[~group_leads["#variant"].isin(group["#variant"].unique())]
-        group_leads=group_leads[~(group_leads["#variant"] == lead_variant)]
+        group_leads=group_leads[ ~group_leads["#variant"].isin( group["#variant"].unique() ) ]
         #overlap
         if not overlap:
-            all_variants=all_variants[~all_variants["#variant"].isin(group_vars)]
-            all_variants=all_variants[~(all_variants["#variant"]==lead_variant)]
+            all_variants=all_variants[~all_variants["#variant"].isin( group["#variant"].unique() )]
     return out_df
 
 def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,plink_memory,overlap,api_choice,columns,prefix=""):
