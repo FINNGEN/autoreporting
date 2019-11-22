@@ -7,15 +7,16 @@
 	* 2.2. [Installation process](#Installationprocess)
 * 3. [Resources](#Resources)
 * 4. [Usage](#Usage)
-	* 4.1. [Complete script, main.py](#Completescriptmainpy)
+	* 4.1. [Tool](#Completescriptmainpy)
 		* 4.1.1. [Command-line arguments](#Commandlinearguments)
 		* 4.1.2. [Example](#Example)
-	* 4.2. [gws_fetch.py:](#gws_fetchpy)
-		* 4.2.1. [A detailed description of gws_fetch](#detailedfetch)
-	* 4.3. [annotate<span></span>.py](#annotatespanspanpy)
-		* 4.3.1. [A detailed description of annotate](#detailedannotate)
-	* 4.4. [compare<span></span>.py:](#comparespanspanpy)
-		* 4.4.1. [A detailed description of compare](#detailedcompare)
+    * 4.2. [Tool subroutines](#Subroutines)
+	    * 4.2.1. [gws_fetch.py:](#gws_fetchpy)
+		    * 4.2.1.1. [A detailed description of gws_fetch](#detailedfetch)
+        * 4.2.2. [annotate<span></span>.py](#annotatespanspanpy)
+            * 4.2.2.1. [A detailed description of annotate](#detailedannotate)
+        * 4.2.3. [compare<span></span>.py:](#comparespanspanpy)
+            * 4.2.3.1. [A detailed description of compare](#detailedcompare)
 * 5. [WDL pipeline](#WDLpipeline)
 
 <!-- vscode-markdown-toc-config
@@ -25,7 +26,7 @@
 <!-- /vscode-markdown-toc -->
 
 
-##  1. <a name='Description'></a>Description
+#  1. <a name='Description'></a>Description
 
 This pipeline is used to
 1) Filter and group genome-wide significant variants from FinnGen summary statistics.
@@ -36,9 +37,9 @@ This pipeline is used to
 __NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files.__
 
 
-##  2. <a name='Installation'></a>Installation
+#  2. <a name='Installation'></a>Installation
 
-###  2.1. <a name='Dependencies'></a>Dependencies
+##  2.1. <a name='Dependencies'></a>Dependencies
 
 Packages:
 ```
@@ -56,7 +57,7 @@ pandas
 pytabix 
 ```
 
-###  2.2. <a name='Installationprocess'></a>Installation process
+##  2.2. <a name='Installationprocess'></a>Installation process
 
 Install dependencies
 
@@ -77,7 +78,7 @@ Copy repository to folder
 git clone https://github.com/FinnGen/autoreporting.git
 ```
 
-##  3. <a name='Resources'></a>Resources
+#  3. <a name='Resources'></a>Resources
 
 The resources to use this tool (gnomAD & FinnGen annotations, LD panel) can be found here:
 - gnomAD genome & exome annotations: ```gs://finngen-production-library-green/autoreporting_annotations/gnomad_data/```
@@ -86,10 +87,10 @@ The resources to use this tool (gnomAD & FinnGen annotations, LD panel) can be f
 - LD panel (based on 1000 genomes data): ```gs://finngen-production-library-green/autoreporting_annotations/1kg_ld```
 
 
-##  4. <a name='Usage'></a>Usage
+#  4. <a name='Usage'></a>Usage
 
 The script can be used by either calling the whole script or calling the individual scripts by themselves in the project folder.
-###  4.1. <a name='Completescriptmainpy'></a>Complete script, main.py
+##  4.1. <a name='Completescriptmainpy'></a>Tool
 
 The complete autoreporting pipeline can be used by executing the ```Scripts/main.py``` script. The pipeline will then filter, group, annotate and compare the variants. Grouping method, file paths to resources, operation parameters, output file paths, comparison database and other options can be set using different command-line arguments.
 
@@ -123,7 +124,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                gws_fpath
 ```
 
-####  4.1.1. <a name='Commandlinearguments'></a>Command-line arguments
+###  4.1.1. <a name='Commandlinearguments'></a>Command-line arguments
 
 Argument   |  Meaning   |   Example | Original script
 --- | --- | --- | ---
@@ -173,7 +174,7 @@ python3 Scripts/main.py path_to_ss/summ_stat.tsv.gz
 ```
 
 Additional features, such as result grouping, can be added through the use of the aforementioned flags. -->
-####  4.1.2. <a name='Example'></a>Example
+###  4.1.2. <a name='Example'></a>Example
 
 For example, here's a simple bash script for running the tool with some of the more relevant parameters:
 ```
@@ -214,8 +215,11 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --compare-style $compare_style --db $db
 ```
 
+## 4.2 <a name='Subroutines'></a>Tool subroutines
 
-###  4.2. <a name='gws_fetchpy'></a>gws_fetch.py
+In the following subsections, the tool's main building blocks are introduced.
+
+###  4.2.1 <a name='gws_fetchpy'></a>gws_fetch.py
 
 ```
 usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
@@ -255,7 +259,7 @@ python3 Scripts/gws_fetch.py $file --sign-treshold $sig_p  \
         --credible-set-file $credsetfile
 ```
 
-####  4.2.1. <a name='detailedfetch'></a>A Detailed description of gws_fetch  
+###  4.2.1.1. <a name='detailedfetch'></a>A detailed description of gws_fetch  
 __Input__:  
 gws_fpath: a FinnGen summary statistic that is gzipped and tabixed. The default column labels for the file are '#chrom','pos', 'ref', 'alt', 'pval'. These can be changed with ```--column-labels```.  
 ld_panel_path (optional): a plink .bed file that is used to calculate linkage disequilibrium for the variants.  
@@ -285,7 +289,7 @@ Optionally, the groups can be set to overlap, i.e. a single variant can be inclu
 The grouping based on linkage disequilibrium is based on plink 1.9's --clump option, which is similar in its function. Based on plink documentation, the groups are formed by taking all of the variants that are not clumped and that are inside the group's range, as well as those variants that are in ld with the group variant.[1] As such, it only differs from the simple grouping by including variants that are in ld with the group variant in the group.   -->
 [1]http://zzz.bwh.harvard.edu/plink/clump.shtml
 
-###  4.3. <a name='annotatespanspanpy'></a>annotate<span></span>.py
+##  4.2.2. <a name='annotatespanspanpy'></a>annotate<span></span>.py
 
 ```
 usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
@@ -319,7 +323,7 @@ python3 Scripts/annotate.py $file --prefix $prefix \
         --functional-path $functional_ann \
 ``` 
 
-####  4.3.1. <a name='detailedannotate'></a>A Detailed description of annotate<span><\span>.py
+###  4.2.2.1. <a name='detailedannotate'></a>A detailed description of annotate<span><\span>.py
 
 __input__:  
 annotate_fpath: The output of gws_fetch.py  
@@ -335,7 +339,7 @@ annotate_out: A file with the same columns as annotate_fpath, as well as additio
 python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_gnomad/gnomad_genomes.tsv.gz --gnomad-exome-path path_to_gnomad/gnomad_exomes.tsv.gz --finngen-path path_to_finngen_annotation/finngen_annotation.tsv.gz --annotate-out annotation_output.tsv
 ``` -->
 
-###  4.4. <a name='comparespanspanpy'></a>compare<span></span>.py:
+##  4.2.3. <a name='comparespanspanpy'></a>compare<span></span>.py:
 
 ```
 usage: compare.py [-h] [--compare-style COMPARE_STYLE]
@@ -372,7 +376,7 @@ python3 Scripts/compare.py $file --prefix $prefix \
         --compare-style $compare_style --db $db
 ```
 
-####  4.4.1. <a name='detailedcompare'></a>A more detailed description of compare<span></span>.py:  
+###  4.2.3.1. <a name='detailedcompare'></a>A detailed description of compare<span></span>.py:  
 __Input__:  
 compare_fname: genome-wide significant variants that are filtered & grouped by gws_fetch.py and annotated by annotate<span></span>.py.  
 ld_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). Same file that's used in gws_fetch.  
