@@ -100,10 +100,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, ld_panel_pa
         ld_api = OnlineLD()
     ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_data = ld_api.get_ranges(ld_ranges,locus_width*1000,ld_treshold)
-    all_variants["index"] = all_variants.index
-    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"], "index" ] ],ld_data,how="inner",left_on="#variant",right_on="variant_2" )
-    ld_df=ld_df.set_index("index")
-    ld_df.index.name=None
+    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],ld_data,how="inner",left_on="#variant",right_on="variant_2" )
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
     out_df = pd.DataFrame(columns=df_p2.columns)
@@ -111,9 +108,8 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, ld_panel_pa
     #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
     while not group_leads.empty:
         lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
-        group_idx = ld_df[ld_df["variant_1"] == lead_variant ].index
-        group_idx = group_idx[group_idx.isin(all_variants.index)]
-        group = all_variants.loc[group_idx,:].copy()
+        group_vars = ld_df.loc[ld_df["variant_1"] == lead_variant,"#variant" ]
+        group = all_variants[all_variants["#variant"].isin(group_vars) ].copy()
         grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
         group=pd.concat([group,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
         group["locus_id"]=lead_variant
@@ -125,7 +121,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, ld_panel_pa
         group_leads=group_leads[~(group_leads["#variant"] == lead_variant)]
         #overlap
         if not overlap:
-            all_variants=all_variants[~all_variants.index.isin(group_idx)]
+            all_variants=all_variants[~all_variants["#variant"].isin(group_vars)]
             all_variants=all_variants[~(all_variants["#variant"]==lead_variant)]
     return out_df
 
@@ -155,24 +151,19 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
     ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,ld_treshold)
     #join
-    df["index"]=df.index
-    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"],"index"]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
-    ld_df=ld_df.set_index("index")
-    ld_df.index.name=None
+    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     #filter by p-value
     ld_df = ld_df[ld_df[columns["pval"]] <= alt_sign_treshold ]
-    #Now should have columns #variant, chrom, pos, ref, alt, pval, chrom_1, pos_1, variant_1, r2, with index being the same as in df.
     out_df = pd.DataFrame(columns=data.columns)
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
         #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
         lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"]
-        group_idx = ld_df[ld_df["variant_1"] == lead_variant].index
-        group_idx = group_idx[group_idx.isin(df.index)]#make sure that the index is present in both dataframes
-        group = df.loc[group_idx,:].copy()
-        #also add the variants that are in the credible set. Just in case they might not be included in the 
+        group_vars = ld_df.loc[ld_df["variant_1"] == lead_variant,"#variant" ]
+        group = df[df["#variant"].isin(group_vars)].copy()
+        #also add the variants that are in the credible set. Just in case they might not be included in the ld neighbours.
         credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
         credible_set= data.loc[data["cs_id"] == credible_id,:].copy()
         #concat the two, remove duplicate entries
@@ -184,7 +175,7 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         #convergence: remove lead_variant, remove group from df in case overlap is not done
         leads=leads[~ (leads["#variant"] == lead_variant) ] 
         if not overlap:
-            df=df[~df.index.isin(group_idx)]
+            df=df[~df["#variant"].isin(group_vars)]
             df=df[~(df["cs_id"]==credible_id)]
     #cleanup: delete variant file, plink files
     #cleanup_cmd= "rm {}".format(fname)
