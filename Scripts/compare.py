@@ -273,7 +273,7 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
 def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
             prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
             ldstore_threads, ld_treshold, cache_gwas, column_labels, 
-            localdb_path, database_choice,args):
+            localdb_path, database_choice):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
     In: df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
@@ -285,8 +285,6 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         
     """
     columns=columns_from_arguments(column_labels)
-    #load original file
-    #df=pd.read_csv(args.compare_fname,sep="\t")
     if df.empty:
         #print("No variants, {} and {} will not be produced".format(report_out, ld_report_out))
         return (None, None)
@@ -431,7 +429,7 @@ if __name__ == "__main__":
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, column_labels=args.column_labels,
-                                    localdb_path=args.localdb_path, database_choice=args.database_choice, args=args)
+                                    localdb_path=args.localdb_path, database_choice=args.database_choice)
     if type(report_df) != type(None):
         report_df.to_csv(args.top_report_out,sep="\t",index=False)
         #top level df
