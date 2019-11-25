@@ -14,7 +14,7 @@ def main(args):
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
     args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
-    #ld_api
+    ld_api=None
     if args.ld_api_choice == "plink":
         ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
     elif args.ld_api_choice == "online":
@@ -28,7 +28,7 @@ def main(args):
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
     fetch_df = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_panel_path=args.ld_panel_path, ld_r2=args.ld_r2, plink_memory=args.plink_mem, overlap=args.overlap, column_labels=args.column_labels,
+        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, column_labels=args.column_labels,
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
     
     #write fetch_df as a file, so that other parts of the script work
