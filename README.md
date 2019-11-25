@@ -36,6 +36,7 @@ This pipeline is used to
 
 __NOTE: currently, only files which are in build 38 are supported. This concerns all of the input files.__
 
+__NOTE: In case you do not have access to the Finnish LD panel (requires access to refinery), use the command-line option `--ld-api online` to circumvent that and still get access to Finnish LD.__ 
 
 #  2. <a name='Installation'></a>Installation
 
@@ -105,7 +106,7 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
                [--plink-memory PLINK_MEM] [--overlap]
                [--ignore-region IGNORE_REGION]
-               [--credible-set-file CRED_SET_FILE]
+               [--credible-set-file CRED_SET_FILE] [--ld-api LD_API_CHOICE]
                [--gnomad-genome-path GNOMAD_GENOME_PATH]
                [--gnomad-exome-path GNOMAD_EXOME_PATH] [--include-batch-freq]
                [--finngen-path FINNGEN_PATH]
@@ -139,6 +140,7 @@ Argument   |  Meaning   |   Example | Original script
 --alt-sign-treshold | optional alternate significance threshold for including less significant variants into groups. | --alt-sign-treshold 5e-6 | gws_fetch.py
 --ld-panel-path | path to the LD panel, without panel file suffix. LD panel must be in plink's .bed format, as a single file. Accompanying .bim and .fam files must be in the same directory. | --ld-panel-path path_to_panel/plink_file | gws_fetch.py
 --ld-r2 | plink clump-r2 argument, default 0.4 | --ld-r2 0.7 | gws_fetch.py
+--ld-api | choose which LD calculation method you want to use. `online` requires no ld panel or plink usage. `plink` uses plink to calculate LD. | --ld-api plink \| online | gws_fetch.py
 --plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 | gws_fetch.py
 --overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap | gws_fetch.py
 --ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 | gws_fetch.py
@@ -190,6 +192,7 @@ grouping_method=ld                                          # grouping method, o
 loc_w=1500                                                  # range for grouping, in kilobases
 ld_panel=path_to_ld/ld_panel                                # the path to the .bed LD panel, without file suffix
 ld_r2=0.1                                                   # grouping (ld, cred only) LD threshold
+ld_api=online                                               # Use LD calculation server to get Finnish LD. Does not require ld_panel or plink_mem!!
 plink_mem=14000                                             # plink memory in MB
 ignore_region='6:23000000-38000000'                         # Result region to ignore: corresponds to MHC region
 credsetfile=path_to_cs/credible_set.SUSIE.snp.bgz           # SuSiE credible set output
@@ -206,7 +209,7 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --alt-sign-treshold $sig_p2 --prefix $prefix \
         --group --grouping-method $grouping_method \
         --locus-width-kb $loc_w \
-        --ld-panel-path $ld_panel --ld-r2 $ld_r2 \
+        --ld-panel-path $ld_panel --ld-r2 $ld_r2 --ld-api $ld_api \
         --plink-memory $plink_mem --ignore-region $ignore_region \
         --credible-set-file $credsetfile \
         --gnomad-genome-path $gnomad_genome \
@@ -247,6 +250,7 @@ prefix='fetch_prefix'                                       # output file prefix
 grouping_method=ld                                          # grouping method, one of [simple, ld, cred]
 loc_w=1500                                                  # range for grouping, in kilobases
 ld_panel=path_to_ld/ld_panel                                # the path to the .bed LD panel, without file suffix
+ld_api=online                                               # Use LD calculation server to get Finnish LD. Does not require ld_panel or plink_mem!!
 ld_r2=0.1                                                   # grouping (ld, cred only) LD threshold
 plink_mem=14000                                             # plink memory in MB
 ignore_region='6:23000000-38000000'                         # Result region to ignore: corresponds to MHC region
@@ -256,7 +260,7 @@ python3 Scripts/gws_fetch.py $file --sign-treshold $sig_p  \
         --alt-sign-treshold $sig_p2 --prefix $prefix \
         --group --grouping-method $grouping_method \
         --locus-width-kb $loc_w \
-        --ld-panel-path $ld_panel --ld-r2 $ld_r2 \
+        --ld-panel-path $ld_panel --ld-r2 $ld_r2 --ld-api $ld_api \
         --plink-memory $plink_mem --ignore-region $ignore_region \
         --credible-set-file $credsetfile
 ```
