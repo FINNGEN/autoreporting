@@ -22,19 +22,20 @@ class LDAccess(object):
 
 
 class OnlineLD(LDAccess):
-    def __init__(self):
-        self.url="http://api.finngen.fi/api/ld"
+    def __init__(self,url):
+        self.url=url
     
     def __parse_variant(self,variant):
         parsed_variant="chr{}".format( "_".join(variant.split(":")) )
         return parsed_variant
 
     def __get_range(self, chrom,pos,ref,alt,window,ld_threshold):
+        window = min(max(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
         data=try_request(self.url,params=params)
         if type(data) == type(None):
-            print("LD data not found.") #TODO: handle this better. Perhaps return more information from try_request
+            print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) ) #TODO: handle this better. Perhaps return more information from try_request
             return None
         #parse data
         ld_data=data.json()["ld"]

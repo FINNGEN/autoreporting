@@ -18,7 +18,7 @@ def main(args):
     if args.ld_api_choice == "plink":
         ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
     elif args.ld_api_choice == "online":
-        ld_api = OnlineLD()
+        ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     ###########################

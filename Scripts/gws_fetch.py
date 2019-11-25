@@ -307,7 +307,7 @@ if __name__=="__main__":
     if args.ld_api_choice == "plink":
         ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
     elif args.ld_api_choice == "online":
-        ld_api = OnlineLD()
+        ld_api = OnlineLD("http://api.finngen.fi/api/ld")
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
