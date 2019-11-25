@@ -53,7 +53,7 @@ class TestGws(unittest.TestCase):
         #output = gws_fetch.fetch_gws(args)
         output = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method="", locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2, ld_panel_path="", ld_r2=0.0, plink_memory=0, overlap=False, column_labels=args.column_labels,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api_choice="plink")
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=None)
         validation=pd.read_csv("fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
         validation=validation.loc[validation["pval"]<=args.sig_treshold,:]
         validation["pos_rmin"]=validation["pos"]
@@ -122,10 +122,10 @@ class TestGws(unittest.TestCase):
                 return pd.DataFrame(columns=["chrom_1","pos_1","variant_1","chrom_2","pos_2","variant_2","r2"])
         emptydf=pd.DataFrame(columns=df_p1.columns)
         emptydf_2=pd.DataFrame(columns=df_p2.columns)
-        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
+        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
             retval=gws_fetch.ld_grouping(emptydf,emptydf_2,
             sig_treshold_2, loc_width, ld_treshold,
-            ld_panel_path, plink_mem, overlap,prefix,"plink",columns)
+            ld_panel_path, plink_mem, overlap,prefix,ld_api,columns)
         self.assertTrue(retval.empty)
 
         #2
@@ -133,10 +133,10 @@ class TestGws(unittest.TestCase):
             def get_ranges(*args):
                 return r2_out.copy()
         
-        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
+        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
             retval=gws_fetch.ld_grouping(df_p1,df_p2,
             sig_treshold_2, loc_width, ld_treshold,
-            ld_panel_path, plink_mem, overlap,prefix,"plink",columns)
+            ld_panel_path, plink_mem, overlap,prefix,ld_api,columns)
         retval=retval.sort_values(by=["#variant"]).astype(object).reset_index(drop=True)
         validate=pd.read_csv("fetch_resources/ld_grouping_validate.csv",sep="\t").astype(object).reset_index(drop=True)
         for col in retval.columns:
@@ -190,8 +190,8 @@ class TestGws(unittest.TestCase):
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
                 return r2_out
-        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
-                retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,plink_mem,overlap,"plink",columns)
+        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
+                retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,plink_mem,overlap,ld_api,columns)
         #return value should be empty, have same columns as data 
         self.assertTrue(retval.empty)
         self.assertEqual(data.columns.all(), retval.columns.all())
@@ -204,8 +204,8 @@ class TestGws(unittest.TestCase):
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
                 return r2_out
-        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock):
-            retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,plink_mem,overlap,"plink",columns)
+        with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
+            retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_panel_path,ld_treshold,loc_width,plink_mem,overlap,ld_api,columns)
         #validate
         validate=pd.read_csv("fetch_resources/validate_cred.csv",sep="\t").fillna(-1)
         retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1)
