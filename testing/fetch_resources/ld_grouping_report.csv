@@ -1,5 +1,4 @@
 chrom_1	pos_1	variant_1	chrom_2	pos_2	variant_2	r2
-1	3000	chr1_3000_A_T	1	3000	chr1_3000_A_T	1
 1	2500	chr1_2500_A_C	1	1000	chr1_1000_A_C	0.5
 1	2500	chr1_2500_A_C	1	2000	chr1_2000_A_C	0.9
 1	2500	chr1_2500_A_C	1	2500	chr1_2500_A_C	1

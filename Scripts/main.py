@@ -4,6 +4,7 @@ import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
+from linkage import PlinkLD, OnlineLD
 
 def main(args):
     print("input file: {}".format(args.gws_fpath))
@@ -13,6 +14,13 @@ def main(args):
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
     args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
+    ld_api=None
+    if args.ld_api_choice == "plink":
+        ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
+    elif args.ld_api_choice == "online":
+        ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
+    else:
+        raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     ###########################
     ###Filter and Group SNPs###
     ###########################
@@ -20,8 +28,8 @@ def main(args):
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
     fetch_df = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_panel_path=args.ld_panel_path, ld_r2=args.ld_r2, plink_memory=args.plink_mem, overlap=args.overlap, column_labels=args.column_labels,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file)
+        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, column_labels=args.column_labels,
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
     
     #write fetch_df as a file, so that other parts of the script work
     fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
@@ -79,6 +87,7 @@ if __name__=="__main__":
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
+    parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
     #finemap
     
     #annotate

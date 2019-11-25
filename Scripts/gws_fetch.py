@@ -6,6 +6,7 @@ import sys,os,io
 import pandas as pd, numpy as np
 import tabix
 from autoreporting_utils import *
+from linkage import PlinkLD, OnlineLD
 
 def parse_region(region):
     chrom=region.split(":")[0]
@@ -86,76 +87,39 @@ def load_credsets(fname,columns):
     data=data.loc[:,cols]
     return data
 
-def ld_grouping(df_p1,df_p2, sig_treshold , sig_treshold_2, locus_width, ld_treshold,ld_panel_path,plink_memory,overlap, prefix, columns):
+def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,prefix, ld_api, columns):
     """
-    LD Clumping function
-    Groups the variants based on PLINK's ld-clumping
-    In: variant group 1, variant group 2, p-value threshold 1, p-value threshold 2, group width, ld threshold, prefix,  columns
-    Out: grouped dataframe
+    Create groups based on the LD between variants.
+    In: df filtered with p1, df filtered with p2, 
     """
-    #if empty variant group 1, return it
-    if df_p1.empty:
-        return df_p1
-    #1:create PLINK variant list
-    temp_variants="{}clump_variants.csv".format(prefix)
-    df_p2.loc[:,["#variant",columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ]].to_csv(path_or_buf=temp_variants,index=False,sep="\t")
-    plink_fname="{}plink_clump".format(prefix)
-    #set up overlap flag for PLINK
-    allow_overlap=""
-    if overlap==True:
-        allow_overlap="--clump-allow-overlap"
-    plink_command="plink --allow-extra-chr --bfile {} --clump {} --clump-field {} --clump-snp-field '{}'  --clump-r2 {}"\
-        " --clump-kb {} --clump-p1 {} --clump-p2 {} --out {} --memory {} {}".format(
-        ld_panel_path,
-        temp_variants,
-        columns["pval"],
-        "#variant",
-        ld_treshold,
-        locus_width,
-        sig_treshold,
-        sig_treshold_2,
-        plink_fname,
-        plink_memory,
-        allow_overlap)
-    #run PLINK
-    pr = subprocess.Popen(shlex.split(plink_command), stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII' )
-    pr.wait()
-    #get plink log
-    plink_log=pr.stdout.readlines()
-    if pr.returncode != 0:
-        print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-        [print(l) for l in plink_log]
-        raise ValueError("Plink clumping returned code {}".format(pr.returncode))
-    #Check if PLINK returned something or not
-    no_sig_res_string="Warning: No significant --clump results.  Skipping."
-    #if there is data
-    if os.path.exists("{}.clumped".format(plink_fname)):
-        group_data=pd.read_csv("{}.clumped".format(plink_fname),sep="\s+")
-        group_data=group_data.loc[:,["SNP","TOTAL","SP2"]]
-        new_df=solve_groups(df_p2.copy(),group_data)
-        for var in new_df["locus_id"].unique():
-            new_df.loc[new_df["locus_id"]==var,"pos_rmin"]=new_df.loc[new_df["locus_id"]==var,"pos"].min()#r["min"]
-            new_df.loc[new_df["locus_id"]==var,"pos_rmax"]=new_df.loc[new_df["locus_id"]==var,"pos"].max()
-        p1_group_leads = df_p1["#variant"].isin(new_df["#variant"])
-        p1_singletons = ~p1_group_leads
-        new_df=pd.concat([new_df,df_p1.loc[p1_singletons,:]],axis="index",sort=False,ignore_index=True).sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
-        new_df.loc[:,"pos_rmin"]=new_df.loc[:,"pos_rmin"].astype(np.int32)
-        new_df.loc[:,"pos_rmax"]=new_df.loc[:,"pos_rmax"].astype(np.int32)
-    #if there is not data
-    else:
-        if any([no_sig_res_string in string for string in plink_log]):#no significant results
-            print("No significant results with PLINK clumping. All groups are singletons.")
-            new_df=df_p1.copy()
-        else:
-            print("Plink .clumped file not found. Check the logs for information:")
-            [print(l) for l in plink_log]
-            raise FileNotFoundError("Plink .clumped file not found.")
-    #cleanup plink files
-    plink_files=glob.glob("{}.*".format(plink_fname))
-    subprocess.call(["rm",temp_variants]+plink_files,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-    return new_df
+    all_variants=df_p2.copy()
+    group_leads = df_p1.copy()
+    ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
+    ld_data = ld_api.get_ranges(ld_ranges,locus_width*1000,ld_treshold)
+    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],ld_data,how="inner",left_on="#variant",right_on="variant_2" )
+    ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
+    ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
+    out_df = pd.DataFrame(columns=df_p2.columns)
+    #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
+    #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
+    while not group_leads.empty:
+        lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
+        group_vars = ld_df.loc[ld_df["variant_1"] == lead_variant,"#variant" ]
+        group = all_variants[all_variants["#variant"].isin(group_vars) ].copy()
+        grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
+        group=pd.concat([group,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
+        group["locus_id"]=lead_variant
+        group["pos_rmin"]=group[columns["pos"]].min()
+        group["pos_rmax"]=group[columns["pos"]].max()
+        out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
+        #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
+        group_leads=group_leads[ ~group_leads["#variant"].isin( group["#variant"].unique() ) ]
+        #overlap
+        if not overlap:
+            all_variants=all_variants[~all_variants["#variant"].isin( group["#variant"].unique() )]
+    return out_df
 
-def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locus_range,plink_memory,overlap,columns,prefix=""):
+def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overlap,ld_api,columns,prefix=""):
     """
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
     In: df(containing the credible set information), alternate significance threshold, ld panel path, columns
@@ -170,74 +134,36 @@ def credible_set_grouping(data,alt_sign_treshold,ld_panel_path,ld_treshold, locu
         lead_vars.append(group_lead["#variant"])
     if len(lead_vars) == 0:
         return pd.DataFrame(columns=df.columns)
-    ## Calculate the ld regions per chromosome to save on memory. Merge the results into a result dataframe.
-    # The error 'no valid variants specified by...' Should not come, UNLESS the summary statistic and ld panel differ.
-    #better handle it, anyways.
     ld_data = pd.DataFrame()
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
-    for chrom in lead_df[columns["chrom"]].unique():
-        leads_ = lead_df.loc[lead_df[ columns["chrom"] ]==chrom,"#variant"] 
-        #write lead_vars to a file, one per row
-        
-        fname="{}plink_ld.variants".format(prefix)
-        leads_.to_csv(path_or_buf=fname,index=False,sep="\t",header=False)
-        output="{}plink_ld".format(prefix)
-        #with open(fname,"w") as f:
-        #    for var in lead_vars:
-        #        f.write("{}\n".format(var) )
-        #perform plink computation
-        plink_cmd = "plink --allow-extra-chr --chr {} --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window {} --out {} --memory {}".format(
-            chrom,
-            ld_panel_path,
-            fname,
-            ld_treshold,
-            locus_range,
-            ld_window,
-            output,
-            plink_memory)
-        pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
-        pr.wait()
-        plink_log = pr.stdout.readlines()
-        if pr.returncode != 0:
-            print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-            [print(l) for l in plink_log]
-            raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
-        #read in the variants
-        ld_data_=pd.read_csv("{}.ld".format(output),sep="\s+")
-        ld_data = pd.concat([ld_data,ld_data_],axis="index",sort=False,ignore_index=True)
-        cleanup_cmd= "rm {}".format(fname)
-        plink_files = glob.glob( "{}.*".format(output) )
-        subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
+    ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,ld_treshold)
     #join
-    df["index"]=df.index
-    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"],"index"]],ld_data, how="inner",left_on="#variant",right_on="SNP_B") #does include all of the lead variants as well
-    ld_df=ld_df.set_index("index")
-    ld_df.index.name=None
+    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
+    ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     #filter by p-value
     ld_df = ld_df[ld_df[columns["pval"]] <= alt_sign_treshold ]
-    #Now should have columns variant, chrom, pos, pval, CHR_A,BP_A,SNP_A,CHR_B,BP_B, SNP_B, R2, with index being the same as in df.
     out_df = pd.DataFrame(columns=data.columns)
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
         #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
         lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"]
-        group_idx = ld_df[ld_df["SNP_A"] == lead_variant].index
-        group_idx = group_idx[group_idx.isin(df.index)]#make sure that the index is present in both dataframes
-        group = df.loc[group_idx,:].copy()
-        #also add the variants that are in the credible set. Just in case they might not be included in the 
+        group_vars = ld_df.loc[ld_df["variant_1"] == lead_variant,"#variant" ]
+        group = df[df["#variant"].isin(group_vars)].copy()
+        #also add the variants that are in the credible set. Just in case they might not be included in the ld neighbours.
         credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
         credible_set= data.loc[data["cs_id"] == credible_id,:].copy()
         #concat the two, remove duplicate entries
         group=pd.concat([group,credible_set],ignore_index=True,sort=False).drop_duplicates(subset=["#variant","cs_id"])
         group["locus_id"]=lead_variant
-        group["pos_rmin"]=group["pos"].min()
-        group["pos_rmax"]=group["pos"].max()
+        group["pos_rmin"]=group[columns["pos"]].min()
+        group["pos_rmax"]=group[columns["pos"]].max()
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         #convergence: remove lead_variant, remove group from df in case overlap is not done
         leads=leads[~ (leads["#variant"] == lead_variant) ] 
         if not overlap:
-            df=df[~df.index.isin(group_idx)]
+            df=df[~df["#variant"].isin(group_vars)]
             df=df[~(df["cs_id"]==credible_id)]
     #cleanup: delete variant file, plink files
     #cleanup_cmd= "rm {}".format(fname)
@@ -286,7 +212,7 @@ def merge_credset(gws_df,cs_df,fname,columns):
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
-def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_panel_path,ld_r2,plink_memory,overlap,column_labels,ignore_region,cred_set_file):
+def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_r2,overlap,column_labels,ignore_region,cred_set_file, ld_api):
     """
     Filter and group variants.
     In: arguments
@@ -335,10 +261,13 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     #grouping
     if group:
         if grouping_method=="ld":
-            new_df=ld_grouping(df_p1,df_p2,sig_tresh_1,sig_tresh_2,locus_width,ld_r2,ld_panel_path,plink_memory,overlap,prefix,columns)
+            new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,
+            sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,
+            overlap=overlap,
+            prefix=prefix,ld_api=ld_api,columns=columns)
         elif grouping_method=="cred":
-            new_df = credible_set_grouping(data=df_p2,alt_sign_treshold=sig_tresh_2,ld_panel_path=ld_panel_path,ld_treshold=ld_r2,locus_range=locus_width,
-            plink_memory=plink_memory,overlap=overlap,columns=columns,prefix=prefix)
+            new_df = credible_set_grouping(data=df_p2,alt_sign_treshold=sig_tresh_2,ld_treshold=ld_r2,locus_range=locus_width,
+            overlap=overlap,ld_api=ld_api,columns=columns,prefix=prefix)
         else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
         new_df=new_df.sort_values(["locus_id","#variant"])
@@ -367,11 +296,19 @@ if __name__=="__main__":
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
+    parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
+    ld_api=None
+    if args.ld_api_choice == "plink":
+        ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
+    elif args.ld_api_choice == "online":
+        ld_api = OnlineLD("http://api.finngen.fi/api/ld")
+    else:
+        raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_panel_path=args.ld_panel_path, ld_r2=args.ld_r2, plink_memory=args.plink_mem, overlap=args.overlap, column_labels=args.column_labels,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file)
+        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, column_labels=args.column_labels,
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
     fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
