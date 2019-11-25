@@ -9,7 +9,7 @@
     "autoreporting.report.finngen_annotation":"gs://r4_data_west1/annotations/R4_annotated_variants_v1.gz",
     "autoreporting.report.functional_annotation":"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz",
     "autoreporting.report.credible_set_path":"gs://r4_data_west1/finemap/",
-    "autoreporting.report.local_gwcatalog":"gs://r4_data/autoreporting/gwas-catalog-associations_ontology-annotated-190904.tsv",
+    "autoreporting.report.local_gwcatalog":"gs://r4_data_west1/autoreporting/gwas-catalog-associations_ontology-annotated-191007.tsv",
     "autoreporting.report.sign_treshold":5e-8,
     "autoreporting.report.alt_sign_treshold":1e-2,
     "autoreporting.report.grouping_locus_width":1500,
