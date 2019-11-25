@@ -59,7 +59,7 @@ pytabix
 
 ##  2.2. <a name='Installationprocess'></a>Installation process
 
-Install dependencies
+Install dependencies (on ubuntu 18.04+):
 
 ```
 sudo apt install tabix python3 python3-pip zlib1g-dev
@@ -69,10 +69,10 @@ sudo cp plink /usr/local/bin/
 wget http://www.christianbenner.com/ldstore_v1.1_x86_64.tgz
 tar xvf ldstore_v1.1_x86_64.tgz
 sudo cp ldstore_v1.1_x86_64/ldstore /usr/local/bin/ldstore
-pip3 install pytabix requests numpy pandas
+pip3 install -r requirements.txt
 ```
 
-Copy repository to folder
+Copy repository to folder:
 
 ```
 git clone https://github.com/FinnGen/autoreporting.git
