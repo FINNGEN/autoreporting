@@ -14,3 +14,4 @@ COPY Scripts/annotate.py /usr/local/bin/
 COPY Scripts/compare.py /usr/local/bin/
 COPY Scripts/autoreporting_utils.py /usr/local/bin/
 COPY Scripts/gwcatalog_api.py /usr/local/bin/
+COPY Scripts/linkage.py /usr/local/bin/
