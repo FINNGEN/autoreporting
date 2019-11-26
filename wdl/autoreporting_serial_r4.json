@@ -1,7 +1,7 @@
 {
     "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_test_shortlist",
     "autoreporting.credsetlist": "gs://r4_data_west1/autoreporting/r4_credible_set_list_191029",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:9ab5e2",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:fb12de",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 4,
     "autoreporting.report_credible_set.gnomad_exome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",

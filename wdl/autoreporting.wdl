@@ -61,7 +61,7 @@ task report {
         main.py ${summ_stat} --sign-treshold ${sign_treshold} --alt-sign-treshold ${alt_sign_treshold}  \
         ${true='--group' false='' group} --grouping-method ${grouping_method} --locus-width-kb ${grouping_locus_width} \
         --ld-panel-path ${dollar}mod_ld --ld-r2 ${ld_r2} --plink-memory ${plink_memory} ${true='--overlap' false='' overlap} \
-        ${ignore_cmd} ${ignore_region} \
+        ${ignore_cmd} ${ignore_region} --ld-api plink \
         --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' include_batch_freq} --finngen-path ${finngen_annotation} \
         --functional-path ${ functional_annotation} --credible-set-file ${default= "" credible_set} --finngen-annotation-version ${annotation_version} \
         --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
