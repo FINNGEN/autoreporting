@@ -97,5 +97,7 @@ class PlinkLD(LDAccess):
             cleanup_cmd= "rm {}".format(plink_name)
             plink_files = glob.glob( "{}.*".format(plink_prefix) )
             subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if ld_data.empty:
+            return pd.DataFrame(columns=["variant_1","pos_1","chrom_1","variant_2","pos_2","chrom_2","r2"])
         ld_data=ld_data.rename(columns={"SNP_A":"variant_1","BP_A":"pos_1","CHR_A":"chrom_1","SNP_B":"variant_2","BP_B":"pos_2","CHR_B":"chrom_2","R2":"r2"})
         return ld_data.astype({"pos_1":int,"pos_2":int,"r2":float})
