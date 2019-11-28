@@ -3,7 +3,7 @@ import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 from typing import List, Text, Dict,Any
 import pandas as pd, numpy as np
-from gwcatalog_api import try_request
+from gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 
 
 class LDAccess(object):
@@ -33,9 +33,14 @@ class OnlineLD(LDAccess):
         window = max(min(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
-        data=try_request(self.url,params=params)
-        if type(data) == type(None):
-            print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) ) #TODO: handle this better. Perhaps return more information from try_request
+        try:
+            data=try_request(self.url,params=params)
+        except ResourceNotFound:
+            print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) )
+            return None
+        except ResponseFailure as e:
+            print("Error with request.")
+            print(e)
             return None
         #parse data
         ld_data=data.json()["ld"]

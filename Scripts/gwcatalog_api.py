@@ -5,6 +5,30 @@ from typing import List, Text, Dict,Any
 from io import StringIO
 import pandas as pd, numpy as np
 
+class RequestError(Exception):
+    """
+    Unrecoverable error baseclass for try_request errors
+    """
+    pass
+
+class ResourceNotFound(RequestError):
+    """
+    Value does not exist in database or it was not found for some other reason
+    """
+    def __init__(self,parameters=None):
+        super(RequestError,self).__init__()
+        self.parameters=parameters
+    pass
+
+class ResponseFailure(RequestError):
+    """
+    The request aborted due to some error
+    """
+    def __init__(self,parameters=None):
+        super(RequestError,self).__init__()
+        self.parameters=parameters
+
+
 class ExtDB(object):
 
     @abc.abstractmethod
@@ -33,10 +57,16 @@ def parse_output(dumplst):
 
 def get_trait_name(trait):
     base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
-    r=try_request("{}{}".format(base_url,trait) )
-    if type(r)==type(None):
+    try:
+        r=try_request("{}{}".format(base_url,trait) )
+    except ResourceNotFound:
         print("Trait {} not found in GWASCatalog".format(trait))
         return "NA"
+    except ResponseFailure:
+        print("Request for trait {} failed".format(trait))
+        return "NA"
+    except:#unhandled exceptions
+        raise
     else:
         return r.json()["trait"]
 
@@ -58,7 +88,9 @@ def try_request(url, params=None,timeout=5):
             tries+=1
     except Exception as e:
         print("Request caused an exception:{}".format(e))
-        return None
+        raise ResponseFailure(parameters=e)
+    if r.status_code in (400,404):
+        raise ResourceNotFound(parameters={"url":url,"params":params})
     if r.status_code not in (200,):
         return None
     return r
@@ -114,9 +146,13 @@ class SummaryApi(ExtDB):
         url="{}{}{}".format(base_url,chromosome,association)
         payload={"p_upper":pval,"p_lower":p_lower,
             "reveal":"all","bp_lower":start,"bp_upper":end,"start":0,"size":size}
-        r=try_request(url,params=payload)
-        if type(r) == type(None):
+        try:
+            r=try_request(url,params=payload)
+        except ResourceNotFound:
             print("No variants found in {}:{}-{}".format(chromosome,start,end))
+            return
+        except ResponseFailure:
+            print("Request failure for {}:{}-{}".format(chromosome,start,end))
             return
         dump=r.json()
         dumplst=[]
@@ -125,7 +161,14 @@ class SummaryApi(ExtDB):
         dumplst.append(dump["_embedded"]["associations"])
         i=1
         while "next" in dump["_links"].keys():
-            r=try_request(dump["_links"]["next"]["href"],params={"reveal":"all"})
+            try:
+                r=try_request(url,params=payload)
+            except ResourceNotFound:
+                print("No variants found in {}:{}-{}".format(chromosome,start,end))
+                return
+            except ResponseFailure:
+                print("Request failure for {}:{}-{}".format(chromosome,start,end))
+                return
             if type(r) == type(None):
                 break
             dump=r.json()
@@ -175,8 +218,11 @@ def ensembl_request(rsids):
     for rsid_chunk in in_chunks(rsids,200):
         list_str='["{}"]'.format('", "'.join(rsid_chunk))
         data='{{ "ids":{} }}'.format(list_str)
-        r = try_request_post(ensembl_url,headers=headers,data=data)
-        if r==None:
+        try:
+            r = try_request_post(ensembl_url,headers=headers,data=data)
+        except ResourceNotFound:
+            pass
+        except ResponseFailure:
             print("No valid response from Ensembl API. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
         else:
             try:
@@ -269,12 +315,13 @@ class GwasApi(ExtDB):
             "]&pvalfilter={}&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
             chromosome,start,end,parse_float(float(pval) ))
         #gwcat_response=requests.get(url)
-        gwcat_response=try_request(url)
-        if type(gwcat_response)==type(None):
+        try:
+            gwcat_response=try_request(url)
+        except ResourceNotFound:
             return
-        #while gwcat_response.status_code!=200:
-        #    print(gwcat_response.status_code)
-        #    gwcat_response=requests.get(url)
+        except ResponseFailure as e:
+            print(e,e.parameters)
+            return
         s_io=StringIO(gwcat_response.text)
         df=pd.read_csv(s_io,sep="\t")
         if df.empty:

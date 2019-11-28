@@ -34,16 +34,18 @@ class TestGwcat(unittest.TestCase):
         url="url"
         params="params"
         with mock.patch("Scripts.gwcatalog_api.requests.get",return_value=response):
-            retval=gwcatalog_api.try_request(url, params)
-        self.assertTrue(type(retval)== type(None))
+            with self.assertRaises(gwcatalog_api.ResourceNotFound):
+                retval=gwcatalog_api.try_request(url, params)
+        #self.assertTrue(type(retval)== type(None))
         #400
         response=mock.Mock()
         response.status_code=400
         url="url"
         params="params"
         with mock.patch("Scripts.gwcatalog_api.requests.get",return_value=response):
-            retval=gwcatalog_api.try_request(url, params)
-        self.assertTrue(type(retval)== type(None))
+            with self.assertRaises(gwcatalog_api.ResourceNotFound):
+                retval=gwcatalog_api.try_request(url, params)
+        #self.assertTrue(type(retval)== type(None))
         #500
         response=mock.Mock()
         response.status_code=500
@@ -57,7 +59,8 @@ class TestGwcat(unittest.TestCase):
         #exception during requests.get
         with mock.patch("Scripts.gwcatalog_api.requests.get",side_effect=TimeoutError("Timeout")) as mock_get:
             with mock.patch("Scripts.gwcatalog_api.print") as mock_print:
-                retval=gwcatalog_api.try_request(url, params)
+                with self.assertRaises(gwcatalog_api.ResponseFailure):
+                    retval=gwcatalog_api.try_request(url, params)
         self.assertEqual(type(retval),type(None))
         mock_print.assert_called_with("Request caused an exception:{}".format(TimeoutError("Timeout")))
     
@@ -132,11 +135,12 @@ class TestGwcat(unittest.TestCase):
             return_value=gwcatalog_api.get_trait_name(trait)
         self.assertEqual(return_value,trait_name)
         mock_try.assert_called_with(tryurl)
-        #does not exist
-        with mock.patch("Scripts.gwcatalog_api.try_request",return_value = None) as mock_try:
+        #does not exist, raises exception gwcatalog_api.ResourceNotFound
+        with mock.patch("Scripts.gwcatalog_api.try_request",side_effect = gwcatalog_api.ResourceNotFound):
             with mock.patch("Scripts.gwcatalog_api.print"):
                 return_value=gwcatalog_api.get_trait_name(trait)
         self.assertEqual("NA",return_value)
+        #TODO: handle unhandled exception
 
     def test_parse_float(self):
         """
