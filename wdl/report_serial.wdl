@@ -282,6 +282,32 @@ workflow autoreporting{
     Int phenos_per_worker
     Int memory
     String docker 
+    Int cpus
+
+    String gnomad_exome
+    String gnomad_genome
+    String ld_panel
+    String finngen_annotation
+    String functional_annotation
+    String local_gwcatalog
+    String annotation_version
+    String compare_style
+    String db_choice
+    String efo_codes
+    String ignore_region
+    Boolean include_batch_freq
+    Float ld_treshold
+    Float sign_treshold
+    Float alt_sign_treshold
+    Int grouping_locus_width
+    Float ld_r2
+    Int plink_memory
+    Float gwascatalog_pval
+    Int gwascatalog_width_kb
+    Int gwascatalog_threads
+    Boolean group
+    Boolean overlap
+    Boolean check_for_ld
     call credset_filter {
         input:additional_prefix="finngen_R4_",phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
     }
@@ -307,13 +333,13 @@ workflow autoreporting{
     #credset reports
     scatter (i in range(length(c_pheno_arr))) {
         call report_credible_set{
-            input: summ_stat=c_pheno_arr[i], summ_stat_tb=c_pheno_tbi_arr[i], credsets=credset_arr[i], docker=docker,memory=memory
+            input: summ_stat=c_pheno_arr[i], summ_stat_tb=c_pheno_tbi_arr[i], credsets=credset_arr[i], docker=docker, memory=memory, cpus=cpus, gnomad_exome=gnomad_exome,gnomad_genome=gnomad_genome, ld_panel=ld_panel, finngen_annotation=finngen_annotation, functional_annotation=functional_annotation, local_gwcatalog=local_gwcatalog, annotation_version=annotation_version, compare_style=compare_style, db_choice=db_choice, efo_codes=efo_codes, include_batch_freq=include_batch_freq, ignore_region=ignore_region, ld_treshold=ld_treshold, sign_treshold=sign_treshold, alt_sign_treshold=alt_sign_treshold, grouping_locus_width=grouping_locus_width, ld_r2=ld_r2, plink_memory=plink_memory, gwascatalog_pval=gwascatalog_pval, gwascatalog_width_kb=gwascatalog_width_kb, gwascatalog_threads=gwascatalog_threads, group=group, overlap=overlap, check_for_ld=check_for_ld
         }
     }
     #reports with no credible sets
     scatter (i in range(length(o_pheno_arr))) {
         call report_nocred{
-            input: summ_stat=o_pheno_arr[i], summ_stat_tb=o_pheno_tbi_arr[i], docker=docker,memory=memory
+            input: summ_stat=o_pheno_arr[i], summ_stat_tb=o_pheno_tbi_arr[i], docker=docker,memory=memory, cpus=cpus, gnomad_exome=gnomad_exome,gnomad_genome=gnomad_genome, ld_panel=ld_panel, finngen_annotation=finngen_annotation, functional_annotation=functional_annotation, local_gwcatalog=local_gwcatalog, annotation_version=annotation_version, compare_style=compare_style, db_choice=db_choice, efo_codes=efo_codes, include_batch_freq=include_batch_freq, ignore_region=ignore_region, ld_treshold=ld_treshold, sign_treshold=sign_treshold, alt_sign_treshold=alt_sign_treshold, grouping_locus_width=grouping_locus_width, ld_r2=ld_r2, plink_memory=plink_memory, gwascatalog_pval=gwascatalog_pval, gwascatalog_width_kb=gwascatalog_width_kb,gwascatalog_threads=gwascatalog_threads, group=group, overlap=overlap, check_for_ld=check_for_ld
         }
     }
 }
