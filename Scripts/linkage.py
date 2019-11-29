@@ -30,7 +30,7 @@ class OnlineLD(LDAccess):
         return parsed_variant
 
     def __get_range(self, chrom,pos,ref,alt,window,ld_threshold):
-        window = min(max(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
+        window = max(min(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
         data=try_request(self.url,params=params)
