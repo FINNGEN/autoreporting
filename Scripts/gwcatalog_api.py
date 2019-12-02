@@ -113,9 +113,11 @@ def try_request_post(url, headers, data ,timeout=5):
             tries+=1
     except Exception as e:
         print("Request caused an exception:{}".format(e))
-        return None
+        raise ResponseFailure(parameters=e)
+    if r.status_code in (400,404):
+        raise ResourceNotFound(parameters={"headers":headers,"data":data,"url":url})
     if r.status_code not in (200,):
-        return None
+        raise ResponseFailure(parameters={"headers":headers,"data":data,"url":url,"status_code":r.status_code})
     return r
 
 def parse_float(number):
@@ -223,7 +225,7 @@ def ensembl_request(rsids):
         except ResourceNotFound:
             pass
         except ResponseFailure:
-            print("No valid response from Ensembl API. Matches regarding the following RSIDS may not be available:{}".format("\n".join(rsid_chunk)))
+            print("No valid response from Ensembl API. Matches regarding the following RSIDS may not be available:{}".format(", ".join(rsid_chunk)))
         else:
             try:
                 out=out + parse_ensembl(r.json())
@@ -282,6 +284,7 @@ class LocalDB(ExtDB):
         df=df.loc[df["P-VALUE"]<=float(pval) ,:]
         rsids=list(df["SNPS"])
         rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
+        rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
         out = ensembl_request(rsids)
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         if rsid_df.empty:
@@ -328,6 +331,7 @@ class GwasApi(ExtDB):
             return
         rsids=list(df["SNPS"])
         rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
+        rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
         out = ensembl_request(rsids)
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")

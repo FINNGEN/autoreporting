@@ -36,7 +36,6 @@ class TestGwcat(unittest.TestCase):
         with mock.patch("Scripts.gwcatalog_api.requests.get",return_value=response):
             with self.assertRaises(gwcatalog_api.ResourceNotFound):
                 retval=gwcatalog_api.try_request(url, params)
-        #self.assertTrue(type(retval)== type(None))
         #400
         response=mock.Mock()
         response.status_code=400
@@ -45,7 +44,6 @@ class TestGwcat(unittest.TestCase):
         with mock.patch("Scripts.gwcatalog_api.requests.get",return_value=response):
             with self.assertRaises(gwcatalog_api.ResourceNotFound):
                 retval=gwcatalog_api.try_request(url, params)
-        #self.assertTrue(type(retval)== type(None))
         #500
         response=mock.Mock()
         response.status_code=500
@@ -90,32 +88,30 @@ class TestGwcat(unittest.TestCase):
         url="url"
         params="params"
         with mock.patch("Scripts.gwcatalog_api.requests.post",return_value=response):
-            retval=gwcatalog_api.try_request_post(url,headers, data)
-        self.assertTrue(type(retval)== type(None))
+            with self.assertRaises(gwcatalog_api.ResourceNotFound):
+                retval=gwcatalog_api.try_request_post(url,headers, data)
         #400
         response=mock.Mock()
         response.status_code=400
         url="url"
         params="params"
         with mock.patch("Scripts.gwcatalog_api.requests.post",return_value=response):
-            retval=gwcatalog_api.try_request_post(url,headers, data)
-        self.assertTrue(type(retval)== type(None))
+            with self.assertRaises(gwcatalog_api.ResourceNotFound):
+                retval=gwcatalog_api.try_request_post(url,headers, data)
         #500
         response=mock.Mock()
         response.status_code=500
         url="url"
         params="params"
         with mock.patch("Scripts.gwcatalog_api.requests.post",return_value=response) as mock_get:
-            with mock.patch("Scripts.gwcatalog_api.print"):
-                retval=gwcatalog_api.try_request_post(url,headers, data)
-        self.assertTrue(type(retval)== type(None))
-        self.assertEqual(5,mock_get.call_count)
-        #exception during requests.get
+            with self.assertRaises(gwcatalog_api.ResponseFailure):
+                with mock.patch("Scripts.gwcatalog_api.print"):
+                    retval=gwcatalog_api.try_request_post(url,headers, data)
+        #exception during requests.post
         with mock.patch("Scripts.gwcatalog_api.requests.post",side_effect=TimeoutError("Timeout")) as mock_get:
-            with mock.patch("Scripts.gwcatalog_api.print") as mock_print:
-                retval=gwcatalog_api.try_request_post(url,headers, data)
-        self.assertEqual(type(retval),type(None))
-        mock_print.assert_called_with("Request caused an exception:{}".format(TimeoutError("Timeout")))
+            with self.assertRaises(gwcatalog_api.ResponseFailure):
+                with mock.patch("Scripts.gwcatalog_api.print") as mock_print:
+                    retval=gwcatalog_api.try_request_post(url,headers, data)
         pass 
 
     def test_get_trait_name(self):
