@@ -340,7 +340,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
     summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
-        print("No summary variants, raport will be incomplete")
+        print("No summary variants, report will be incomplete")
         report_out_df=df.copy()
         report_out_df["variant_hit"]="NA"
         report_out_df["pval_trait"]="NA"
