@@ -26,7 +26,7 @@ class OnlineLD(LDAccess):
         self.url=url
     
     def __parse_variant(self,variant):
-        parsed_variant="chr{}".format( "_".join(variant.split(":")) )
+        parsed_variant="chr{}".format( variant.replace(":","_"))
         return parsed_variant
 
     def __get_range(self, chrom,pos,ref,alt,window,ld_threshold):
@@ -37,14 +37,16 @@ class OnlineLD(LDAccess):
             data=try_request(self.url,params=params)
         except ResourceNotFound:
             print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) )
-            return None
+            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
         except ResponseFailure as e:
             print("Error with request.")
             print(e)
-            return None
+            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
         #parse data
         ld_data=data.json()["ld"]
         ld_data=pd.DataFrame(ld_data)
+        if ld_data.empty:
+            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
         ld_data=ld_data[ ["variation1", "variation2", "r2"] ]
         return ld_data
 
