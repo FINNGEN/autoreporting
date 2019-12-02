@@ -51,15 +51,14 @@ class TestGwcat(unittest.TestCase):
         params="params"
         with mock.patch("Scripts.gwcatalog_api.requests.get",return_value=response) as mock_get:
             with mock.patch("Scripts.gwcatalog_api.print"):
-                retval=gwcatalog_api.try_request(url, params)
-        self.assertTrue(type(retval)== type(None))
+                with self.assertRaises(gwcatalog_api.ResponseFailure):
+                    retval=gwcatalog_api.try_request(url, params)
         self.assertEqual(5,mock_get.call_count)
         #exception during requests.get
         with mock.patch("Scripts.gwcatalog_api.requests.get",side_effect=TimeoutError("Timeout")) as mock_get:
             with mock.patch("Scripts.gwcatalog_api.print") as mock_print:
                 with self.assertRaises(gwcatalog_api.ResponseFailure):
                     retval=gwcatalog_api.try_request(url, params)
-        self.assertEqual(type(retval),type(None))
         mock_print.assert_called_with("Request caused an exception:{}".format(TimeoutError("Timeout")))
     
     @mock.patch("Scripts.gwcatalog_api.time.sleep")

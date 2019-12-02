@@ -92,7 +92,7 @@ def try_request(url, params=None,timeout=5):
     if r.status_code in (400,404):
         raise ResourceNotFound(parameters={"url":url,"params":params})
     if r.status_code not in (200,):
-        return None
+        raise ResponseFailure(parameters={"parameters":params,"status_code":r.status_code,"url":url})
     return r
 
 def try_request_post(url, headers, data ,timeout=5):
