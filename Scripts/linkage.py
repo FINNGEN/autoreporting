@@ -34,7 +34,7 @@ class OnlineLD(LDAccess):
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
         try:
-            data=try_request(self.url,params=params)
+            data=try_request("GET",url=self.url,params=params)
         except ResourceNotFound:
             print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) )
             return pd.DataFrame(columns=["variation1", "variation2", "r2"])

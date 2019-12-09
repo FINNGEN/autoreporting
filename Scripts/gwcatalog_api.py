@@ -58,7 +58,7 @@ def parse_output(dumplst):
 def get_trait_name(trait):
     base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
     try:
-        r=try_request("{}{}".format(base_url,trait) )
+        r=try_request("GET",url="{}{}".format(base_url,trait) )
     except ResourceNotFound:
         print("Trait {} not found in GWASCatalog".format(trait))
         return "NA"
@@ -70,54 +70,35 @@ def get_trait_name(trait):
     else:
         return r.json()["trait"]
 
-def try_request(url, params=None,timeout=5):
+def try_request(method,url,headers="",data="", params={},retry_count=5):
     """
-    Make a GET request and handle possible errors
-    In: url, parameters, number fo times to retry the request
+    Make a GET/POST request and handle possible errors
+    In: method, url, headers,data,parameters, number fo times to retry the request
     Out: Request or None
     """
     try:
-        r=requests.get(url, params=params)
+        r=requests.request(method=method, url=url, headers=headers,params=params,data=data)
         tries=2
         while r.status_code not in (200,400,404):
             time.sleep(0.5)
-            r=requests.get(url, params=params)
-            if tries >= timeout:
-                print("Request {} with parameters {} returned code {} with attempt {}".format(url, params, r.status_code,tries+1))
+            r=requests.request(method=method, url=url, headers=headers,params=params,data=data)
+            if tries >= retry_count:
+                print("{} Request {} with parameters {}; headers {}; data {}; returned code {} with attempt {}".format(method,
+                    url,
+                    params,
+                    headers,
+                    data,
+                    r.status_code
+                    ,tries+1))
                 break
             tries+=1
     except Exception as e:
         print("Request caused an exception:{}".format(e))
         raise ResponseFailure(parameters=e)
     if r.status_code in (400,404):
-        raise ResourceNotFound(parameters={"url":url,"params":params})
+        raise ResourceNotFound(parameters={"url":url,"params":params,"headers":headers,"data":data,"status_code":r.status_code})
     if r.status_code not in (200,):
-        raise ResponseFailure(parameters={"parameters":params,"status_code":r.status_code,"url":url})
-    return r
-
-def try_request_post(url, headers, data ,timeout=5):
-    """
-    Make a POST request and handle possible errors
-    In: url, headers, data, numer of times to retry the request
-    Out: Request or None
-    """
-    try:
-        r=requests.post(url, headers=headers,data=data)
-        tries=2
-        while r.status_code not in (200,400,404):
-            time.sleep(0.5)
-            r=requests.post(url, headers=headers,data=data)
-            if tries >= timeout:
-                print("POST Request to {} returned code {} with attempt {}".format(url, r.status_code,tries+1))
-                break
-            tries+=1
-    except Exception as e:
-        print("Request caused an exception:{}".format(e))
-        raise ResponseFailure(parameters=e)
-    if r.status_code in (400,404):
-        raise ResourceNotFound(parameters={"headers":headers,"data":data,"url":url})
-    if r.status_code not in (200,):
-        raise ResponseFailure(parameters={"headers":headers,"data":data,"url":url,"status_code":r.status_code})
+        raise ResponseFailure(parameters={"url":url,"params":params,"headers":headers,"data":data,"status_code":r.status_code})
     return r
 
 def parse_float(number):
@@ -149,7 +130,7 @@ class SummaryApi(ExtDB):
         payload={"p_upper":pval,"p_lower":p_lower,
             "reveal":"all","bp_lower":start,"bp_upper":end,"start":0,"size":size}
         try:
-            r=try_request(url,params=payload)
+            r=try_request("GET",url,params=payload)
         except ResourceNotFound:
             print("No variants found in {}:{}-{}".format(chromosome,start,end))
             return
@@ -164,7 +145,7 @@ class SummaryApi(ExtDB):
         i=1
         while "next" in dump["_links"].keys():
             try:
-                r=try_request(url,params=payload)
+                r=try_request("GET",url,params=payload)
             except ResourceNotFound:
                 print("No variants found in {}:{}-{}".format(chromosome,start,end))
                 return
@@ -208,7 +189,7 @@ def parse_ensembl(json_data):
         out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele})
     return out
 
-def ensembl_request(rsids):
+def get_rsid_alleles_ensembl(rsids):
     """
     For a list of rsids, return list of variant information (alleles). Uses the ensembl human genomic variation API.
     In: list of RSIDs
@@ -221,9 +202,9 @@ def ensembl_request(rsids):
         list_str='["{}"]'.format('", "'.join(rsid_chunk))
         data='{{ "ids":{} }}'.format(list_str)
         try:
-            r = try_request_post(ensembl_url,headers=headers,data=data)
-        except ResourceNotFound:
-            pass
+            r = try_request("POST",url=ensembl_url,headers=headers,data=data)
+        except ResourceNotFound as e:
+            print("{} Request to {} with params {} returned status code {} ".format( "POST",ensembl_url, e.parameters, e.parameters["status_code"] ))
         except ResponseFailure:
             print("No valid response from Ensembl API. Matches regarding the following RSIDS may not be available:{}".format(", ".join(rsid_chunk)))
         else:
@@ -285,7 +266,7 @@ class LocalDB(ExtDB):
         rsids=list(df["SNPS"])
         rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
         rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
-        out = ensembl_request(rsids)
+        out = get_rsid_alleles_ensembl(rsids)
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         if rsid_df.empty:
             return
@@ -319,7 +300,7 @@ class GwasApi(ExtDB):
             chromosome,start,end,parse_float(float(pval) ))
         #gwcat_response=requests.get(url)
         try:
-            gwcat_response=try_request(url)
+            gwcat_response=try_request("GET",url=url)
         except ResourceNotFound:
             return
         except ResponseFailure as e:
@@ -332,7 +313,7 @@ class GwasApi(ExtDB):
         rsids=list(df["SNPS"])
         rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
         rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
-        out = ensembl_request(rsids)
+        out = get_rsid_alleles_ensembl(rsids)
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
