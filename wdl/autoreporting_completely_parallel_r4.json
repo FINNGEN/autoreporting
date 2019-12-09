@@ -8,7 +8,6 @@
     "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu3/wgs_all",
     "autoreporting.finngen_annotation":"gs://r4_data_west1/annotations/R4_annotated_variants_v1.gz",
     "autoreporting.functional_annotation":"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz",
-    "autoreporting.credible_set_path":"gs://r4_data_west1/finemap/",
     "autoreporting.local_gwcatalog":"gs://r4_data_west1/autoreporting/gwas-catalog-associations_ontology-annotated-191007.tsv",
     "autoreporting.sign_treshold":5e-8,
     "autoreporting.alt_sign_treshold":1e-2,
