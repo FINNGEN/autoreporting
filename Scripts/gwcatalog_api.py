@@ -96,9 +96,9 @@ def try_request(method,url,headers="",data="", params={},retry_count=5):
         print("Request caused an exception:{}".format(e))
         raise ResponseFailure(parameters=e)
     if r.status_code in (400,404):
-        raise ResourceNotFound(parameters={"url":url,"params":params,"headers":headers,"data":data,"status_code":r.status_code})
+        raise ResourceNotFound(parameters={"url":r.url,"params":params,"headers":headers,"data":data,"status_code":r.status_code})
     if r.status_code not in (200,):
-        raise ResponseFailure(parameters={"url":url,"params":params,"headers":headers,"data":data,"status_code":r.status_code})
+        raise ResponseFailure(parameters={"url":r.url,"params":params,"headers":headers,"data":data,"status_code":r.status_code})
     return r
 
 def parse_float(number):

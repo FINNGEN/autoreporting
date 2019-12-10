@@ -1,5 +1,5 @@
 import abc
-import argparse,shlex,subprocess, glob
+import argparse,shlex,subprocess, glob, time
 from subprocess import Popen, PIPE
 from typing import List, Text, Dict,Any
 import pandas as pd, numpy as np
@@ -35,8 +35,8 @@ class OnlineLD(LDAccess):
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
         try:
             data=try_request("GET",url=self.url,params=params)
-        except ResourceNotFound:
-            print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) )
+        except ResourceNotFound as e:
+            print("LD data not found (status code {}) with url {} and params {}.".format(e.parameters["status_code"],self.url,params) )
             return pd.DataFrame(columns=["variation1", "variation2", "r2"])
         except ResponseFailure as e:
             print("Error with request.")
