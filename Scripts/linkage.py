@@ -3,7 +3,7 @@ import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 from typing import List, Text, Dict,Any
 import pandas as pd, numpy as np
-from gwcatalog_api import try_request
+from gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 
 
 class LDAccess(object):
@@ -26,20 +26,27 @@ class OnlineLD(LDAccess):
         self.url=url
     
     def __parse_variant(self,variant):
-        parsed_variant="chr{}".format( "_".join(variant.split(":")) )
+        parsed_variant="chr{}".format( variant.replace(":","_"))
         return parsed_variant
 
     def __get_range(self, chrom,pos,ref,alt,window,ld_threshold):
         window = max(min(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
-        data=try_request(self.url,params=params)
-        if type(data) == type(None):
-            print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) ) #TODO: handle this better. Perhaps return more information from try_request
-            return None
+        try:
+            data=try_request("GET",url=self.url,params=params)
+        except ResourceNotFound:
+            print("LD data not found with url {} and params {}.".format(self.url,list(params.values())) )
+            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
+        except ResponseFailure as e:
+            print("Error with request.")
+            print(e)
+            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
         #parse data
         ld_data=data.json()["ld"]
         ld_data=pd.DataFrame(ld_data)
+        if ld_data.empty:
+            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
         ld_data=ld_data[ ["variation1", "variation2", "r2"] ]
         return ld_data
 
