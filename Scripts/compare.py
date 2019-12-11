@@ -102,13 +102,15 @@ def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:
     if efo_traits:
         top_level_columns.append("specific_efo_trait_associations_strict")
         top_level_columns.append("specific_efo_trait_associations_relaxed")
+    
     df=report_df.copy()
-    if df.empty:
-        return pd.DataFrame(columns=top_level_columns)
-
-    list_of_loci=list(df["locus_id"].unique())
-    #compile new simple top level dataframe
     top_level_df=pd.DataFrame(columns=top_level_columns)
+
+    if df.empty:
+        return top_level_df
+    
+    list_of_loci=list(df["locus_id"].unique())
+    
     for locus_id in list_of_loci:
         #create row. The row is a dict, into which the different values get added as colname-value pairs
         row = {}
@@ -125,16 +127,16 @@ def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:
         row["start"]=np.amin(loc_variants[columns["pos"]])
         row["end"]=np.amax(loc_variants[columns["pos"]])
         try:#in case the annotation has not been done
-            enrich=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].values[0]
-            most_sev_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].values[0]
-            most_sev_cons=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_consequence"].values[0]
+            enrichment=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].iat[0]
+            most_severe_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].iat[0]
+            most_severe_consequence=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_consequence"].iat[0]
         except:
-            enrich=np.nan
-            most_sev_gene=np.nan
-            most_sev_cons=np.nan
-        row["enrichment"]=enrich
-        row["most_severe_consequence"]=most_sev_cons
-        row["most_severe_gene"]=most_sev_gene
+            enrichment=""
+            most_severe_gene=""
+            most_severe_consequence=""
+        row["enrichment"]=enrichment
+        row["most_severe_consequence"]=most_severe_consequence
+        row["most_severe_gene"]=most_severe_gene
         pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
         row["lead_pval"]=pvalue
         #credible set variants in the group
@@ -162,6 +164,7 @@ def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:
                 trait_dict[row_.trait]=row_.trait_name
         matching_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
         other_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
+
         matching_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait in efo_traits]
         other_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait not in efo_traits]
 
@@ -171,6 +174,7 @@ def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:
             row["specific_efo_trait_associations_relaxed"]=";".join(matching_traits_relaxed)
             row["specific_efo_trait_associations_strict"]=";".join(matching_traits_strict)
         top_level_df=top_level_df.append(row,ignore_index=True)
+
     return top_level_df
          
 def load_summary_files(summary_fpath,endpoint_fpath,columns):
