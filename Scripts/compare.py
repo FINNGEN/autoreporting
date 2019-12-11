@@ -5,6 +5,7 @@ from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
 from autoreporting_utils import *
+from typing import Dict,List
 import gwcatalog_api
 import os
 from multiprocessing.dummy import Pool as ThreadPool
@@ -78,27 +79,33 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df,efo_traits,columns):
+def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:Dict[str,str]):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
     #copy dfs to make sure that the original dataframes are NOT modified 
+    top_level_columns=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","found_associations","credible_set_variants","functional_variants"]
+    if efo_traits:
+        top_level_columns.append("specific_efo_trait_associations")
     df=report_df.copy()
     if df.empty:
-        return pd.DataFrame(columns=["locus_id","chr","start","end","enrichment","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"])
+        return pd.DataFrame(columns=top_level_columns)
+
     list_of_loci=list(df["locus_id"].unique())
     #compile new simple top level dataframe
-    top_level_columns=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits","credible_set_variants","functional_variants"]
     top_level_df=pd.DataFrame(columns=top_level_columns)
     for locus_id in list_of_loci:
+        #create row. The row is a dict, into which the different values get added as colname-value pairs
+        row = {}
         #get variants of this locus
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
         #chr,start, end
-        chrom=loc_variants[columns["chrom"]].values[0]
-        start=np.amin(loc_variants[columns["pos"]])
-        end=np.amax(loc_variants[columns["pos"]])
+        row['locus_id']=locus_id
+        row["chr"]=loc_variants[columns["chrom"]].values[0]
+        row["start"]=np.amin(loc_variants[columns["pos"]])
+        row["end"]=np.amax(loc_variants[columns["pos"]])
         try:#in case the annotation has not been done
             enrich=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].values[0]
             most_sev_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].values[0]
@@ -107,33 +114,45 @@ def create_top_level_report(report_df,efo_traits,columns):
             enrich=np.nan
             most_sev_gene=np.nan
             most_sev_cons=np.nan
-        try:
+        row["enrichment"]=enrich
+        row["most_severe_consequence"]=most_sev_cons
+        row["most_severe_gene"]=most_sev_gene
+        pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
+        row["lead_pval"]=pvalue
+        #credible set variants in the group
+        cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
+        cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
+        try:#functional variants in the complete group
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category"] ].drop_duplicates()
             func_set=";".join("{}|{}".format(t._1,t.functional_category) for t in  func_s.itertuples())
         except:
             func_set=np.nan
-        pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
-        #credible set variants in the group
-        cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
-        cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
+        row["functional_variants"]=func_set
         #find all of the traits that have hits
         all_traits=sorted(list(loc_variants["trait"].drop_duplicates().dropna()) )
         if len(all_traits) != 0:
             trait_dict={}
-            for row in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
-                if row.trait_name =="NA":
-                    trait_dict[row.trait]=row.trait
+            for row_ in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
+                if row_.trait_name =="NA":
+                    trait_dict[row_.trait]=row_.trait
                 else:
-                    trait_dict[row.trait]=row.trait_name
+                    trait_dict[row_.trait]=row_.trait_name
             matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
             other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
-            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
-            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue, "matching_pheno_gwas_catalog_hits":";".join(matching_traits),
-            "other_gwas_hits":";".join(other_traits), "credible_set_variants":cred_set, "functional_variants":func_set},ignore_index=True)
+            #top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
+            #"enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue, "matching_pheno_gwas_catalog_hits":";".join(matching_traits),
+            #"other_gwas_hits":";".join(other_traits), "credible_set_variants":cred_set, "functional_variants":func_set},ignore_index=True)
         else:
-            top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
-            "enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue, "matching_pheno_gwas_catalog_hits":"",
-            "other_gwas_hits":"", "credible_set_variants":cred_set, "functional_variants":func_set},ignore_index=True)
+            matching_traits=[]
+            other_traits=[]
+            #top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
+            #"enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue, "matching_pheno_gwas_catalog_hits":"",
+            #"other_gwas_hits":"", "credible_set_variants":cred_set, "functional_variants":func_set},ignore_index=True)
+        other_traits_str=";".join(other_traits)
+        row["found_associations"]=other_traits_str
+        if efo_traits:
+            row["specific_efo_trait_associations"]=";".join(matching_traits)
+        top_level_df=top_level_df.append(row,ignore_index=True)
     return top_level_df
          
 def load_summary_files(summary_fpath,endpoint_fpath,columns):

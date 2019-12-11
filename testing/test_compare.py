@@ -58,7 +58,7 @@ class TestGws(unittest.TestCase):
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
         cols=["#chrom","pos","ref","alt","pval","#variant","locus_id"]
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
-        end_result_cols=["locus_id","chr","start","end","enrichment","lead_pval","matching_pheno_gwas_catalog_hits","other_gwas_hits"]
+        end_result_cols=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","found_associations","credible_set_variants","functional_variants"]
         traits=[]
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         df=pd.DataFrame(columns=cols)

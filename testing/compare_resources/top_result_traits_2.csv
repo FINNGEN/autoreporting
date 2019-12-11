@@ -1,4 +1,4 @@
-locus_id	chr	start	end	enrichment	most_severe_gene	most_severe_consequence	lead_pval	matching_pheno_gwas_catalog_hits	other_gwas_hits
+locus_id	chr	start	end	enrichment	most_severe_gene	most_severe_consequence	lead_pval	specific_efo_trait_associations	found_associations
 chr1_1000_A_T	1	900	1250	1	TOCP	intron variant	0.1	trait_name_1	trait_name_2
 chr3_750_A_T	3	750	1200	1	CT1A	frameshift variant	0.01		trait_name_2
 chrX_100000_A_T	X	100000	100001	1	ASDF4	missense variant	0.05		trait_name_2;trait_name_3
