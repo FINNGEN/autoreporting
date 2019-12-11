@@ -79,16 +79,29 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:Dict[str,str]):
+def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:Dict[str,str],grouping_method:str,significance_threshold:float):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
     #copy dfs to make sure that the original dataframes are NOT modified 
-    top_level_columns=["locus_id","chr","start","end","enrichment","most_severe_gene","most_severe_consequence","lead_pval","found_associations","credible_set_variants","functional_variants"]
+    top_level_columns=["locus_id",
+                        "chr",
+                        "start",
+                        "end",
+                        "enrichment",
+                        "most_severe_gene",
+                        "most_severe_consequence",
+                        "lead_pval",
+                        "found_associations_strict",
+                        "found_associations_relaxed",
+                        "credible_set_variants",
+                        "functional_variants_strict",
+                        "functional_variants_relaxed"]
     if efo_traits:
-        top_level_columns.append("specific_efo_trait_associations")
+        top_level_columns.append("specific_efo_trait_associations_strict")
+        top_level_columns.append("specific_efo_trait_associations_relaxed")
     df=report_df.copy()
     if df.empty:
         return pd.DataFrame(columns=top_level_columns)
@@ -101,6 +114,11 @@ def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:
         row = {}
         #get variants of this locus
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
+        strict_group=None
+        if grouping_method == "cred":
+            strict_group = loc_variants[~loc_variants["cs_id"].isna()].copy()
+        else:
+            strict_group = loc_variants[loc_variants[columns["pval"]]<significance_threshold].copy()
         #chr,start, end
         row['locus_id']=locus_id
         row["chr"]=loc_variants[columns["chrom"]].values[0]
@@ -125,33 +143,33 @@ def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:
         try:#functional variants in the complete group
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category"] ].drop_duplicates()
             func_set=";".join("{}|{}".format(t._1,t.functional_category) for t in  func_s.itertuples())
+            func_s_strict = strict_group.loc[~strict_group["functional_category"].isna(),["#variant","functional_category"] ].drop_duplicates()
+            func_set_strict=";".join("{}|{}".format(t._1,t.functional_category) for t in  func_s_strict.itertuples())
         except:
-            func_set=np.nan
-        row["functional_variants"]=func_set
+            func_set=""
+            func_set_strict=""
+        row["credible_set_variants"]=cred_set
+        row["functional_variants_strict"]=func_set_strict
+        row["functional_variants_relaxed"]=func_set
         #find all of the traits that have hits
         all_traits=sorted(list(loc_variants["trait"].drop_duplicates().dropna()) )
-        if len(all_traits) != 0:
-            trait_dict={}
-            for row_ in loc_variants.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
-                if row_.trait_name =="NA":
-                    trait_dict[row_.trait]=row_.trait
-                else:
-                    trait_dict[row_.trait]=row_.trait_name
-            matching_traits=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
-            other_traits=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
-            #top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
-            #"enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue, "matching_pheno_gwas_catalog_hits":";".join(matching_traits),
-            #"other_gwas_hits":";".join(other_traits), "credible_set_variants":cred_set, "functional_variants":func_set},ignore_index=True)
-        else:
-            matching_traits=[]
-            other_traits=[]
-            #top_level_df=top_level_df.append({"locus_id":locus_id,"chr":chrom,"start":start,"end":end,
-            #"enrichment":enrich,"most_severe_consequence":most_sev_cons,"most_severe_gene":most_sev_gene,"lead_pval":pvalue, "matching_pheno_gwas_catalog_hits":"",
-            #"other_gwas_hits":"", "credible_set_variants":cred_set, "functional_variants":func_set},ignore_index=True)
-        other_traits_str=";".join(other_traits)
-        row["found_associations"]=other_traits_str
+        strict_traits=sorted(list(strict_group["trait"].drop_duplicates().dropna()) )
+        trait_dict={}
+        for row_ in df.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
+            if row_.trait_name =="NA":
+                trait_dict[row_.trait]=row_.trait
+            else:
+                trait_dict[row_.trait]=row_.trait_name
+        matching_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
+        other_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
+        matching_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait in efo_traits]
+        other_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait not in efo_traits]
+
+        row["found_associations_relaxed"]=";".join(other_traits_relaxed)
+        row["found_associations_strict"]=";".join(other_traits_strict)
         if efo_traits:
-            row["specific_efo_trait_associations"]=";".join(matching_traits)
+            row["specific_efo_trait_associations_relaxed"]=";".join(matching_traits_relaxed)
+            row["specific_efo_trait_associations_strict"]=";".join(matching_traits_strict)
         top_level_df=top_level_df.append(row,ignore_index=True)
     return top_level_df
          
