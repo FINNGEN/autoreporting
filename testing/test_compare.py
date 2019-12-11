@@ -7,7 +7,7 @@ sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import compare
 from Scripts import autoreporting_utils as autils
-from Scripts import gwcatalog_api
+#from Scripts import gwcatalog_api
 
 def top_merge(df,summary_df,columns):
     summary_df=compare.map_column(summary_df,"map_variant",columns)
@@ -130,6 +130,31 @@ class TestGws(unittest.TestCase):
         with self.assertRaises(RuntimeError) as notfound:
             df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
 
+    def test_api_summaries(self):
+        # test load_api_summaries
+        # it should load the gwas_df correctly, if it's been given correct data. 
+        # Therefore, what the functions inside it do is of no concern: They will be mocked.
+        return
+        chrom=["1","6"]
+        pos=[100000,32441740]
+        ref=["A","T"]
+        alt=["T","G"]
+        pval=[2e-8,1e-9]
+        df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt,"pval":pval})
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+
+        mock_gwapi=mock.Mock()
+        mock_threadpool=mock.Mock()
+        mock_threadpool.starmap=lambda: []#TODO:replace with correct value
+        with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
+            mock_threadpool.starmap=lambda: []#TODO:replace with correct value
+            mock_threadpool.return_value.__enter__.return_value=mock.Mock()
+            compare.load_api_summaries(df,10,0.1,mock_gwapi,1,columns)
+        
+        #parameters
+
+        pass
+    """
     def test_api_summaries_local(self):
         def post_response(url,headers,data):
             retval=mock.Mock()
@@ -138,10 +163,6 @@ class TestGws(unittest.TestCase):
                 retval.json=lambda:json.loads(val)
             retval.status_code=200
             return retval
-        # test loading summary statistics using local gwascatalog
-        # test with no file found, should error out
-        # test with some variants, of which some are found and some are not
-        # include a small copy of the database, at most 4 variants.
         localdb_path="compare_resources/5_line_gwascatalog.csv"
         chrom=["1","6"]
         pos=[100000,32441740]
@@ -171,6 +192,7 @@ class TestGws(unittest.TestCase):
                     self.assertEqual(gwas_df.loc[_,col],validate.loc[_,col])
                 else:
                     self.assertAlmostEqual(gwas_df.loc[_,col],validate.loc[_,col])
+    """
 
 if __name__=="__main__":
     os.chdir("./testing")
