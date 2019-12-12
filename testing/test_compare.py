@@ -134,65 +134,42 @@ class TestGws(unittest.TestCase):
         # test load_api_summaries
         # it should load the gwas_df correctly, if it's been given correct data. 
         # Therefore, what the functions inside it do is of no concern: They will be mocked.
-        return
         chrom=["1","6"]
         pos=[100000,32441740]
         ref=["A","T"]
-        alt=["T","G"]
+        alt=["T","AT"]
         pval=[2e-8,1e-9]
         df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt,"pval":pval})
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
-
-        mock_gwapi=mock.Mock()
-        mock_threadpool=mock.Mock()
-        mock_threadpool.starmap=lambda: []#TODO:replace with correct value
+        #DF with no hits
+        r_lst=[None,None]
         with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
-            mock_threadpool.starmap=lambda: []#TODO:replace with correct value
-            mock_threadpool.return_value.__enter__.return_value=mock.Mock()
-            compare.load_api_summaries(df,10,0.1,mock_gwapi,1,columns)
-        
-        #parameters
-
-        pass
-    """
-    def test_api_summaries_local(self):
-        def post_response(url,headers,data):
-            retval=mock.Mock()
-            with open("compare_resources/ensembl_response","r") as f:
-                val=f.readline().strip("\n")
-                retval.json=lambda:json.loads(val)
-            retval.status_code=200
-            return retval
-        localdb_path="compare_resources/5_line_gwascatalog.csv"
-        chrom=["1","6"]
-        pos=[100000,32441740]
-        ref=["A","T"]
-        alt=["T","G"]
-        pval=[2e-8,1e-9]
-        df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt,"pval":pval})
-        gwascatalog_pad=500
-        gwascatalog_pval=5e-8
-        database_choice="local"
-        gwascatalog_threads=1
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
-        #case one: wrong path to db
-        wrong_path_to_db="wrong/filepath/to_db.tsv"
-        with self.assertRaises(FileNotFoundError) as err:
-            gwapi=gwcatalog_api.LocalDB(wrong_path_to_db)
-            tmp=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
-        #case two: correct usage of function, should return correct amount of results
-        with mock.patch('Scripts.gwcatalog_api.requests.post',side_effect=post_response) as mock_post:
-            gwapi=gwcatalog_api.LocalDB(localdb_path)
-            gwas_df=compare.load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
-        validate_path="compare_resources/local_gwascatalog_validate.csv"
-        validate=pd.read_csv(validate_path,sep="\t",dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float})
-        for col in gwas_df.columns:
-            for _,row in gwas_df.iterrows(): 
-                if type(gwas_df.loc[_,col])==str:
-                    self.assertEqual(gwas_df.loc[_,col],validate.loc[_,col])
-                else:
-                    self.assertAlmostEqual(gwas_df.loc[_,col],validate.loc[_,col])
-    """
+            mock_threadpool.starmap=lambda *args: r_lst
+            mock_threadpool.return_value.__enter__.return_value=mock_threadpool
+            value=compare.load_api_summaries(df,10,0.1,mock_threadpool,1,columns)
+        self.assertTrue(value.empty)
+        # DF with indels and normal hits
+        r_lst=[[{"chrom":"1",
+                "pos":100000,
+                "ref":"A",
+                "alt":"T",
+                "pval":5e-9,
+                "trait":"0"}],
+                [{"chrom":"6",
+                "pos":32441741,
+                "ref":"-",
+                "alt":"T",
+                "pval":1.2e-8,
+                "trait":"1"}]]
+        validate_df=df.copy()
+        validate_df["trait"]=["0","1"]
+        validate_df=validate_df.rename(columns={"#chrom":"chrom"}).astype(object)
+        with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
+            mock_threadpool.starmap=lambda *args: r_lst
+            mock_threadpool.return_value.__enter__.return_value=mock_threadpool
+            value=compare.load_api_summaries(df,10,0.1,mock_threadpool,1,columns).astype(object)
+        for col in ["chrom","pos","ref","alt"]:
+            self.assertTrue(value[col].equals(validate_df[col]))
 
 if __name__=="__main__":
     os.chdir("./testing")
