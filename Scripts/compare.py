@@ -5,7 +5,6 @@ from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
 from autoreporting_utils import *
-from typing import Dict,List
 import gwcatalog_api
 import os
 from multiprocessing.dummy import Pool as ThreadPool
@@ -79,7 +78,7 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df:pd.DataFrame,efo_traits:List[str],columns:Dict[str,str],grouping_method:str,significance_threshold:float):
+def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
