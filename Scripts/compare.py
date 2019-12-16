@@ -111,7 +111,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     list_of_loci=list(df["locus_id"].unique())
     
     for locus_id in list_of_loci:
-        #create row. The row is a dict, into which the different values get added as colname-value pairs
+        #create row. The row is a dict, into which the aggregate values for a locus are added to
         row = {}
         #get variants of this locus
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
@@ -122,7 +122,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
             strict_group = loc_variants[loc_variants[columns["pval"]]<significance_threshold].copy()
         #chr,start, end
         row['locus_id']=locus_id
-        row["chr"]=loc_variants[columns["chrom"]].values[0]
+        row["chr"]=loc_variants[columns["chrom"]].iat[0]
         row["start"]=np.amin(loc_variants[columns["pos"]])
         row["end"]=np.amax(loc_variants[columns["pos"]])
         try:#in case the annotation has not been done
@@ -141,7 +141,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         #credible set variants in the group
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
         cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
-        try:#functional variants in the complete group
+        try:
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category"] ].drop_duplicates()
             func_set=";".join("{}|{}".format(t._1,t.functional_category) for t in  func_s.itertuples())
             func_s_strict = strict_group.loc[~strict_group["functional_category"].isna(),["#variant","functional_category"] ].drop_duplicates()
@@ -152,7 +152,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["credible_set_variants"]=cred_set
         row["functional_variants_strict"]=func_set_strict
         row["functional_variants_relaxed"]=func_set
-        #find all of the traits that have hits
+        #get matching traits
         all_traits=sorted(list(loc_variants["trait"].drop_duplicates().dropna()) )
         strict_traits=sorted(list(strict_group["trait"].drop_duplicates().dropna()) )
         trait_dict={}
