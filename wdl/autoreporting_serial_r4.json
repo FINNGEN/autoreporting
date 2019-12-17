@@ -1,7 +1,7 @@
 {
     "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_phenotype_list_191115",
     "autoreporting.credsetlist": "gs://r4_data_west1/autoreporting/r4_credible_set_list_191115",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:fb12de",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:5ca9ed",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 5,
     "autoreporting.cpus":4,
@@ -10,7 +10,7 @@
     "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu3/wgs_all",
     "autoreporting.finngen_annotation":"gs://r4_data_west1/annotations/R4_annotated_variants_v1.gz",
     "autoreporting.functional_annotation":"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz",
-    "autoreporting.local_gwcatalog":"gs://r4_data/autoreporting/gwas-catalog-associations_ontology-annotated-190904.tsv",
+    "autoreporting.local_gwcatalog":"gs://r4_data_west1/autoreporting/gwas-catalog-associations_ontology-annotated-191216.tsv",
     "autoreporting.annotation_version":"r4",
     "autoreporting.compare_style":"gwascatalog",
     "autoreporting.db_choice":"local",
