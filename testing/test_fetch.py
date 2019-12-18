@@ -22,21 +22,6 @@ def return_sp_mock(arg,stdout, stderr=None,encoding=None,*args):
 
 class TestGws(unittest.TestCase):
 
-    def test_solve_groups(self):
-        #create parameters for function
-        result_header=["#chrom", "pos", "ref", "alt", "rsids", "nearest_genes", "pval", "beta", "sebeta", "maf", "maf_cases", "maf_controls","#variant","locus_id"]
-        df=pd.DataFrame(columns=result_header)
-        group_df=pd.read_csv("fetch_resources/test_plink.clumped",sep="\s+")
-        group_df=group_df.loc[:,["SNP","TOTAL","SP2"]]
-        df=pd.read_csv("fetch_resources/test_tsv",sep="\t")
-        df.loc[:,"#variant"]=gws_fetch.create_variant_column(df)
-        df2=pd.read_csv("fetch_resources/solve_groups_result.tsv",sep="\t")
-        df=gws_fetch.solve_groups(df,group_df)
-        df.loc[:,"pos"]=df.loc[:,"pos"].astype(np.int64)
-        #test for equality
-        for col in df:
-            self.assertTrue(df[col].equals(df2[col]))
-
     def test_simple_filtering(self):
         #test simple filtering
         input_="fetch_resources/filter_test.tsv.gz"

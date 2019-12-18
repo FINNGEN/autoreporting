@@ -14,26 +14,6 @@ def parse_region(region):
     end=region.split(":")[1].split("-")[1]
     return {"chrom":str(chrom),"start":int(start),"end":int(end)}
 
-
-def solve_groups(all_variants,group_data):
-    """
-    Returns a dataframe containing the grouped variants, and only those.
-    In: All variants considered for grouping (basically the variants with p-value < args.sig_tresh_2), parsed group data
-    Out: Dataframe with same columns as all_variants, containing the rows in group_data
-    """
-    retval=pd.DataFrame(columns=all_variants.columns)
-    for t in group_data.itertuples():
-        group=[t.SNP]
-        if t.TOTAL>0:
-            sp2_split=t.SP2.split(",")
-            strip_= lambda x,y: x[:-len(y)] if x.endswith(y) else x
-            sp2_split=[strip_(x.strip(),"(1)" ) for x in sp2_split]
-            group=group+sp2_split
-        group_df=all_variants[ all_variants["#variant"].isin(group) ].copy()
-        group_df.loc[:,"locus_id"]=t.SNP
-        retval=pd.concat([retval,group_df],axis="index",sort=False)
-    return retval
-
 def simple_grouping(df_p1,df_p2,r,overlap,columns):
     """
     Simple grouping function
@@ -165,10 +145,6 @@ def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overla
         if not overlap:
             df=df[~df["#variant"].isin(group_vars)]
             df=df[~(df["cs_id"]==credible_id)]
-    #cleanup: delete variant file, plink files
-    #cleanup_cmd= "rm {}".format(fname)
-    #plink_files = glob.glob( "{}.*".format(output) )
-    #subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return out_df
 
 def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"},compression="gzip"):
@@ -247,7 +223,6 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     else:
         cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
     #merge with gws_df, by using chrom,pos,ref,alt
-    #temp_df = pd.merge(temp_df,cs_df,how="left",on=join_cols)
     temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
 
     #create necessary columns for the data
@@ -275,7 +250,6 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
         retval = new_df
     else:
         #take only gws hits, no groups. Therefore, use df_p1
-        #df_p1.sort_values(["locus_id","#variant"]).to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
         retval = df_p1.sort_values(["locus_id","#variant"])
     return retval
     
