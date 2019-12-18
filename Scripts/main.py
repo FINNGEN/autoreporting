@@ -64,7 +64,7 @@ def main(args):
         #create top report
         #top level df 
         columns=autoreporting_utils.columns_from_arguments(args.column_labels)
-        top_df=compare.create_top_level_report(report_df,args.efo_traits,columns)
+        top_df=compare.create_top_level_report(report_df,args.efo_traits,columns,args.grouping_method,args.sig_treshold)
         top_df.to_csv(args.top_report_out,sep="\t",index=False)
     if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t")
