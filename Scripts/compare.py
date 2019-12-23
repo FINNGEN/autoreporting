@@ -447,7 +447,7 @@ if __name__ == "__main__":
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.csv",help="Report output path")
     parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.csv",help="LD check report output path")
-    parser.add_argument("--gwascatalog-pval",type=str,default="5e-8",help="P-value cutoff for GWASCatalog searches")
+    parser.add_argument("--gwascatalog-pval",type=float,default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
