@@ -296,8 +296,8 @@ class GwasApi(ExtDB):
 
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
         url="https://www.ebi.ac.uk/gwas/api/search/downloads?q=chromosomeName: {} AND chromosomePosition:[ {} TO {}"\
-            "]&pvalfilter={}&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
-            chromosome,start,end,parse_float(float(pval) ))
+            "]&pvalfilter=&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
+            chromosome,start,end)
         #gwcat_response=requests.get(url)
         try:
             gwcat_response=try_request("GET",url=url)
@@ -328,6 +328,7 @@ class GwasApi(ExtDB):
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
         retval=retval.rename(columns=rename)
         retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
+        retval=retval[retval["pval"]<=pval ]
         retcols=["chrom","pos","ref","alt","pval","trait","code"]
         return retval.loc[:,retcols].to_dict("records")
 
