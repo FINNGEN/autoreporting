@@ -78,7 +78,7 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold):
+def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
@@ -118,8 +118,11 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         strict_group=None
         if grouping_method == "cred":
             strict_group = loc_variants[~loc_variants["cs_id"].isna()].copy()
+        elif grouping_method == "ld":
+            pass
+            strict_group = loc_variants[(loc_variants[columns["pval"]]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()#TODO:add parameter to r2 threshold 
         else:
-            strict_group = loc_variants[loc_variants[columns["pval"]]<significance_threshold].copy()
+            strict_group = loc_variants[loc_variants[columns["pval"]]<=significance_threshold].copy()
         #chr,start, end
         row['locus_id']=locus_id
         row["chr"]=loc_variants[columns["chrom"]].iat[0]
@@ -437,6 +440,8 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
     parser.add_argument("compare_fname",type=str,help="GWS result file")
+    parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
+    parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
@@ -455,6 +460,7 @@ if __name__ == "__main__":
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
+    parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
@@ -474,7 +480,7 @@ if __name__ == "__main__":
         report_df.to_csv(args.report_out,sep="\t",index=False)
         #top level df
         columns=columns_from_arguments(args.column_labels)
-        top_df=create_top_level_report(report_df,args.efo_traits,columns)
+        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
         top_df.to_csv(args.top_report_out,sep="\t",index=False)
     if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t")

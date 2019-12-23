@@ -63,7 +63,7 @@ class TestGws(unittest.TestCase):
         df=pd.DataFrame(columns=cols)
         summary_df=pd.DataFrame(columns=summary_cols)
         raport_df = top_merge(df,summary_df,columns)
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.DataFrame(columns=end_result_cols)
         self.assertTrue(res.equals(validate) )
         # test two: populated dataframe, empty summary variant dataframe
@@ -71,7 +71,7 @@ class TestGws(unittest.TestCase):
         df["cs_id"]=np.nan
         df["cs_prob"]=np.nan
         raport_df = top_merge(df,summary_df,columns)
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.read_csv("compare_resources/top_result_empty_summary.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
@@ -79,14 +79,14 @@ class TestGws(unittest.TestCase):
         # test 3: populated dataframe, populated summary variant df, no traits
         summary_df=pd.read_csv("compare_resources/summary_df.csv",sep="\t")
         raport_df = top_merge(df,summary_df,columns)
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.read_csv("compare_resources/top_result_traits_1.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 4: populated dataframes, common traits
         traits=["TRAIT_1","TRAIT_4"]
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.read_csv("compare_resources/top_result_traits_2.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
