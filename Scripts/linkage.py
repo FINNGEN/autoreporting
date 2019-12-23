@@ -48,6 +48,7 @@ class OnlineLD(LDAccess):
         if ld_data.empty:
             return pd.DataFrame(columns=["variation1", "variation2", "r2"])
         ld_data=ld_data[ ["variation1", "variation2", "r2"] ]
+        ld_data=ld_data.append({"variation1":variant,"variation2":variant,"r2":1.00},ignore_index=True)
         return ld_data
 
     def get_ranges(self, variants, window,ld_threshold):

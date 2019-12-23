@@ -79,14 +79,16 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],ld_data,how="inner",left_on="#variant",right_on="variant_2" )
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
-    out_df = pd.DataFrame(columns=df_p2.columns)
+    out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
     #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
     #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
     while not group_leads.empty:
         lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
-        group_vars = ld_df.loc[ld_df["variant_1"] == lead_variant,"#variant" ]
-        group = all_variants[all_variants["#variant"].isin(group_vars) ].copy()
+        ld_data = ld_df.loc[ld_df["variant_1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
+        group = all_variants[all_variants["#variant"].isin(ld_data["#variant"]) ].copy()
+        group= pd.merge(group,ld_data,on="#variant",how="left")
         grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
+        grouplead["r2_to_lead"]=1.0#the group lead is, of course, in perfect LD with the group lead
         group=pd.concat([group,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
@@ -106,7 +108,6 @@ def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overla
     Out: grouped df
     """
     df=data.copy()
-    ld_window=10000
     lead_vars=[]
     #determine group leads. Group leads are 'the variants with largest cs_prob in that credible set'.
     for credible_set in df.loc[~df["cs_id"].isna(),"cs_id"].unique():
@@ -123,19 +124,20 @@ def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overla
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     #filter by p-value
     ld_df = ld_df[ld_df[columns["pval"]] <= alt_sign_treshold ]
-    out_df = pd.DataFrame(columns=data.columns)
+    out_df = pd.DataFrame(columns=list(data.columns)+["r2_to_lead"])
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
         #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
         lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"]
-        group_vars = ld_df.loc[ld_df["variant_1"] == lead_variant,"#variant" ]
-        group = df[df["#variant"].isin(group_vars)].copy()
-        #also add the variants that are in the credible set. Just in case they might not be included in the ld neighbours.
+        ld_data = ld_df.loc[ld_df["variant_1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
+        group = df[df["#variant"].isin(ld_data["#variant"] )].copy()
+        group = pd.merge(group,ld_data,on="#variant",how="left")
+        #also add the variants that are in the credible set. Just in case they might not be included in the ld neighbours. Note that this makes it possible for them to not have LD information
         credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
         credible_set= data.loc[data["cs_id"] == credible_id,:].copy()
         #concat the two, remove duplicate entries
-        group=pd.concat([group,credible_set],ignore_index=True,sort=False).drop_duplicates(subset=["#variant","cs_id"])
+        group=pd.concat([group,credible_set],ignore_index=True,sort=False).sort_values(by=["#variant","cs_id","r2_to_lead"]).drop_duplicates(subset=["#variant","cs_id"],keep="first")
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
@@ -143,7 +145,7 @@ def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overla
         #convergence: remove lead_variant, remove group from df in case overlap is not done
         leads=leads[~ (leads["#variant"] == lead_variant) ] 
         if not overlap:
-            df=df[~df["#variant"].isin(group_vars)]
+            df=df[~df["#variant"].isin(ld_data["#variant"])]
             df=df[~(df["cs_id"]==credible_id)]
     return out_df
 
