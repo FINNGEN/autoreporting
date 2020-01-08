@@ -59,24 +59,35 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     if df.empty:
         #df.to_csv(path_or_buf="{}".format(args.annotate_out),sep="\t",index=False)
         return df
+
+    #create chr 23->X calling df
+    #needs chromosome 23 as X
+    call_df_x = df.copy()
+    call_df_x[columns["chrom"]]=call_df_x[columns["chrom"]].astype(str)
+    call_df_x = df_replace_value(call_df_x,columns["chrom"],"23","X") #TODO: IF/WHEN GNOMAD RESOURCES USE CHR 23, THIS NEEDS TO BE REMOVED
     #load gnomad_genomes
     if not os.path.exists("{}.tbi".format(gnomad_genome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_genome_path))
-    gnomad_genomes=load_tb_df(df,gnomad_genome_path,columns=columns)
+    gnomad_genomes=load_tb_df(call_df_x,gnomad_genome_path,columns=columns)
 
     #load gnomad_exomes
     if not os.path.exists("{}.tbi".format(gnomad_exome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_exome_path))
-    gnomad_exomes=load_tb_df(df,gnomad_exome_path,columns=columns)
-
+    gnomad_exomes=load_tb_df(call_df_x,gnomad_exome_path,columns=columns)
+    #replace X with 23
+    gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
+    gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
+     
     #load finngen annotations
     if not os.path.exists("{}.tbi".format(finngen_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
     if fg_ann_version=="r3":
-        fg_df=load_tb_df(df,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        fg_df=load_tb_df(call_df_x,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
         fg_df["chr"]=fg_df["chr"].apply(lambda x: x.strip("chr")) #change chrom column from chrCHROM to CHROM
+        fg_df=df_replace_value(fg_df,"chr","X","23")
         fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
+        
     else:
         fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
         fg_df=fg_df.drop(labels="#variant",axis="columns")
@@ -88,7 +99,9 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     else:
         if not os.path.exists("{}.tbi".format(functional_path)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
-        func_df = load_tb_df(df,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        func_df = load_tb_df(call_df_x,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        func_df["chrom"] = func_df["chrom"].apply(lambda x:x.strip("chr"))
+        func_df=df_replace_value(func_df,"chrom","X","23")
         func_cols=["chrom","pos","ref","alt","consequence"]
         func_df = func_df[func_cols]
 
@@ -135,7 +148,6 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         #remove values that are not in the coding categories
         functional_categories = ["pLoF","LC","start_lost","stop_lost","inframe_indel","missense_variant"]
         func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
-        func_df[columns["chrom"]] = func_df[columns["chrom"]].apply(lambda x:x.strip("chr"))
         func_df = func_df.dropna(axis="index")
         func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         func_df = func_df[["#variant","functional_category"]]

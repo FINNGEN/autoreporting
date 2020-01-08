@@ -24,31 +24,20 @@ class TestGws(unittest.TestCase):
 
     def test_simple_filtering(self):
         #test simple filtering
+        ##NOTE: We can test only filtering by using get_gws_variants instead of fetch_gws
         input_="fetch_resources/filter_test.tsv.gz"
         args=Arg()
         args.gws_fpath=input_
-        args.sig_treshold=0.20
-        args.sig_treshold_2=0.20
-        args.loc_width=1
-        args.grouping=False
-        args.column_labels=["#chrom","pos","ref","alt","pval"]
-        args.ignore_region=""
-        args.prefix=""
-        args.cred_set_file=""
+        args.sig_treshold=0.10
+        args.columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         #output = gws_fetch.fetch_gws(args)
-        output = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method="", locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_r2=0.0,  overlap=False, column_labels=args.column_labels,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=None)
+        output = gws_fetch.get_gws_variants(fname=args.gws_fpath, sign_treshold=args.sig_treshold, columns=args.columns)
         validation=pd.read_csv("fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
         validation=validation.loc[validation["pval"]<=args.sig_treshold,:]
-        validation["pos_rmin"]=validation["pos"]
-        validation["pos_rmax"]=validation["pos"]
-        validation["#variant"]=autils.create_variant_column(validation)
-        validation["locus_id"]=autils.create_variant_column(validation)
-        validation=validation.reset_index(drop=True).sort_values(by="#variant")
+        validation=validation.reset_index(drop=True)
         output=output.reset_index(drop=True)
         for col in validation.columns:
-            self.assertEqual( list(output[col]) , list(validation[col]) )
+            self.assertEqual( list(output[col].astype(str)) , list(validation[col].astype(str)) )
 
     def test_simple_grouping(self):
         #test simple grouping function

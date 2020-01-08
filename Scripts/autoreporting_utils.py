@@ -12,7 +12,7 @@ def filebasename(s):
         return os.path.basename(s).split(".")[0]
     return ""
 
-def df_replace_value(df,column,value,replace_with):
+def df_replace_value(df,column,value,replace_with,regex=False):
     """Replace value on column with values
 
     Args:
@@ -23,7 +23,7 @@ def df_replace_value(df,column,value,replace_with):
     Returns:
         (pd.DataFrame):Dataframe with value replaced
     """
-    df[column] = df[column].replace(value,replace_with)
+    df[column] = df[column].replace(value,replace_with,regex=regex)
     return df
 
 def pytabix(tb,chrom,start,end):

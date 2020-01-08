@@ -355,7 +355,10 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
                 gwapi=gwcatalog_api.SummaryApi()
             else:
                 gwapi=gwcatalog_api.GwasApi()
-            gwas_df=load_api_summaries(df,gwascatalog_pad,gwascatalog_pval,gwapi,threads,columns)
+            gwas_load_df=df.copy()
+            gwas_load_df=df_replace_value(gwas_load_df,columns["chrom"],"23","X")
+            gwas_df=load_api_summaries(gwas_load_df,gwascatalog_pad,gwascatalog_pval,gwapi,threads,columns)
+            gwas_df=df_replace_value(gwas_df,"chrom","X","23")
             if cache_gwas:
                 gwas_df.to_csv("{}gwas_out_mapping.csv".format(prefix),sep="\t",index=False)
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
