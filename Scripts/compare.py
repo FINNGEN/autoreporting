@@ -156,25 +156,20 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["functional_variants_strict"]=func_set_strict
         row["functional_variants_relaxed"]=func_set
         #get matching traits
-        all_traits=sorted(list(loc_variants["trait"].drop_duplicates().dropna()) )
-        strict_traits=sorted(list(strict_group["trait"].drop_duplicates().dropna()) )
-        trait_dict={}
-        for row_ in df.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
-            if row_.trait_name =="NA":
-                trait_dict[row_.trait]=row_.trait
-            else:
-                trait_dict[row_.trait]=row_.trait_name
-        matching_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
-        other_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
+        all_traits=loc_variants[["trait","trait_name","r2_to_lead"]].sort_values(by="r2_to_lead",ascending=False).drop_duplicates(subset=["trait","trait_name"], keep="first").dropna()
+        strict_traits=strict_group[["trait","trait_name","r2_to_lead"]].sort_values(by="r2_to_lead",ascending=False).drop_duplicates(subset=["trait","trait_name"],keep="first").dropna()
+        
+        other_traits_relaxed = all_traits[ ~all_traits["trait"].isin(efo_traits) ].copy()
+        other_traits_strict = strict_traits[ ~strict_traits["trait"].isin(efo_traits) ].copy()
 
-        matching_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait in efo_traits]
-        other_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait not in efo_traits]
-
-        row["found_associations_relaxed"]=";".join(other_traits_relaxed)
-        row["found_associations_strict"]=";".join(other_traits_strict)
+        row["found_associations_relaxed"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in other_traits_relaxed.itertuples() )
+        row["found_associations_strict"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in other_traits_strict.itertuples() )
+        
         if efo_traits:
-            row["specific_efo_trait_associations_relaxed"]=";".join(matching_traits_relaxed)
-            row["specific_efo_trait_associations_strict"]=";".join(matching_traits_strict)
+            matching_traits_relaxed= all_traits[ all_traits["trait"].isin(efo_traits) ].copy()
+            matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
+            row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
+            row["specific_efo_trait_associations_strict"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
