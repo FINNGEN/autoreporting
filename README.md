@@ -85,7 +85,7 @@ The resources to use this tool (gnomAD & FinnGen annotations, LD panel) can be f
 - Summary statistics: ```gs://finngen-production-library-green/finngen_R4/finngen_R4_analysis_data/summary_stats/release```
 - Credible sets: ```gs://finngen-production-library-green/finngen_R4/finngen_R4_analysis_data/finemap```
 - gnomAD genome & exome annotations: ```gs://finngen-production-library-green/autoreporting_annotations/gnomad_data/```
-- FinnGen annotations: ```gs://finngen-production-library-green/autoreporting_annotations/finngen_annotation/```
+- FinnGen annotations: ```gs://finngen-production-library-green/finngen_R4/finngen_R4_analysis_data/annotations/```
 - Functional annotations: ```gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz```
 - LD panel (based on 1000 genomes data): ```gs://finngen-production-library-green/autoreporting_annotations/1kg_ld/whole_1k*```
 
