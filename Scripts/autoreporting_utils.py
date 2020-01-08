@@ -12,6 +12,20 @@ def filebasename(s):
         return os.path.basename(s).split(".")[0]
     return ""
 
+def df_replace_value(df,column,value,replace_with):
+    """Replace value on column with values
+
+    Args:
+        df (pd.DataFrame): Pandas Dataframe with at least column column
+        column (str): Dictionary with enytries for the column names of dataframe
+        value (Any): value to replace
+        replace_with (Any): value to replace value with
+    Returns:
+        (pd.DataFrame):Dataframe with value replaced
+    """
+    df[column] = df[column].replace(value,replace_with)
+    return df
+
 def pytabix(tb,chrom,start,end):
     """Get genomic region from tabixed file
     In: pytabix handle, chromosome, start of region, end of region
