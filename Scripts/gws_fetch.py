@@ -224,7 +224,6 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
         cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
     #merge with gws_df, by using chrom,pos,ref,alt
     temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
-
     #create necessary columns for the data
     temp_df=temp_df.reset_index(drop=True)
     temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
@@ -251,6 +250,12 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     else:
         #take only gws hits, no groups. Therefore, use df_p1
         retval = df_p1.sort_values(["locus_id","#variant"])
+    
+    ## NOTE:Change X-chromosome to 23 in chrom, cs_id, #variant and locus_id
+    retval = df_replace_value(retval,columns["chrom"],"X","23")
+    retval = df_replace_value(retval,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
+    retval = df_replace_value(retval,"#variant",r'^chrX(.*)',r'chr23\1',regex=True)# NOTE: change 23 back in variant_id
+    retval = df_replace_value(retval,"locus_id",r'^chrX(.*)',r'chr23\1',regex=True)
     return retval
     
 if __name__=="__main__":
