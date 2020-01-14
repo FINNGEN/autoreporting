@@ -84,7 +84,6 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
-    #copy dfs to make sure that the original dataframes are NOT modified 
     top_level_columns=["locus_id",
                         "chr",
                         "start",
@@ -111,24 +110,26 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     list_of_loci=list(df["locus_id"].unique())
     
     for locus_id in list_of_loci:
-        #create row. The row is a dict, into which the aggregate values for a locus are added to
+        # The row is a dict which will contain the aggregated values for a single group
         row = {}
-        #get variants of this locus
+        # Separate group variants from all variants
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
+        # Create strict group. The definition changes based on the grouping method.
         strict_group=None
         if grouping_method == "cred":
             strict_group = loc_variants[~loc_variants["cs_id"].isna()].copy()
         elif grouping_method == "ld":
             pass
-            strict_group = loc_variants[(loc_variants[columns["pval"]]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()#TODO:add parameter to r2 threshold 
+            strict_group = loc_variants[(loc_variants[columns["pval"]]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()
         else:
             strict_group = loc_variants[loc_variants[columns["pval"]]<=significance_threshold].copy()
-        #chr,start, end
+        
         row['locus_id']=locus_id
         row["chr"]=loc_variants[columns["chrom"]].iat[0]
         row["start"]=np.amin(loc_variants[columns["pos"]])
         row["end"]=np.amax(loc_variants[columns["pos"]])
-        try:#in case the annotation has not been done
+        # Add annotation info. Try because it is possible that annotation step was skipped.
+        try:
             enrichment=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].iat[0]
             most_severe_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].iat[0]
             most_severe_consequence=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_consequence"].iat[0]
@@ -141,7 +142,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["most_severe_gene"]=most_severe_gene
         pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
         row["lead_pval"]=pvalue
-        #credible set variants in the group
+        # Get credible set variants in relazed & strict group, as well as functional variants. 
+        # Try because it is possible that functional data was skipped.
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
         cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
         try:
@@ -155,9 +157,19 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["credible_set_variants"]=cred_set
         row["functional_variants_strict"]=func_set_strict
         row["functional_variants_relaxed"]=func_set
-        #get matching traits
-        all_traits=loc_variants[["trait","trait_name","r2_to_lead"]].sort_values(by="r2_to_lead",ascending=False).drop_duplicates(subset=["trait","trait_name"], keep="first").dropna()
-        strict_traits=strict_group[["trait","trait_name","r2_to_lead"]].sort_values(by="r2_to_lead",ascending=False).drop_duplicates(subset=["trait","trait_name"],keep="first").dropna()
+        # Solve traits for relaxed and strict groups.
+        all_traits=(
+                    loc_variants[["trait","trait_name","r2_to_lead"]]
+                    .sort_values(by="r2_to_lead",ascending=False)
+                    .drop_duplicates(subset=["trait","trait_name"], keep="first")
+                    .dropna()
+                    )
+        strict_traits=(
+                    strict_group[["trait","trait_name","r2_to_lead"]]
+                    .sort_values(by="r2_to_lead",ascending=False)
+                    .drop_duplicates(subset=["trait","trait_name"],keep="first")
+                    .dropna()
+                    )
         
         other_traits_relaxed = all_traits[ ~all_traits["trait"].isin(efo_traits) ].copy()
         other_traits_strict = strict_traits[ ~strict_traits["trait"].isin(efo_traits) ].copy()
