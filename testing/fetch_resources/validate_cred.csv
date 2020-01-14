@@ -1,11 +1,11 @@
-#chrom	pos	ref	alt	pval	#variant	locus_id	pos_rmax	pos_rmin	cs_id	cs_prob
-1	3000	A	T	0.001	chr1_3000_A_T	chr1_2500_A_C	3999	1000		
-1	2500	A	C	0.01	chr1_2500_A_C	chr1_2500_A_C	3999	1000	chr1_2500_A_C_1	0.999
-1	3999	A	C	0.01	chr1_3999_A_C	chr1_2500_A_C	3999	1000		
-1	2000	A	C	0.01	chr1_2000_A_C	chr1_2500_A_C	3999	1000		
-1	1000	A	C	0.01	chr1_1000_A_C	chr1_2500_A_C	3999	1000		
-X	2500	A	T	0.001	chrX_2500_A_T	chrX_1500_A_C	4000	1000		
-X	2000	A	C	0.01	chrX_2000_A_C	chrX_1500_A_C	4000	1000		
-X	1500	A	C	0.01	chrX_1500_A_C	chrX_1500_A_C	4000	1000	chrX_1500_A_C_1	0.997
-X	4000	A	G	0.01	chrX_4000_A_G	chrX_1500_A_C	4000	1000		
-X	1000	A	G	0.01	chrX_1000_A_G	chrX_1500_A_C	4000	1000		
+#chrom	pos	ref	alt	pval	#variant	locus_id	pos_rmax	pos_rmin	cs_id	cs_prob	r2_to_lead
+1	3000	A	T	0.001	chr1_3000_A_T	chr1_2500_A_C	3999	1000			0.9
+1	2500	A	C	0.009	chr1_2500_A_C	chr1_2500_A_C	3999	1000	chr1_2500_A_C_1	0.999	1
+1	3999	A	C	0.01	chr1_3999_A_C	chr1_2500_A_C	3999	1000			0.5
+1	2000	A	C	0.01	chr1_2000_A_C	chr1_2500_A_C	3999	1000			0.9
+1	1000	A	C	0.01	chr1_1000_A_C	chr1_2500_A_C	3999	1000			0.5
+X	2500	A	T	0.001	chrX_2500_A_T	chrX_1500_A_C	4000	1000			0.6
+X	2000	A	C	0.01	chrX_2000_A_C	chrX_1500_A_C	4000	1000			0.8
+X	1500	A	C	0.009	chrX_1500_A_C	chrX_1500_A_C	4000	1000	chrX_1500_A_C_1	0.997	1
+X	4000	A	G	0.01	chrX_4000_A_G	chrX_1500_A_C	4000	1000			0.5
+X	1000	A	G	0.01	chrX_1000_A_G	chrX_1500_A_C	4000	1000			0.8

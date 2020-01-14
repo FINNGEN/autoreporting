@@ -78,13 +78,12 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold):
+def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
-    #copy dfs to make sure that the original dataframes are NOT modified 
     top_level_columns=["locus_id",
                         "chr",
                         "start",
@@ -111,21 +110,26 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     list_of_loci=list(df["locus_id"].unique())
     
     for locus_id in list_of_loci:
-        #create row. The row is a dict, into which the aggregate values for a locus are added to
+        # The row is a dict which will contain the aggregated values for a single group
         row = {}
-        #get variants of this locus
+        # Separate group variants from all variants
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
+        # Create strict group. The definition changes based on the grouping method.
         strict_group=None
         if grouping_method == "cred":
             strict_group = loc_variants[~loc_variants["cs_id"].isna()].copy()
+        elif grouping_method == "ld":
+            pass
+            strict_group = loc_variants[(loc_variants[columns["pval"]]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()
         else:
-            strict_group = loc_variants[loc_variants[columns["pval"]]<significance_threshold].copy()
-        #chr,start, end
+            strict_group = loc_variants[loc_variants[columns["pval"]]<=significance_threshold].copy()
+        
         row['locus_id']=locus_id
         row["chr"]=loc_variants[columns["chrom"]].iat[0]
         row["start"]=np.amin(loc_variants[columns["pos"]])
         row["end"]=np.amax(loc_variants[columns["pos"]])
-        try:#in case the annotation has not been done
+        # Add annotation info. Try because it is possible that annotation step was skipped.
+        try:
             enrichment=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].iat[0]
             most_severe_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].iat[0]
             most_severe_consequence=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_consequence"].iat[0]
@@ -138,7 +142,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["most_severe_gene"]=most_severe_gene
         pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
         row["lead_pval"]=pvalue
-        #credible set variants in the group
+        # Get credible set variants in relazed & strict group, as well as functional variants. 
+        # Try because it is possible that functional data was skipped.
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
         cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
         try:
@@ -152,26 +157,31 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["credible_set_variants"]=cred_set
         row["functional_variants_strict"]=func_set_strict
         row["functional_variants_relaxed"]=func_set
-        #get matching traits
-        all_traits=sorted(list(loc_variants["trait"].drop_duplicates().dropna()) )
-        strict_traits=sorted(list(strict_group["trait"].drop_duplicates().dropna()) )
-        trait_dict={}
-        for row_ in df.loc[:,["trait","trait_name"]].drop_duplicates().dropna().itertuples():
-            if row_.trait_name =="NA":
-                trait_dict[row_.trait]=row_.trait
-            else:
-                trait_dict[row_.trait]=row_.trait_name
-        matching_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait in efo_traits]
-        other_traits_relaxed=[str(trait_dict[trait]) for trait in all_traits if trait not in efo_traits]
+        # Solve traits for relaxed and strict groups.
+        all_traits=(
+                    loc_variants[["trait","trait_name","r2_to_lead"]]
+                    .sort_values(by="r2_to_lead",ascending=False)
+                    .drop_duplicates(subset=["trait","trait_name"], keep="first")
+                    .dropna()
+                    )
+        strict_traits=(
+                    strict_group[["trait","trait_name","r2_to_lead"]]
+                    .sort_values(by="r2_to_lead",ascending=False)
+                    .drop_duplicates(subset=["trait","trait_name"],keep="first")
+                    .dropna()
+                    )
+        
+        other_traits_relaxed = all_traits[ ~all_traits["trait"].isin(efo_traits) ].copy()
+        other_traits_strict = strict_traits[ ~strict_traits["trait"].isin(efo_traits) ].copy()
 
-        matching_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait in efo_traits]
-        other_traits_strict=[str(trait_dict[trait]) for trait in strict_traits if trait not in efo_traits]
-
-        row["found_associations_relaxed"]=";".join(other_traits_relaxed)
-        row["found_associations_strict"]=";".join(other_traits_strict)
+        row["found_associations_relaxed"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in other_traits_relaxed.itertuples() )
+        row["found_associations_strict"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in other_traits_strict.itertuples() )
+        
         if efo_traits:
-            row["specific_efo_trait_associations_relaxed"]=";".join(matching_traits_relaxed)
-            row["specific_efo_trait_associations_strict"]=";".join(matching_traits_strict)
+            matching_traits_relaxed= all_traits[ all_traits["trait"].isin(efo_traits) ].copy()
+            matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
+            row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
+            row["specific_efo_trait_associations_strict"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
@@ -440,6 +450,8 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description="Compare found GWS results to previously found results")
     parser.add_argument("compare_fname",type=str,help="GWS result file")
+    parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
+    parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
@@ -458,6 +470,7 @@ if __name__ == "__main__":
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
+    parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
@@ -477,7 +490,7 @@ if __name__ == "__main__":
         report_df.to_csv(args.report_out,sep="\t",index=False)
         #top level df
         columns=columns_from_arguments(args.column_labels)
-        top_df=create_top_level_report(report_df,args.efo_traits,columns)
+        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
         top_df.to_csv(args.top_report_out,sep="\t",index=False)
     if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t")

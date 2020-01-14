@@ -99,7 +99,6 @@ class TestGws(unittest.TestCase):
             sig_treshold_2, loc_width, ld_treshold,
             overlap,prefix,ld_api,columns)
         self.assertTrue(retval.empty)
-
         #2
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
@@ -177,8 +176,8 @@ class TestGws(unittest.TestCase):
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
             retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_treshold,loc_width,overlap,ld_api,columns)
         #validate
-        validate=pd.read_csv("fetch_resources/validate_cred.csv",sep="\t").fillna(-1)
-        retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1)
+        validate=pd.read_csv("fetch_resources/validate_cred.csv",sep="\t").fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
+        retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
         for col in validate.columns:
             self.assertAlmostEqual(validate[col].all(),retval[col].all())
 

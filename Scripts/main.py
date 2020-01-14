@@ -14,6 +14,7 @@ def main(args):
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
     args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
+    args.strict_group_r2 = max(args.strict_group_r2,args.ld_r2)
     ld_api=None
     if args.ld_api_choice == "plink":
         ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
@@ -64,7 +65,7 @@ def main(args):
         #create top report
         #top level df 
         columns=autoreporting_utils.columns_from_arguments(args.column_labels)
-        top_df=compare.create_top_level_report(report_df,args.efo_traits,columns,args.grouping_method,args.sig_treshold)
+        top_df=compare.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
         top_df.to_csv(args.top_report_out,sep="\t",index=False)
     if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t")
@@ -114,6 +115,7 @@ if __name__=="__main__":
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
+    parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
