@@ -33,7 +33,7 @@ def pytabix(tb,chrom,start,end):
     """
     try:
         retval=tb.querys("{}:{}-{}".format(chrom,start,end))
-        return retval
+        return list(retval)
     except tabix.TabixError:
         return []
 
@@ -64,7 +64,7 @@ def load_tb_df(df,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"})
     tb=tabix.open(fpath)
     tbxlst=[]
     for _,row in df.iterrows():
-        tbxlst=tbxlst+list(pytabix(tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) ) )
+        tbxlst=tbxlst+pytabix( tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) )
     header=get_gzip_header(fpath)
     out_df=pd.DataFrame(tbxlst,columns=header )
     out_df=out_df.replace(na_value,np.nan)
