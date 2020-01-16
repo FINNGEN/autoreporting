@@ -57,7 +57,6 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     #load main file
     #df=pd.read_csv(args.annotate_fpath,sep="\t")
     if df.empty:
-        #df.to_csv(path_or_buf="{}".format(args.annotate_out),sep="\t",index=False)
         return df
 
     #create chr 23->X calling df
@@ -185,7 +184,7 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     df=df.merge(func_df,how="left",on="#variant")
     df=df.merge(fg_df,how="left",on="#variant")
 
-    return df #df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
+    return df
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Annotate results using gnoMAD and additional annotations")
@@ -196,7 +195,7 @@ if __name__=="__main__":
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
-    parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.csv",help="Output filename, default is out.csv")
+    parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Output filename, default is out.tsv")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     args=parser.parse_args()

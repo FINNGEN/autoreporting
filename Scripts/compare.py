@@ -350,12 +350,12 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
     if compare_style in ["gwascatalog","both"]:
         gwas_df=None
         gwapi=None
-        if os.path.exists("{}gwas_out_mapping.csv".format(prefix)) and cache_gwas:
-            print("reading gwas results from gwas_out_mapping.csv...")
-            gwas_df=pd.read_csv("{}gwas_out_mapping.csv".format(prefix),sep="\t")
+        if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
+            print("reading gwas results from gwas_out_mapping.tsv...")
+            gwas_df=pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
             gwapi=gwcatalog_api.GwasApi()
         else:
-            rm_gwas_out="rm {}gwas_out_mapping.csv".format(prefix)
+            rm_gwas_out="rm {}gwas_out_mapping.tsv".format(prefix)
             subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             threads=gwascatalog_threads
             if database_choice=="local":
@@ -370,7 +370,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
             gwas_df=load_api_summaries(gwas_load_df,gwascatalog_pad,gwascatalog_pval,gwapi,threads,columns)
             gwas_df=df_replace_value(gwas_df,"chrom","X","23")
             if cache_gwas:
-                gwas_df.to_csv("{}gwas_out_mapping.csv".format(prefix),sep="\t",index=False)
+                gwas_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)
         gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
         gwas_df=gwas_df.rename(columns=gwas_rename)
         if gwas_df.empty:
@@ -400,7 +400,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         report_out_df["trait"]="NA"
         report_out_df["trait_name"]="NA"
     else:
-        summary_df.to_csv("{}summary_df.csv".format(prefix),sep="\t",index=False)
+        summary_df.to_csv("{}summary_df.tsv".format(prefix),sep="\t",index=False)
         summary_df=map_column(summary_df,"map_variant",columns)
         df=map_column(df,"map_variant",columns)
         necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name"]
@@ -408,7 +408,6 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         report_out_df=report_out_df.drop(columns=["map_variant"])
         report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
         report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
-    #report_out_df.to_csv(report_out,sep="\t",index=False)
     #Calculate ld between our variants and external variants
     ld_out=None
     if ld_check and (not summary_df.empty):
@@ -417,7 +416,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
             Exception("ld calculation not supported without grouping. Please supply the flag --group to main.py or gws_fetch.py.") 
         unique_locus_list=df["locus_id"].unique()
         ld_df=pd.DataFrame()
-        df.to_csv("{}df.csv".format(prefix),index=False,sep="\t")
+        df.to_csv("{}df.tsv".format(prefix),index=False,sep="\t")
         #create chromosome list and group loci based on those
         chrom_lst=  sorted([*{*[s.split("_")[0].strip("chr") for s in unique_locus_list]}])
         for chrom in chrom_lst:
@@ -442,7 +441,6 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
             ld_df=ld_df.merge(summary_df.loc[:,["map_variant","trait","trait_name"]].rename(columns={"map_variant":"RSID2_map"}),how="inner",on="RSID2_map")
             ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
             ld_out=ld_out.drop(columns=["RSID1","map_variant","RSID2_map"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
-            #ld_out.to_csv(ld_report_out,sep="\t",index=False)
         else:
             print("No variants in ld found, no LD output file produced.")
     return (report_out_df, ld_out)
@@ -460,16 +458,16 @@ if __name__ == "__main__":
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
-    parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.csv",help="Report output path")
-    parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.csv",help="LD check report output path")
+    parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Report output path")
+    parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.tsv",help="LD check report output path")
     parser.add_argument("--gwascatalog-pval",type=float,default=5e-8,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
-    parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.csv and load them from there if it exists. Use only for testing.")
+    parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
-    parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.csv",help="Top level report filename.")
+    parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
