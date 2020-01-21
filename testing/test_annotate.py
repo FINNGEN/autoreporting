@@ -54,7 +54,7 @@ class TestAnnotate(unittest.TestCase):
         args.prefix=""
         correct_value_path="annotate_resources/ann_validate"
         args.batch_freq=False
-        args.column_labels=["#chrom", "pos", "ref", "alt", "pval"]
+        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval"}
         try:
             with open("annotate_resources/annotate_df.tsv","r") as f:
                 #test case lines
@@ -67,7 +67,7 @@ class TestAnnotate(unittest.TestCase):
                     with io.StringIO(tmp) as args.annotate_fpath:
                         in_df = pd.read_csv(args.annotate_fpath,sep="\t")
                         out = annotate.annotate(df=in_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,fg_ann_version=args.fg_ann_version,
-                            functional_path=args.functional_path, prefix=args.prefix, column_labels=args.column_labels).astype(object)
+                            functional_path=args.functional_path, prefix=args.prefix, columns=columns).astype(object)
                         df2=pd.read_csv("{}_{}.csv".format(correct_value_path,i+1),sep="\t").astype(object)
                         pd.testing.assert_frame_equal(out,df2)
         except:
