@@ -18,7 +18,7 @@ def top_merge(df,summary_df,columns):
     report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
     return report_out_df
 
-class TestGws(unittest.TestCase):
+class TestCompare(unittest.TestCase):
 
     def test_solve_indels(self):
         #test: test only chrom, pos, ref alt. Other columns need not be tested.
@@ -57,9 +57,9 @@ class TestGws(unittest.TestCase):
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
         cols=["#chrom","pos","ref","alt","pval","#variant","locus_id"]
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
-        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed"]
+        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval","lead_beta","lead_AF", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed"]
         traits=[]
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"}
         df=pd.DataFrame(columns=cols)
         summary_df=pd.DataFrame(columns=summary_cols)
         raport_df = top_merge(df,summary_df,columns)

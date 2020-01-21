@@ -54,7 +54,7 @@ class TestAnnotate(unittest.TestCase):
         args.prefix=""
         correct_value_path="annotate_resources/ann_validate"
         args.batch_freq=False
-        args.column_labels=["#chrom", "pos", "ref", "alt", "pval"]
+        args.column_labels=["#chrom", "pos", "ref", "alt", "pval","beta","af"]
         try:
             with open("annotate_resources/annotate_df.tsv","r") as f:
                 #test case lines
