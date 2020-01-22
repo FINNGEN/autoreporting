@@ -29,7 +29,7 @@ class TestGws(unittest.TestCase):
         args=Arg()
         args.gws_fpath=input_
         args.sig_treshold=0.10
-        args.columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        args.columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"}
         #output = gws_fetch.fetch_gws(args)
         output = gws_fetch.get_gws_variants(fname=args.gws_fpath, sign_treshold=args.sig_treshold, columns=args.columns)
         validation=pd.read_csv("fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
@@ -43,8 +43,10 @@ class TestGws(unittest.TestCase):
         #test simple grouping function
         #set up data and parameters
         input_="fetch_resources/test_grouping.tsv.gz"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"}
         data=pd.read_csv(input_,compression="gzip",sep="\t")
+        data["beta"]=0.1
+        data["maf"]=0.3
         data["#variant"]=autils.create_variant_column(data)
         data["locus_id"]=data["#variant"]
         data["pos_rmax"]=data["pos"]
@@ -118,7 +120,7 @@ class TestGws(unittest.TestCase):
     def test_get_gws_vars(self):
         #test the get_gws_variants function
         #case 1: empty data, should return empty dataframe.
-        empty_read=[pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval"])]
+        empty_read=[pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval","beta","maf"])]
         with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=empty_read):
             retval=gws_fetch.get_gws_variants("")
         self.assertTrue(retval.empty)

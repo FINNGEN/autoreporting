@@ -92,6 +92,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "most_severe_gene",
                         "most_severe_consequence",
                         "lead_pval",
+                        "lead_beta",
+                        "lead_AF",
                         "found_associations_strict",
                         "found_associations_relaxed",
                         "credible_set_variants",
@@ -140,8 +142,12 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["enrichment"]=enrichment
         row["most_severe_consequence"]=most_severe_consequence
         row["most_severe_gene"]=most_severe_gene
-        pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,"pval"].values[0]
+        pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["pval"]].values[0]
+        beta=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["beta"]].values[0]
+        af=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["af"]].values[0]
         row["lead_pval"]=pvalue
+        row["lead_beta"]=beta
+        row["lead_AF"]=af
         # Get credible set variants in relazed & strict group, as well as functional variants. 
         # Try because it is possible that functional data was skipped.
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
@@ -465,7 +471,7 @@ if __name__ == "__main__":
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
-    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF"),nargs=7,default=["#chrom","pos","ref","alt","pval","beta","maf"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf'.")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
@@ -485,10 +491,10 @@ if __name__ == "__main__":
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
                                     localdb_path=args.localdb_path, database_choice=args.database_choice)
     if type(report_df) != type(None):
-        report_df.to_csv(args.report_out,sep="\t",index=False)
+        report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
         columns=columns_from_arguments(args.column_labels)
         top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
-        top_df.to_csv(args.top_report_out,sep="\t",index=False)
+        top_df.to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
-        ld_out_df.to_csv(args.ld_report_out,sep="\t")
+        ld_out_df.to_csv(args.ld_report_out,sep="\t",float_format="%.3g")

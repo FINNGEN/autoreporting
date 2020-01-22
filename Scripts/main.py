@@ -34,7 +34,7 @@ def main(args):
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
     
     #write fetch_df as a file, so that other parts of the script work
-    fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False)
+    fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
     ###########################
     ##########Finemap##########
     ###########################
@@ -51,7 +51,7 @@ def main(args):
         #annotate_df = annotate.annotate(fetch_df,args)
         annotate_df = annotate.annotate(df=fetch_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path, fg_ann_version = args.fg_ann_version,
             functional_path=args.functional_path, prefix=args.prefix, columns=columns)
-    annotate_df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False)
+    annotate_df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
     ###########################
     ######Compare results######
     ###########################
@@ -62,13 +62,13 @@ def main(args):
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
                                     localdb_path=args.localdb_path, database_choice=args.database_choice)
     if type(report_df) != type(None):
-        report_df.to_csv(args.report_out,sep="\t",index=False)
+        report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report
         #top level df 
         top_df=compare.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
-        top_df.to_csv(args.top_report_out,sep="\t",index=False)
+        top_df.to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
-        ld_out_df.to_csv(args.ld_report_out,sep="\t")
+        ld_out_df.to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="FINNGEN automatic hit reporting tool")
@@ -113,7 +113,7 @@ if __name__=="__main__":
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
-    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF"),nargs=7,default=["#chrom","pos","ref","alt","pval","beta","maf"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf'.")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
