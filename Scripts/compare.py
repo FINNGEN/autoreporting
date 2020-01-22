@@ -328,7 +328,7 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
 
 def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
             prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
-            ldstore_threads, ld_treshold, cache_gwas, column_labels, 
+            ldstore_threads, ld_treshold, cache_gwas, columns, 
             localdb_path, database_choice):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
@@ -340,7 +340,6 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         ld_df (optional): a dataframe containing the LD paired associations of variants
         
     """
-    columns=columns_from_arguments(column_labels)
     if df.empty:
         #print("No variants, {} and {} will not be produced".format(report_out, ld_report_out))
         return (None, None)
@@ -479,6 +478,7 @@ if __name__ == "__main__":
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
+    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.report_out = "{}{}".format(args.prefix,args.report_out)
@@ -488,7 +488,7 @@ if __name__ == "__main__":
     [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
-                                    ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, column_labels=args.column_labels,
+                                    ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
                                     localdb_path=args.localdb_path, database_choice=args.database_choice)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")

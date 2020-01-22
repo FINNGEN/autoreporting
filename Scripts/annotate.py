@@ -38,7 +38,7 @@ def create_rename_dict(list_of_names, prefix):
         d[value]="{}{}".format(prefix,value)
     return d
 
-def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,fg_ann_version, functional_path, prefix, column_labels):
+def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,fg_ann_version, functional_path, prefix, columns):
     """
     Annotates variants with allele frequencies, 
     enrichment numbers, and most severe gene/consequence data
@@ -47,7 +47,6 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     In: dataframe, gnomad genome path, gnomad exome path, bool of include batch freqs, finngen path, functional category file path, prefix, column labels
     Out: Annotated dataframe
     """
-    columns=columns_from_arguments(column_labels)
     #columns that we want to take from gnomad and finngen annotations
     gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
     gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
@@ -199,6 +198,7 @@ if __name__=="__main__":
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF"),nargs=7,default=["#chrom","pos","ref","alt","pval","beta","maf"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf'.")
     parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     args=parser.parse_args()
+    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.annotate_out = "{}{}".format(args.prefix,args.annotate_out)
@@ -207,5 +207,5 @@ if __name__=="__main__":
     else:    
         input_df = pd.read_csv(args.annotate_fpath,sep="\t")
         df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,fg_ann_version=args.fg_ann_version,
-        functional_path=args.functional_path, prefix=args.prefix, column_labels=args.column_labels)
+        functional_path=args.functional_path, prefix=args.prefix, columns=columns)
         df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")

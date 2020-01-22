@@ -15,6 +15,7 @@ def main(args):
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
     args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
     args.strict_group_r2 = max(args.strict_group_r2,args.ld_r2)
+    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
     ld_api=None
     if args.ld_api_choice == "plink":
         ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
@@ -29,7 +30,7 @@ def main(args):
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
     fetch_df = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, column_labels=args.column_labels,
+        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
     
     #write fetch_df as a file, so that other parts of the script work
@@ -49,7 +50,7 @@ def main(args):
         print("Annotate SNPs")
         #annotate_df = annotate.annotate(fetch_df,args)
         annotate_df = annotate.annotate(df=fetch_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path, fg_ann_version = args.fg_ann_version,
-            functional_path=args.functional_path, prefix=args.prefix, column_labels=args.column_labels)
+            functional_path=args.functional_path, prefix=args.prefix, columns=columns)
     annotate_df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
     ###########################
     ######Compare results######
@@ -58,13 +59,12 @@ def main(args):
     [report_df,ld_out_df] = compare.compare(annotate_df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
-                                    ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, column_labels=args.column_labels,
+                                    ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
                                     localdb_path=args.localdb_path, database_choice=args.database_choice)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report
         #top level df 
-        columns=autoreporting_utils.columns_from_arguments(args.column_labels)
         top_df=compare.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
         top_df.to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):

@@ -192,14 +192,12 @@ def merge_credset(gws_df,cs_df,fname,columns):
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
-def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_r2,overlap,column_labels,ignore_region,cred_set_file, ld_api):
+def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_r2,overlap,columns,ignore_region,cred_set_file, ld_api):
     """
     Filter and group variants.
     In: arguments
     Out: Dataframe of filtered (and optionally grouped) variants.
     """
-    #column names
-    columns=columns_from_arguments(column_labels)
     sig_tresh_2=max(sig_tresh_1,sig_tresh_2)
     r=locus_width*1000#range for location width, originally in kb
     dtype={columns["chrom"]:str,
@@ -282,6 +280,7 @@ if __name__=="__main__":
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
     args=parser.parse_args()
+    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
@@ -293,6 +292,6 @@ if __name__=="__main__":
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, column_labels=args.column_labels,
+        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
     fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
