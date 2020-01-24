@@ -51,6 +51,7 @@ task report {
     String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
     String dollar = "$"  
     String annotation_version
+    Float strict_group_r2
     command {
         mod_ld=$( echo ${ld_panel_bed} | sed 's/.bed//g' )
         
@@ -63,7 +64,7 @@ task report {
         --gnomad-genome-path ${gnomad_genome} --gnomad-exome-path ${gnomad_exome} ${true='--include-batch-freq' false='' include_batch_freq} --finngen-path ${finngen_annotation} \
         --functional-path ${ functional_annotation} ${"--credible-set-file " + credible_set} --finngen-annotation-version ${annotation_version} \
         --compare-style ${compare_style} ${true='--check-for-ld' false='' check_for_ld} --ld-treshold ${ld_treshold}  \
-        --ldstore-threads ${cpus} --gwascatalog-threads ${gwascatalog_threads} \
+        --ldstore-threads ${cpus} --gwascatalog-threads ${gwascatalog_threads} --strict-group-r2 ${strict_group_r2} \
         ${summary_cmd} ${write_lines(ext_summary_stats)} ${"--endpoint-fpath " + endpoint_listing} \
         --gwascatalog-pval ${gwascatalog_pval} --gwascatalog-width-kb ${gwascatalog_width_kb} ${efo_cmd} ${efo_codes} --db ${db_choice} ${"--local-gwascatalog " + local_gwcatalog} \
         --fetch-out $output_filename.fetch.out --annotate-out $output_filename.annotate.out --report-out $output_filename.report.out --top-report-out $output_filename.top.out --ld-report-out $output_filename.ld.out
@@ -204,6 +205,7 @@ workflow autoreporting{
     Boolean group
     Boolean overlap
     Boolean check_for_ld
+    Float strict_group_r2
 
     call fill_efo_map{
         input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=phenotypelist,efomap=efo_code_file
@@ -221,7 +223,7 @@ workflow autoreporting{
             input: summ_stat=phenotypes[i],credible_set=crediblesets[i],
             grouping_method=primary_grouping_method,docker=docker,
             docker_memory=memory, cpus=cpus, gnomad_exome=gnomad_exome,
-            gnomad_genome=gnomad_genome, ld_panel=ld_panel,
+            gnomad_genome=gnomad_genome, ld_panel=ld_panel, strict_group_r2=strict_group_r2,
             finngen_annotation=finngen_annotation, functional_annotation=functional_annotation,
             local_gwcatalog=local_gwcatalog, annotation_version=annotation_version,
             compare_style=compare_style, db_choice=db_choice, efo_map=efo_code_map,
@@ -236,7 +238,7 @@ workflow autoreporting{
     scatter (i in range(length( nocred_phenotypes)) ){
         call report as nocred_report{
             input: summ_stat=nocred_phenotypes[i], docker=docker, docker_memory=memory, cpus=cpus, 
-            gnomad_exome=gnomad_exome,gnomad_genome=gnomad_genome, ld_panel=ld_panel, 
+            gnomad_exome=gnomad_exome,gnomad_genome=gnomad_genome, ld_panel=ld_panel, strict_group_r2=strict_group_r2, 
             finngen_annotation=finngen_annotation, functional_annotation=functional_annotation, 
             local_gwcatalog=local_gwcatalog, annotation_version=annotation_version, 
             compare_style=compare_style, db_choice=db_choice, efo_map=efo_code_map, 
