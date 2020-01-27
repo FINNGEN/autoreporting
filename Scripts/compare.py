@@ -246,11 +246,12 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_t
     result_lst=[i for sublist in r_lst for i in sublist]
     gwas_df=pd.DataFrame(result_lst)
     #resolve indels
-    if not gwas_df.empty:
-        indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
-        indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
-        gwas_df=gwas_df.loc[~indel_idx,:]
-        gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
+    if gwas_df.empty:
+        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","code","study","study_link"])
+    indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
+    indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
+    gwas_df=gwas_df.loc[~indel_idx,:]
+    gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
     return gwas_df
 
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
