@@ -1,7 +1,7 @@
 {
     "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_phenotype_list_200124",
     "autoreporting.credsetlist": "gs://r4_data_west1/autoreporting/r4_credible_set_list_200124",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:439d40",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:ea47ef",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 5,
     "autoreporting.cpus":4,
