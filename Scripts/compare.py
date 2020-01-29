@@ -151,7 +151,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         # Get credible set variants in relazed & strict group, as well as functional variants. 
         # Try because it is possible that functional data was skipped.
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
-        cred_set=";".join( "{}|{:.3f}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
+        cred_set=";".join( "{}|{:.3g}".format(t._1,t.cs_prob) for t in  cred_s.itertuples() )
         try:
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category"] ].drop_duplicates()
             func_set=";".join("{}|{}".format(t._1,t.functional_category) for t in  func_s.itertuples())
@@ -180,14 +180,14 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         other_traits_relaxed = all_traits[ ~all_traits["trait"].isin(efo_traits) ].copy()
         other_traits_strict = strict_traits[ ~strict_traits["trait"].isin(efo_traits) ].copy()
 
-        row["found_associations_relaxed"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in other_traits_relaxed.itertuples() )
-        row["found_associations_strict"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in other_traits_strict.itertuples() )
+        row["found_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in other_traits_relaxed.itertuples() )
+        row["found_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in other_traits_strict.itertuples() )
         
         if efo_traits:
             matching_traits_relaxed= all_traits[ all_traits["trait"].isin(efo_traits) ].copy()
             matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
-            row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
-            row["specific_efo_trait_associations_strict"]=";".join( "{}|{}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
+            row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
+            row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
