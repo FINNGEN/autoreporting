@@ -24,7 +24,7 @@
     "autoreporting.include_batch_freq":true,
     "autoreporting.check_for_ld":false,
     "autoreporting.ignore_region":"6:23000000-38000000",
-    "autoreporting.efo_code_file":"gs://r4_data_west1/autoreporting/r4_efo_mapping.tsv",
+    "autoreporting.efo_code_file":"gs://r4_data_west1/autoreporting/r4_efo_mapping_2020_01_28.tsv",
     "autoreporting.compare_style":"gwascatalog",
     "autoreporting.db_choice":"local",
     "autoreporting.annotation_version":"r4",
