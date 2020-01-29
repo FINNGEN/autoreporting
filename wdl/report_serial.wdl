@@ -54,7 +54,6 @@ task report_credible_set {
 
     String grouping_method
     String ignore_region
-    String ignore_cmd = if ignore_region != "" then "--ignore-region" else ""
     String compare_style
     String db_choice
     String annotation_version
@@ -103,7 +102,7 @@ task report_credible_set {
         compare_style = "${compare_style}"
         db_choice = "${db_choice}"
         annotation_version = "${annotation_version}"
-        summary_cmd="${summary_cmd}"
+        summary_cmd="${summary_cmd} ${write_lines(ext_summary_stats)}"
 
         #changing variables
         #summ stat
@@ -143,18 +142,20 @@ task report_credible_set {
                         "--ldstore-threads {} "
                         "--gwascatalog-threads {} "
                         "--strict-group-r2 {} "
-                        "{} ${write_lines(ext_summary_stats)} "
+                        "{} "
                         "{} "
                         "--gwascatalog-pval {} "
                         "--gwascatalog-width-kb {} "
                         "--db {} "
                         "{} "
                         "{} "
+                        "{} "
                         "--fetch-out {}.fetch.out "
                         "--annotate-out {}.annotate.out "
                         "--report-out {}.report.out "
                         "--top-report-out {}.top.out "
-                        "--ld-report-out {}.ld.out ").format(summstats[i],
+                        "--ld-report-out {}.ld.out "
+                        ).format(summstats[i],
                             sign_treshold,
                             alt_sign_treshold,
                             group,
@@ -183,6 +184,7 @@ task report_credible_set {
                             db_choice,
                             local_gwascatalog,
                             efo_array[i],
+                            ignore_cmd,
                             phenotype_name,
                             phenotype_name,
                             phenotype_name,
