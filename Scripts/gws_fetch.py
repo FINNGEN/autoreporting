@@ -166,8 +166,17 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chr
                 columns["af"]:np.float64}
     retval=pd.DataFrame()
     for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
-        retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True )
-    retval=retval[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"], columns["beta"],columns["af"] ] ]
+        retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True ) 
+    try:
+        retval=retval[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"], columns["beta"],columns["af"] ] ]
+    except KeyError:
+        cols=list(df.columns)
+        columns_not_in_cols=[a for a in columns.values() if a not in cols]
+        print("A KeyError happened while parsing the input file {}. It is likely that the columns given to the script do not match with actual input file columns.".format(fname))
+        print("Input file columns:{}".format(cols))
+        print("Columns given to script:{}".format(list(columns.values())))
+        print("Columns not in input file columns:{}".format(columns_not_in_cols))
+        raise
     return retval
 
 def merge_credset(gws_df,cs_df,fname,columns):

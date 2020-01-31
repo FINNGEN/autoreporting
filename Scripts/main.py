@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 
-import argparse,shlex,subprocess
+import argparse,shlex,subprocess,traceback
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
 from linkage import PlinkLD, OnlineLD
+
+def die():
+    trace_fname="error_trace.txt"
+    with open(trace_fname,"w") as f:
+        f.write(traceback.format_exc())
+    return trace_fname
 
 def main(args):
     print("input file: {}".format(args.gws_fpath))
@@ -32,7 +38,6 @@ def main(args):
     fetch_df = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
-    
     #write fetch_df as a file, so that other parts of the script work
     fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
     ###########################
@@ -122,4 +127,10 @@ if __name__=="__main__":
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."
-    main(args)
+    try:
+        main(args)
+    except Exception as e:
+        print("Exception occurred. Check the above errors. The tool will now abort.")
+        fname=die()
+        print("Traceback printed in file {}".format(fname))
+
