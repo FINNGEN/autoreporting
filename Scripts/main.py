@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse,shlex,subprocess,traceback
+import argparse,shlex,subprocess,traceback,sys
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
@@ -133,4 +133,8 @@ if __name__=="__main__":
         print("Exception occurred. Check the above errors. The tool will now abort.")
         fname=die()
         print("Traceback printed in file {}".format(fname))
+        sys.exit(1)
+    else:
+        sys.exit(0)
+
 
