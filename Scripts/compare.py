@@ -401,7 +401,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         #just abort, output the top report but no merging summary df cause it doesn't exist
         print("No summary variants, report will be incomplete")
         report_out_df=df.copy()
-        report_out_df["variant_hit"]="NA"
+        report_out_df["#variant_hit"]="NA"
         report_out_df["pval_trait"]="NA"
         report_out_df["trait"]="NA"
         report_out_df["trait_name"]="NA"
