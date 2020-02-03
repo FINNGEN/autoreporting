@@ -1,7 +1,7 @@
 {
-    "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_phenotype_list_200124",
+    "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_test_shortlist",
     "autoreporting.credsetlist": "gs://r4_data_west1/autoreporting/r4_credible_set_list_200124",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:439d40",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:9b0e55c",
     "autoreporting.memory":20,
     "autoreporting.gnomad_exome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
     "autoreporting.gnomad_genome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/genomes/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
@@ -27,6 +27,7 @@
     "autoreporting.efo_code_file":"gs://r4_data_west1/autoreporting/r4_efo_mapping_2020_01_28.tsv",
     "autoreporting.compare_style":"gwascatalog",
     "autoreporting.db_choice":"local",
+    "autoreporting.strict_group_r2":0.5,
     "autoreporting.annotation_version":"r4",
     "autoreporting.primary_grouping_method":"cred",
     "autoreporting.secondary_grouping_method":"ld"

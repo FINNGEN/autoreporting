@@ -70,13 +70,9 @@ task report_credible_set {
         num_phenos = ${len}
         plink_path = "${ld_panel_bed}".replace(".bed","")
         gnomad_exome="${gnomad_exome}"
-        #gnomad_exome_tb="${gnomad_exome_tb}"
         gnomad_genome="${gnomad_genome}"
-        #gnomad_genome_tb="${gnomad_genome_tb}"
         finngen_annotation="${finngen_annotation}"
-        #finngen_annotation_tb="${finngen_annotation_tb}"
         functional_annotation="${functional_annotation}"
-        #functional_annotation_tb="${functional_annotation_tb}"
         ext_summary_stats="${write_lines(ext_summary_stats)}"
         endpoint_listing="${"--endpoint-fpath " + endpoint_listing}"
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
