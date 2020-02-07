@@ -107,10 +107,10 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
         gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomad genomes, nfe, nfe without est
-        gn_gen_nfe_counts=["AC_nfe","AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
-        gn_gen_nfe_nums=["AN_nfe","AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
-        gn_gen_nfe_est_counts=["AC_nfe","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
-        gn_gen_nfe_est_nums=["AN_nfe","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
+        gn_gen_nfe_counts=["AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
+        gn_gen_nfe_nums=["AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
+        gn_gen_nfe_est_counts=["AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
+        gn_gen_nfe_est_nums=["AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
         #calculate enrichment
         
         gnomad_genomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_genomes,"AF_fin",gn_gen_nfe_counts,gn_gen_nfe_nums)
@@ -123,14 +123,14 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
         gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
-        gn_exo_nfe_counts=["AC_nfe","AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
-        gn_exo_nfe_nums=["AN_nfe","AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
-        gn_exo_nfe_est_counts=["AC_nfe","AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
-        gn_exo_nfe_est_nums=["AN_nfe","AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
-        gn_exo_nfe_swe_counts=["AC_nfe","AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu"]
-        gn_exo_nfe_swe_nums=["AN_nfe","AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu"]
-        gn_exo_nfe_est_swe_counts=["AC_nfe","AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu"]
-        gn_exo_nfe_est_swe_nums=["AN_nfe","AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu"]
+        gn_exo_nfe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
+        gn_exo_nfe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
+        gn_exo_nfe_est_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
+        gn_exo_nfe_est_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
+        gn_exo_nfe_swe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu"]
+        gn_exo_nfe_swe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu"]
+        gn_exo_nfe_est_swe_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu"]
+        gn_exo_nfe_est_swe_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu"]
     
         gnomad_exomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_counts,gn_exo_nfe_nums)
         gnomad_exomes.loc[:,"FI_enrichment_nfe_est"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_est_counts,gn_exo_nfe_est_nums)
