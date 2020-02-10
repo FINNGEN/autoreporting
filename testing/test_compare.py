@@ -55,11 +55,11 @@ class TestCompare(unittest.TestCase):
         #Needed: dataframe, summary variant dataframe, end result dataframe
         #also need to test using empty summary dataframe as well as empty dataframe
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
-        cols=["#chrom","pos","ref","alt","pval","#variant","locus_id"]
+        cols=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls","#variant","locus_id"]
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
-        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval","lead_beta","lead_AF", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed"]
+        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval","lead_beta","lead_AF","lead_AF_cases","lead_AF_controls", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed"]
         traits=[]
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"}
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
         df=pd.DataFrame(columns=cols)
         summary_df=pd.DataFrame(columns=summary_cols)
         raport_df = top_merge(df,summary_df,columns)

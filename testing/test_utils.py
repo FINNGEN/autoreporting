@@ -60,12 +60,12 @@ class TestUtils(unittest.TestCase):
     #TODO: test get gzip header
 
     def test_column_labels(self):
-        collabs = ["chrom","pos","ref","alt","pval","beta","maf"]
-        collabs2 = ["1","2","3","4","5","6","7"]
+        collabs = ["chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"]
+        collabs2 = ["1","2","3","4","5","6","7","8","9"]
         columns= autoreporting_utils.columns_from_arguments(collabs)
         columns2= autoreporting_utils.columns_from_arguments(collabs2)
-        validate= {"chrom":"chrom","pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval","beta":"beta","af":"maf"}
-        validate2= {"chrom":"1","pos":"2", "ref":"3", "alt":"4", "pval":"5","beta":"6","af":"7"}
+        validate= {"chrom":"chrom","pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
+        validate2= {"chrom":"1","pos":"2", "ref":"3", "alt":"4", "pval":"5","beta":"6","af":"7","af_cases":"8","af_controls":"9"}
         self.assertEqual(columns, validate)
         self.assertEqual(columns2, validate2)
 
