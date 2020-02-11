@@ -149,7 +149,7 @@ def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overla
             df=df[~(df["cs_id"]==credible_id)]
     return out_df
 
-def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"},compression="gzip"):
+def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={},compression="gzip"):
     """
     Get genome-wide significant variants from a summary statistic file.
     In: filename, significance threshold, dtype,columns,compression
@@ -167,7 +167,7 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chr
     retval=pd.DataFrame()
     for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
         retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True )
-    retval=retval[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"], columns["beta"],columns["af"] ] ]
+    retval=retval[ list(columns.values()) ]
     return retval
 
 def merge_credset(gws_df,cs_df,fname,columns):
@@ -181,7 +181,8 @@ def merge_credset(gws_df,cs_df,fname,columns):
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     # fetch rows using tabix
     cred_row_df = load_tb_df(cs_df,fname,columns=columns)
-    cred_row_df = cred_row_df[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"] ] ]
+    cols = list(columns.values())
+    cred_row_df = cred_row_df[ cols ]
     cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     # ensure only the credible sets were included
@@ -204,7 +205,9 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
                 columns["pos"]:np.int32,
                 columns["ref"]:str,
                 columns["alt"]:str,
-                columns["pval"]:np.float64}
+                columns["pval"]:np.float64,
+                columns["beta"]:np.float64,
+                columns["af"]:np.float64}
 
     #data input: get genome-wide significant variants.
     temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip")
@@ -275,12 +278,12 @@ if __name__=="__main__":
     parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
-    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF"),nargs=7,default=["#chrom","pos","ref","alt","pval","beta","maf"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
     args=parser.parse_args()
-    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
+    columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)

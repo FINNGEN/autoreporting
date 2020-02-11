@@ -43,10 +43,8 @@ class TestGws(unittest.TestCase):
         #test simple grouping function
         #set up data and parameters
         input_="fetch_resources/test_grouping.tsv.gz"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"}
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
         data=pd.read_csv(input_,compression="gzip",sep="\t")
-        data["beta"]=0.1
-        data["maf"]=0.3
         data["#variant"]=autils.create_variant_column(data)
         data["locus_id"]=data["#variant"]
         data["pos_rmax"]=data["pos"]
@@ -75,7 +73,7 @@ class TestGws(unittest.TestCase):
         and those should be tested in their own tests)
         """
         input_="fetch_resources/test_grouping.tsv.gz"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
         data=pd.read_csv(input_,compression="gzip",sep="\t")
         data["#variant"]=autils.create_variant_column(data)
         data["locus_id"]=data["#variant"]
@@ -120,21 +118,22 @@ class TestGws(unittest.TestCase):
     def test_get_gws_vars(self):
         #test the get_gws_variants function
         #case 1: empty data, should return empty dataframe.
-        empty_read=[pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval","beta","maf"])]
+        empty_read=[pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval","beta","maf","maf_cases","maf_controls"])]
+        columns=autils.columns_from_arguments(["#chrom", "pos", "ref", "alt", "pval","beta","maf","maf_cases","maf_controls"])
         with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=empty_read):
-            retval=gws_fetch.get_gws_variants("")
+            retval=gws_fetch.get_gws_variants("",columns=columns)
         self.assertTrue(retval.empty)
         #case 2: valid data and hits
         valid_read = [pd.read_csv("fetch_resources/test_grouping.tsv.gz",sep="\t",compression="gzip")]
         with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=valid_read):
-            retval=gws_fetch.get_gws_variants("",sign_treshold=0.4)
+            retval=gws_fetch.get_gws_variants("",sign_treshold=0.4,columns=columns)
         validate=valid_read[0]
         validate=validate[validate["pval"]<0.4].reset_index(drop=True)
         for col in validate.columns:
             self.assertTrue(validate[col].equals(retval[col]))
         #case 3: valid data, but no hits 
         with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=valid_read):
-            retval=gws_fetch.get_gws_variants("",sign_treshold=5e-8)
+            retval=gws_fetch.get_gws_variants("",sign_treshold=5e-8,columns=columns)
         validate=valid_read[0]
         validate=validate[validate["pval"]<5e-8].reset_index(drop=True)
         for col in validate.columns:
