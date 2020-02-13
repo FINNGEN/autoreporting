@@ -8,6 +8,7 @@ from autoreporting_utils import *
 import gwcatalog_api
 import os
 from multiprocessing.dummy import Pool as ThreadPool
+import logging
 
 def map_alleles(a1,a2):
     """
@@ -130,12 +131,14 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["chr"]=loc_variants[columns["chrom"]].iat[0]
         row["start"]=np.amin(loc_variants[columns["pos"]])
         row["end"]=np.amax(loc_variants[columns["pos"]])
+        logger=logging.getLogger(__name__)
         # Add annotation info. Try because it is possible that annotation step was skipped.
         try:
             enrichment=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].iat[0]
             most_severe_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].iat[0]
             most_severe_consequence=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_consequence"].iat[0]
         except:
+            logger.warning("Annotation information not available for top report. Those values will not be present in the final top report.")
             enrichment=""
             most_severe_gene=""
             most_severe_consequence=""
@@ -341,6 +344,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         ld_df (optional): a dataframe containing the LD paired associations of variants
         
     """
+    logger=logging.getLogger(__name__)
     if df.empty:
         #print("No variants, {} and {} will not be produced".format(report_out, ld_report_out))
         return (None, None)
@@ -357,7 +361,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         gwas_df=None
         gwapi=None
         if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
-            print("reading gwas results from gwas_out_mapping.tsv...")
+            logger.info("reading gwas results from gwas_out_mapping.tsv...")
             gwas_df=pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
             gwapi=gwcatalog_api.GwasApi()
         else:
@@ -399,7 +403,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
     summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
-        print("No summary variants, report will be incomplete")
+        logger.warning("No summary variants. Report will not have that information.")
         report_out_df=df.copy()
         report_out_df["#variant_hit"]="NA"
         report_out_df["pval_trait"]="NA"
@@ -426,13 +430,13 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         #create chromosome list and group loci based on those
         chrom_lst=  sorted([*{*[s.split("_")[0].strip("chr") for s in unique_locus_list]}])
         for chrom in chrom_lst:
-            print("------------LD for groups in chromosome {}------------".format(chrom))
+            logger.debug("------------LD for groups in chromosome {}------------".format(chrom))
             groups=df[df[columns["chrom"]].astype(str) == chrom ].loc[:,"locus_id"].unique()
             plink_cmd="plink --bfile {} --output-chr M --chr {} --make-bed --out {}temp_chrom --memory {}".format( ld_panel_path, chrom , prefix, plink_mem)
             pr=subprocess.run(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT)
             if pr.returncode!=0:
-                print("PLINK FAILURE for chromosome {}. Error code {}".format(chrom,pr.returncode)  )
-                print(pr.stdout)
+                logger.warning("PLINK FAILURE for chromosome {}. Error code {}".format(chrom,pr.returncode)  )
+                logger.warning(pr.stdout)
                 continue
             for gr in groups:
                 ld=extract_ld_variants(df,summary_df,gr,ldstore_threads,ld_treshold,prefix,columns)
@@ -448,7 +452,7 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
             ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
             ld_out=ld_out.drop(columns=["RSID1","map_variant","RSID2_map"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
         else:
-            print("No variants in ld found, no LD output file produced.")
+            logger.warning("No variants in ld found, no LD output file produced.")
     return (report_out_df, ld_out)
 
 if __name__ == "__main__":

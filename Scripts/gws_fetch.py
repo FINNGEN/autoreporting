@@ -7,6 +7,7 @@ import pandas as pd, numpy as np
 import tabix
 from autoreporting_utils import *
 from linkage import PlinkLD, OnlineLD
+import logging
 
 def parse_region(region):
     chrom=region.split(":")[0]
@@ -165,17 +166,18 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chr
                 columns["beta"]:np.float64,
                 columns["af"]:np.float64}
     retval=pd.DataFrame()
-    for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
-        retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True ) 
     try:
-        retval=retval[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"], columns["beta"],columns["af"] ] ]
+        for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
+            retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True ) 
+            retval=retval[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"], columns["beta"],columns["af"] ] ]
     except KeyError:
+        logger=logging.getLogger(__name__)
         cols=list(df.columns)
         columns_not_in_cols=[a for a in columns.values() if a not in cols]
-        print("A KeyError happened while parsing the input file {}. It is likely that the columns given to the script do not match with actual input file columns.".format(fname))
-        print("Input file columns:{}".format(cols))
-        print("Columns given to script:{}".format(list(columns.values())))
-        print("Columns not in input file columns:{}".format(columns_not_in_cols))
+        logger.error("A KeyError happened while parsing the input file {}. It is likely that the columns given to the script do not match with actual input file columns.".format(fname))
+        logger.error("Input file columns:{}".format(cols))
+        logger.error("Columns given to script:{}".format(list(columns.values())))
+        logger.error("Columns not in input file columns:{}".format(columns_not_in_cols))
         raise
     return retval
 
@@ -224,7 +226,8 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
         temp_df=temp_df.loc[~ign_idx,:]
     
     if temp_df.empty:
-        print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(gws_fpath,sig_tresh_1))
+        logger=logging.getLogger(__name__)
+        logger.warning("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(gws_fpath,sig_tresh_1))
         return None
     
     #data input: get credible set variants

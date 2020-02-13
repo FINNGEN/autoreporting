@@ -5,15 +5,18 @@ import pandas as pd
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
 from linkage import PlinkLD, OnlineLD
+import logging
 
-def die():
-    trace_fname="error_trace.txt"
-    with open(trace_fname,"w") as f:
-        f.write(traceback.format_exc())
-    return trace_fname
+# def die():
+#     trace_fname="error_trace.txt"
+#     with open(trace_fname,"w") as f:
+#         f.write(traceback.format_exc())
+#     return trace_fname
 
 def main(args):
-    print("input file: {}".format(args.gws_fpath))
+    logger= logging.getLogger(__name__)
+    logger.info("input file: {}".format(args.gws_fpath))
+    #print()
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
     args.annotate_out = "{}{}".format(args.prefix,args.annotate_out)
     args.report_out = "{}{}".format(args.prefix,args.report_out)
@@ -28,11 +31,12 @@ def main(args):
     elif args.ld_api_choice == "online":
         ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
     else:
+        logger.critical("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     ###########################
     ###Filter and Group SNPs###
     ###########################
-    print("filter & group SNPs")
+    logger.info("filter & group SNPs")
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
     fetch_df = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
@@ -47,12 +51,12 @@ def main(args):
     ###########################
     #######Annotate SNPs#######
     ###########################
-    if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
-        print("Annotation files missing, skipping gnomad & finngen annotation...")
+    if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None) or (args.functional_path==None):
+        logger.info("Annotation files missing, skipping gnomad & finngen & functional annotation...")
         #args.compare_fname=args.annotate_fpath
         annotate_df = fetch_df
     else:
-        print("Annotate SNPs")
+        logger.info("Annotate SNPs")
         #annotate_df = annotate.annotate(fetch_df,args)
         annotate_df = annotate.annotate(df=fetch_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path, fg_ann_version = args.fg_ann_version,
             functional_path=args.functional_path, prefix=args.prefix, columns=columns)
@@ -60,7 +64,7 @@ def main(args):
     ###########################
     ######Compare results######
     ###########################
-    print("Compare results to previous findings")
+    logger.info("Compare results to previous findings")
     [report_df,ld_out_df] = compare.compare(annotate_df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
@@ -124,15 +128,21 @@ if __name__=="__main__":
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
+
+    #other
+    parser.add_argument("--loglevel",dest="loglevel",type=str,default="info",help="loglevel" )
     args=parser.parse_args()
+    loglevel=getattr(logging, args.loglevel.upper() )
+    logging.basicConfig(level=loglevel)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     try:
         main(args)
     except Exception as e:
-        print("Exception occurred. Check the above errors. The tool will now abort.")
-        fname=die()
-        print("Traceback printed in file {}".format(fname))
+        logger= logging.getLogger(__name__)
+        logger.exception("Exception occurred. The stack trace has been captured. The tool will now abort.")
+        #fname=die()
+        #print("Traceback printed in file {}".format(fname))
         sys.exit(1)
     else:
         sys.exit(0)

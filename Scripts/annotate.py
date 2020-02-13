@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import tabix
 from autoreporting_utils import *
+import logging
 #TODO: make a system for making sure we can calculate all necessary fields,
 #e.g by checking that the columns exist
 
@@ -203,7 +204,8 @@ if __name__=="__main__":
         args.prefix=args.prefix+"."
     args.annotate_out = "{}{}".format(args.prefix,args.annotate_out)
     if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
-        print("Annotation files missing, aborting...")
+        logger=logging.getLogger(__name__)
+        logger.error("Annotation files missing, aborting...")
     else:    
         input_df = pd.read_csv(args.annotate_fpath,sep="\t")
         df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,fg_ann_version=args.fg_ann_version,
