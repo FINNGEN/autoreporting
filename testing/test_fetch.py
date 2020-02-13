@@ -25,14 +25,14 @@ class TestGws(unittest.TestCase):
     def test_simple_filtering(self):
         #test simple filtering
         ##NOTE: We can test only filtering by using get_gws_variants instead of fetch_gws
-        input_="fetch_resources/filter_test.tsv.gz"
+        input_="testing/fetch_resources/filter_test.tsv.gz"
         args=Arg()
         args.gws_fpath=input_
         args.sig_treshold=0.10
         args.columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"}
         #output = gws_fetch.fetch_gws(args)
         output = gws_fetch.get_gws_variants(fname=args.gws_fpath, sign_treshold=args.sig_treshold, columns=args.columns)
-        validation=pd.read_csv("fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
+        validation=pd.read_csv("testing/fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
         validation=validation.loc[validation["pval"]<=args.sig_treshold,:]
         validation=validation.reset_index(drop=True)
         output=output.reset_index(drop=True)
@@ -42,7 +42,7 @@ class TestGws(unittest.TestCase):
     def test_simple_grouping(self):
         #test simple grouping function
         #set up data and parameters
-        input_="fetch_resources/test_grouping.tsv.gz"
+        input_="testing/fetch_resources/test_grouping.tsv.gz"
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
         data=pd.read_csv(input_,compression="gzip",sep="\t")
         data["#variant"]=autils.create_variant_column(data)
@@ -58,7 +58,7 @@ class TestGws(unittest.TestCase):
         #run function
         output=gws_fetch.simple_grouping(df_p1,df_p2,loc_width,overlap,columns)
         output=output.sort_values(["locus_id","#variant"])
-        val_path="fetch_resources/group_validate_width_1k.tsv"
+        val_path="testing/fetch_resources/group_validate_width_1k.tsv"
         validate=pd.read_csv(val_path,sep="\t")
         for col in output.columns:
             self.assertEqual(list(output[col]),list(validate[col]))
@@ -72,7 +72,7 @@ class TestGws(unittest.TestCase):
         (the API should return similar things regadless of the implementation,
         and those should be tested in their own tests)
         """
-        input_="fetch_resources/test_grouping.tsv.gz"
+        input_="testing/fetch_resources/test_grouping.tsv.gz"
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
         data=pd.read_csv(input_,compression="gzip",sep="\t")
         data["#variant"]=autils.create_variant_column(data)
@@ -87,7 +87,7 @@ class TestGws(unittest.TestCase):
         df_p2=data[data["pval"] <=sig_treshold_2].copy()
         ld_treshold=0.2
         prefix=""
-        r2_out=pd.read_csv("fetch_resources/ld_grouping_report.csv",sep="\t")
+        r2_out=pd.read_csv("testing/fetch_resources/ld_grouping_report.csv",sep="\t")
         #1
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
@@ -109,7 +109,7 @@ class TestGws(unittest.TestCase):
             sig_treshold_2, loc_width, ld_treshold,
             overlap,prefix,ld_api,columns)
         retval=retval.sort_values(by=["#variant"]).astype(object).reset_index(drop=True)
-        validate=pd.read_csv("fetch_resources/ld_grouping_validate.csv",sep="\t").astype(object).reset_index(drop=True)
+        validate=pd.read_csv("testing/fetch_resources/ld_grouping_validate.csv",sep="\t").astype(object).reset_index(drop=True)
         for col in retval.columns:
             self.assertTrue(retval[col].equals(validate[col]))
 
@@ -124,7 +124,7 @@ class TestGws(unittest.TestCase):
             retval=gws_fetch.get_gws_variants("",columns=columns)
         self.assertTrue(retval.empty)
         #case 2: valid data and hits
-        valid_read = [pd.read_csv("fetch_resources/test_grouping.tsv.gz",sep="\t",compression="gzip")]
+        valid_read = [pd.read_csv("testing/fetch_resources/test_grouping.tsv.gz",sep="\t",compression="gzip")]
         with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=valid_read):
             retval=gws_fetch.get_gws_variants("",sign_treshold=0.4,columns=columns)
         validate=valid_read[0]
@@ -141,7 +141,7 @@ class TestGws(unittest.TestCase):
             
     def test_cred_grouping(self):
         #test credible grouping. Test at least two test cases: with empty credible sets, as well as when using proper data.
-        input_ = "fetch_resources/test_grouping.tsv.gz"
+        input_ = "testing/fetch_resources/test_grouping.tsv.gz"
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         data=pd.read_csv(input_,compression="gzip",sep="\t")
         data["#variant"]=autils.create_variant_column(data)
@@ -170,14 +170,14 @@ class TestGws(unittest.TestCase):
         data.loc[1,"cs_prob"] = 0.999
         data.loc[9,"cs_id"] = "chrX_1500_A_C_1"
         data.loc[9,"cs_prob"] = 0.997
-        r2_out=pd.read_csv("fetch_resources/ld_report.csv",sep="\t")
+        r2_out=pd.read_csv("testing/fetch_resources/ld_report.csv",sep="\t")
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
                 return r2_out
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
             retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_treshold,loc_width,overlap,ld_api,columns)
         #validate
-        validate=pd.read_csv("fetch_resources/validate_cred.csv",sep="\t").fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
+        validate=pd.read_csv("testing/fetch_resources/validate_cred.csv",sep="\t").fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
         retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
         for col in validate.columns:
             self.assertAlmostEqual(validate[col].all(),retval[col].all())
@@ -205,5 +205,4 @@ class TestGws(unittest.TestCase):
         pass
         
 if __name__=="__main__":
-    os.chdir("./testing")
     unittest.main()

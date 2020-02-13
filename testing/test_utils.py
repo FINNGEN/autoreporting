@@ -70,5 +70,4 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(columns2, validate2)
 
 if __name__=="__main__":
-    os.chdir("./testing")
     unittest.main()

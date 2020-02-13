@@ -67,27 +67,27 @@ class TestCompare(unittest.TestCase):
         validate=pd.DataFrame(columns=end_result_cols)
         self.assertTrue(res.equals(validate) )
         # test two: populated dataframe, empty summary variant dataframe
-        df=pd.read_csv("compare_resources/top_df.csv",sep="\t")
+        df=pd.read_csv("testing/compare_resources/top_df.csv",sep="\t")
         df["cs_id"]=np.nan
         df["cs_prob"]=np.nan
         raport_df = top_merge(df,summary_df,columns)
         res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
-        validate=pd.read_csv("compare_resources/top_result_empty_summary.csv",sep="\t")
+        validate=pd.read_csv("testing/compare_resources/top_result_empty_summary.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 3: populated dataframe, populated summary variant df, no traits
-        summary_df=pd.read_csv("compare_resources/summary_df.csv",sep="\t")
+        summary_df=pd.read_csv("testing/compare_resources/summary_df.csv",sep="\t")
         raport_df = top_merge(df,summary_df,columns)
         res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
-        validate=pd.read_csv("compare_resources/top_result_traits_1.csv",sep="\t")
+        validate=pd.read_csv("testing/compare_resources/top_result_traits_1.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 4: populated dataframes, common traits
         traits=["TRAIT_1","TRAIT_4"]
         res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
-        validate=pd.read_csv("compare_resources/top_result_traits_2.csv",sep="\t")
+        validate=pd.read_csv("testing/compare_resources/top_result_traits_2.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
@@ -100,32 +100,32 @@ class TestCompare(unittest.TestCase):
         File specified in summary_fpath does not exist (should throw an understandable error message, preferably with information about which file was not found, and in which file was that file declared)
         """
         #normal case: summary file with 2 entries, entries have some variants 
-        summ_fpath="compare_resources/summary_fpath_1"
-        endpoint_fpath="compare_resources/endpoint_fpath_1"
+        summ_fpath="testing/compare_resources/summary_fpath_1"
+        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        validate=pd.read_csv("compare_resources/loaded_summary_files_1.csv",sep="\t")
+        validate=pd.read_csv("testing/compare_resources/loaded_summary_files_1.csv",sep="\t")
         for col in df.columns:
             self.assertEqual(list(df[col]),list(validate[col]))
         #empty files
-        summ_fpath="compare_resources/summary_fpath_2"
-        endpoint_fpath="compare_resources/endpoint_fpath_2"
+        summ_fpath="testing/compare_resources/summary_fpath_2"
+        endpoint_fpath="testing/compare_resources/endpoint_fpath_2"
         df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
         validate=pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval", "#variant", "trait", "trait_name"])
         self.assertTrue(df.equals(validate))
         #either file does not exist
-        summ_fpath="compare_resources/summary_fpath_2"
+        summ_fpath="testing/compare_resources/summary_fpath_2"
         endpoint_fpath="DOES_NOT_EXIST"
         with self.assertRaises(FileNotFoundError) as notfound:
             df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
         #file does not exist
-        summ_fpath="compare_resources/summary_fpath_no_file"
-        endpoint_fpath="compare_resources/endpoint_fpath_1"
+        summ_fpath="testing/compare_resources/summary_fpath_no_file"
+        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
         with self.assertRaises(FileNotFoundError) as notfound:
             df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
         #summary and endpoint amounts do not agree
-        summ_fpath="compare_resources/summary_fpath_2"
-        endpoint_fpath="compare_resources/endpoint_fpath_1"
+        summ_fpath="testing/compare_resources/summary_fpath_2"
+        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
         with self.assertRaises(RuntimeError) as notfound:
             df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
 
@@ -171,5 +171,4 @@ class TestCompare(unittest.TestCase):
             self.assertTrue(value[col].equals(validate_df[col]))
 
 if __name__=="__main__":
-    os.chdir("./testing")
     unittest.main()
