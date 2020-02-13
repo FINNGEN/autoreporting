@@ -23,7 +23,7 @@ class TestAnnotate(unittest.TestCase):
 
     def test_calculate_enrichment(self):
         #load "gnomad" df
-        g_df=pd.read_csv("annotate_resources/enrichment_df",sep="\t")
+        g_df=pd.read_csv("testing/annotate_resources/enrichment_df",sep="\t")
         g_df=g_df.apply(pd.to_numeric,errors="ignore")
         fi_af_col="AF_fin"
         count_nfe_lst=["AC_1","AC_2","AC_3"]
@@ -45,18 +45,18 @@ class TestAnnotate(unittest.TestCase):
         #this might be best to do with stringio, loading the relevant lines and passing that as the path argument 
         #for annotate
         args=Arg()
-        args.gnomad_genome_path="annotate_resources/gnomad_genomes.tsv.gz"
-        args.gnomad_exome_path="annotate_resources/gnomad_exomes.tsv.gz"
-        args.finngen_path="annotate_resources/finngen_anno.tsv.gz"
-        args.annotate_out="annotate_resources/test_out.csv"
+        args.gnomad_genome_path="testing/annotate_resources/gnomad_genomes.tsv.gz"
+        args.gnomad_exome_path="testing/annotate_resources/gnomad_exomes.tsv.gz"
+        args.finngen_path="testing/annotate_resources/finngen_anno.tsv.gz"
+        args.annotate_out="testing/annotate_resources/test_out.csv"
         args.functional_path=""
         args.fg_ann_version="r3"
         args.prefix=""
-        correct_value_path="annotate_resources/ann_validate"
+        correct_value_path="testing/annotate_resources/ann_validate"
         args.batch_freq=False
         columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
         try:
-            with open("annotate_resources/annotate_df.tsv","r") as f:
+            with open("testing/annotate_resources/annotate_df.tsv","r") as f:
                 #test case lines
                 lines=f.readlines()
                 test_cases=[[0,1,2,3,4],[0,3,4,5,6],[0,1,2,5,6],[0,1,2,3,4,5,6]]
@@ -78,5 +78,4 @@ class TestAnnotate(unittest.TestCase):
         
 
 if __name__=="__main__":
-    os.chdir("./testing")
     unittest.main()
