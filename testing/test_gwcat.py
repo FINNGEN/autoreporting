@@ -207,5 +207,4 @@ class TestGwcat(unittest.TestCase):
 
 
 if __name__=="__main__":
-    os.chdir("./testing")
     unittest.main()
