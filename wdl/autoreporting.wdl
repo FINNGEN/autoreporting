@@ -1,10 +1,13 @@
-import "report_utils.wdl" as utils
-
 task report {
     #variables
     String docker
-    File summ_stat
+    Array[String] input_file_list
+    Int arr_len = length(input_file_list)
+    Boolean credset_filtering = if arr_len > 1 then true else false
+    File summ_stat = input_file_list[0]
     File summ_stat_tb=summ_stat+".tbi"
+    File credible_set = if credset_filtering then input_file_list[1] else summ_stat #'if a else summstat' so that it evaluates into a file
+
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
     File gnomad_genome
@@ -17,8 +20,7 @@ task report {
     File finngen_annotation_tb=finngen_annotation+".tbi"
     File functional_annotation
     File functional_annotation_tb=functional_annotation+".tbi"
-    File? credible_set
-    String real_credset = if length(select_all([credible_set]))==0 then "False" else "True"
+    
     File? summary_stat_listing
     File? endpoint_listing
     #trick wdl to write the external summary stats paths as a file
@@ -36,26 +38,23 @@ task report {
     Int cpus
     Int gwascatalog_threads
     Int docker_memory
-    Map[String,String?] efo_map
+    File efo_map
 
     Boolean group
     Boolean overlap
     Boolean include_batch_freq
     Boolean check_for_ld
 
-    String grouping_method
+    String primary_grouping_method
+    String secondary_grouping_method
     String ignore_region
-    String ignore_cmd = if ignore_region != "" then "--ignore-region" else ""
     String map_pheno=sub(basename(basename(summ_stat),".gz" ),"finngen_R4_","")#might work
-    String efo_codes = select_first([efo_map[map_pheno],""])
+
     String compare_style
     String db_choice
-    String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
-    String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
-    String dollar = "$"  
+    String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else "" 
     String annotation_version
     Float strict_group_r2
-
 
     command <<<
         python3 <<CODE
@@ -88,7 +87,7 @@ task report {
         overlap="--overlap" if "${overlap}"=="true" else ""
         include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
         check_for_ld="--check-for-ld" if "${check_for_ld}"=="true" else ""
-        grouping_method = "${grouping_method}"
+        grouping_method = "${primary_grouping_method}" if ${arr_len} >1 else "${secondary_grouping_method}" 
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         compare_style = "${compare_style}"
         db_choice = "${db_choice}"
@@ -100,13 +99,16 @@ task report {
         summstat="${summ_stat}"
         #credible set
         credset=""
-        if ${real_credset} == True:
-            credset="--credible-set-file ${select_first([credible_set,""])}"
+        if "${credset_filtering}" == "true":
+            credset="--credible-set-file ${credible_set}"
+        
         #efo codes
-        efo_cmd = ""
-        if "${efo_codes}".replace("\"","") != "":
-            efo_cmd= "--efo-codes ${efo_codes}"
-
+        with open("${efo_map}","r") as f:
+            efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
+        efo_cmd=""
+        if "${map_pheno}" in efos.keys():
+            if efos["${map_pheno}"] != "NA" and efos["${map_pheno}"] != "":
+                efo_cmd="--efo-codes {}".format()
 
         phenotype_name=summstat.split("/")[-1].split(".")[0].replace("finngen_R4_","")
         call_command=("main.py {} "
@@ -131,14 +133,14 @@ task report {
                     "--ldstore-threads {} "
                     "--gwascatalog-threads {} "
                     "--strict-group-r2 {} "
-                    "{} "
-                    "{} "
+                    "{} " #summary_cmd
+                    "{} " #endpoint listing
                     "--gwascatalog-pval {} "
                     "--gwascatalog-width-kb {} "
                     "--db {} "
-                    "{} "
-                    "{} "
-                    "{} "
+                    "{} " #local gwascatalog
+                    "{} " #efo
+                    "{} " #ignore
                     "--fetch-out {}.fetch.out "
                     "--annotate-out {}.annotate.out "
                     "--report-out {}.report.out "
@@ -195,15 +197,15 @@ task report {
         docker: "${docker}"
         cpu: "${cpus}"
         memory: "${docker_memory} GB"
-        disks: "local-disk 150 HDD"
+        disks: "local-disk 100 HDD"
         zones: "europe-west1-b"
         preemptible: 2 
     }
 }
 
 workflow autoreporting{
-    File phenotypelist
-    File credsetlist
+    File input_array_file
+    Array[Array[String]] input_array = read_tsv(input_array_file)
     String docker
     Int memory
     Int cpus
@@ -219,8 +221,6 @@ workflow autoreporting{
     String db_choice
     File efo_code_file
     String ignore_region
-    String primary_grouping_method
-    String secondary_grouping_method
     Boolean include_batch_freq
     Float ld_treshold
     Float sign_treshold
@@ -235,51 +235,43 @@ workflow autoreporting{
     Boolean overlap
     Boolean check_for_ld
     Float strict_group_r2
+    String primary_grouping_method
+    String secondary_grouping_method
 
-    call utils.fill_efo_map as fill_efo_map{
-        input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=phenotypelist,efomap=efo_code_file
-    }
-
-    call utils.credset_filter as credset_filter {
-        input:additional_prefix="finngen_R4_",phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
-    }
-    Map[String,String] efo_code_map  = read_map(fill_efo_map.complete_efo_map)
-    Array[File] phenotypes = read_lines(credset_filter.filtered_pheno_list)
-    Array[File] crediblesets = read_lines(credset_filter.filtered_cred_list)
-    Array[File] nocred_phenotypes = read_lines(credset_filter.other_pheno_list)
-    scatter (i in range(length( phenotypes)) ){
+    scatter (arr in  input_array ){
         call report {
-            input: summ_stat=phenotypes[i],credible_set=crediblesets[i],
-            grouping_method=primary_grouping_method,docker=docker,
-            docker_memory=memory, cpus=cpus, gnomad_exome=gnomad_exome,
-            gnomad_genome=gnomad_genome, ld_panel=ld_panel, strict_group_r2=strict_group_r2,
-            finngen_annotation=finngen_annotation, functional_annotation=functional_annotation,
-            local_gwcatalog=local_gwcatalog, annotation_version=annotation_version,
-            compare_style=compare_style, db_choice=db_choice, efo_map=efo_code_map,
-            include_batch_freq=include_batch_freq, ignore_region=ignore_region,
-            ld_treshold=ld_treshold, sign_treshold=sign_treshold, 
-            alt_sign_treshold=alt_sign_treshold, grouping_locus_width=grouping_locus_width, 
-            ld_r2=ld_r2, plink_memory=plink_memory, gwascatalog_pval=gwascatalog_pval, 
-            gwascatalog_width_kb=gwascatalog_width_kb, gwascatalog_threads=gwascatalog_threads, 
-            group=group, overlap=overlap, check_for_ld=check_for_ld
+            input: input_file_list = arr,
+            docker=docker, 
+            primary_grouping_method=primary_grouping_method,
+            secondary_grouping_method=secondary_grouping_method,
+            docker_memory=memory, 
+            cpus=cpus, 
+            gnomad_exome=gnomad_exome,
+            gnomad_genome=gnomad_genome, 
+            ld_panel=ld_panel, 
+            strict_group_r2=strict_group_r2,
+            finngen_annotation=finngen_annotation, 
+            functional_annotation=functional_annotation,
+            local_gwcatalog=local_gwcatalog, 
+            annotation_version=annotation_version,
+            compare_style=compare_style, 
+            db_choice=db_choice, 
+            efo_map=efo_code_file,
+            include_batch_freq=include_batch_freq, 
+            ignore_region=ignore_region,
+            ld_treshold=ld_treshold, 
+            sign_treshold=sign_treshold, 
+            alt_sign_treshold=alt_sign_treshold, 
+            grouping_locus_width=grouping_locus_width, 
+            ld_r2=ld_r2, 
+            plink_memory=plink_memory, 
+            gwascatalog_pval=gwascatalog_pval, 
+            gwascatalog_width_kb=gwascatalog_width_kb, 
+            gwascatalog_threads=gwascatalog_threads, 
+            group=group, 
+            overlap=overlap, 
+            check_for_ld=check_for_ld
         }
     }
-    scatter (i in range(length( nocred_phenotypes)) ){
-        call report as nocred_report{
-            input: summ_stat=nocred_phenotypes[i], docker=docker, docker_memory=memory, cpus=cpus, 
-            gnomad_exome=gnomad_exome,gnomad_genome=gnomad_genome, ld_panel=ld_panel, strict_group_r2=strict_group_r2, 
-            finngen_annotation=finngen_annotation, functional_annotation=functional_annotation, 
-            local_gwcatalog=local_gwcatalog, annotation_version=annotation_version, 
-            compare_style=compare_style, db_choice=db_choice, efo_map=efo_code_map, 
-            include_batch_freq=include_batch_freq, ignore_region=ignore_region, 
-            ld_treshold=ld_treshold, sign_treshold=sign_treshold, alt_sign_treshold=alt_sign_treshold, 
-            grouping_locus_width=grouping_locus_width, ld_r2=ld_r2, plink_memory=plink_memory, 
-            gwascatalog_pval=gwascatalog_pval, gwascatalog_width_kb=gwascatalog_width_kb, 
-            gwascatalog_threads=gwascatalog_threads, group=group, overlap=overlap, 
-            check_for_ld=check_for_ld, grouping_method=secondary_grouping_method
-        }
-    }
-
-    
 
 }
