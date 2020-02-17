@@ -166,7 +166,7 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={},compression
                 columns["af"]:np.float64}
     retval=pd.DataFrame()
     for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
-        retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True )
+        retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True,sort=False )
     retval=retval[ list(columns.values()) ]
     return retval
 
