@@ -198,7 +198,7 @@ if __name__=="__main__":
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
     parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     args=parser.parse_args()
-    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
+    columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.annotate_out = "{}{}".format(args.prefix,args.annotate_out)

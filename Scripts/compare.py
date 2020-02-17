@@ -485,7 +485,7 @@ if __name__ == "__main__":
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
-    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
+    columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.report_out = "{}{}".format(args.prefix,args.report_out)
