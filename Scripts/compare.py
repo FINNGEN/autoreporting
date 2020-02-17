@@ -482,8 +482,15 @@ if __name__ == "__main__":
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
+    parser.add_argument("--loglevel",dest="loglevel",type=str,default="warning",help="Level at which events are logged. Use values info, debug, warning, error, critical" )
+
     args=parser.parse_args()
-    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
+    loglevel=getattr(logging, args.loglevel.upper() )
+    logging.basicConfig(level=loglevel)
+    log_arguments(args)
+
+    columns=columns_from_arguments(args.column_labels)
+
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.report_out = "{}{}".format(args.prefix,args.report_out)

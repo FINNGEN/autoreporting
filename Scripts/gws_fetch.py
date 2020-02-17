@@ -168,7 +168,7 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={"chrom":"#chr
     retval=pd.DataFrame()
     try:
         for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
-            retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True ) 
+            retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True,sort=False ) 
             retval=retval[ [ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"], columns["beta"],columns["af"] ] ]
     except KeyError:
         logger=logging.getLogger(__name__)
@@ -291,8 +291,14 @@ if __name__=="__main__":
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
+    parser.add_argument("--loglevel",dest="loglevel",type=str,default="warning",help="Level at which events are logged. Use values info, debug, warning, error, critical" )
+
     args=parser.parse_args()
-    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
+    loglevel=getattr(logging, args.loglevel.upper() )
+    logging.basicConfig(level=loglevel)
+    log_arguments(args)
+    
+    columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)

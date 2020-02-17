@@ -2,6 +2,7 @@ import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np
 import tabix
+import logging
 
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
@@ -106,3 +107,10 @@ def columns_from_arguments(column_labels):
     Out: Dictionary with the members 'chrom','pos','ref','alt','pval', 'beta', 'af'
     """
     return {"chrom":column_labels[0],"pos":column_labels[1],"ref":column_labels[2],"alt":column_labels[3],"pval":column_labels[4],"beta":column_labels[5],"af":column_labels[6]}
+
+def log_arguments(args):
+    logger= logging.getLogger(__name__)
+    arguments=vars(args)
+    logger.info("Used arguments:")
+    for key, value in arguments.items():
+        logger.info("       {}: {}".format(key,value))

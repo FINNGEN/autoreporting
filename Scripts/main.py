@@ -7,15 +7,10 @@ import gws_fetch, compare, annotate,autoreporting_utils
 from linkage import PlinkLD, OnlineLD
 import logging
 
-# def die():
-#     trace_fname="error_trace.txt"
-#     with open(trace_fname,"w") as f:
-#         f.write(traceback.format_exc())
-#     return trace_fname
 
 def main(args):
     logger= logging.getLogger(__name__)
-    logger.info("input file: {}".format(args.gws_fpath))
+    autoreporting_utils.log_arguments(args)
     #print()
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
     args.annotate_out = "{}{}".format(args.prefix,args.annotate_out)
@@ -130,7 +125,7 @@ if __name__=="__main__":
     parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
 
     #other
-    parser.add_argument("--loglevel",dest="loglevel",type=str,default="info",help="loglevel" )
+    parser.add_argument("--loglevel",dest="loglevel",type=str,default="warning",help="Level at which events are logged. Use values info, debug, warning, error, critical" )
     args=parser.parse_args()
     loglevel=getattr(logging, args.loglevel.upper() )
     logging.basicConfig(level=loglevel)
