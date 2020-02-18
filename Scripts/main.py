@@ -107,7 +107,7 @@ if __name__=="__main__":
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")
     parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.rsv",help="LD check report output path")
-    parser.add_argument("--gwascatalog-pval",default=5e-8,help="P-value cutoff for GWASCatalog searches")
+    parser.add_argument("--gwascatalog-pval",default=5e-8,type=float,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
