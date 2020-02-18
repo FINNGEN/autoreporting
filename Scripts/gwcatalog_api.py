@@ -123,6 +123,10 @@ class SummaryApi(ExtDB):
     Gwas Catalog summary statistic API
     """
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
+        pval=float(pval)
+        start=int(start)
+        end=int(end)
+        size=int(size)
         p_lower=1e-323
         base_url="https://www.ebi.ac.uk/gwas/summary-statistics/api/chromosomes/"
         association="/associations"
@@ -258,6 +262,10 @@ class LocalDB(ExtDB):
         self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE","PVALUE_MLOG"])
     
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
+        pval=float(pval)
+        start=int(start)
+        end=int(end)
+        size=int(size)
         #filter based on chromosome, start, end, pval
         df=self.df.loc[self.df["CHR_ID"]==str(chromosome),:].copy()
         df=df.astype({"CHR_POS":int,"P-VALUE":float})
@@ -295,6 +303,10 @@ class GwasApi(ExtDB):
     """
 
     def get_associations(self,chromosome,start,end,pval=5e-8,size=1000):
+        pval=float(pval)
+        start=int(start)
+        end=int(end)
+        size=int(size)
         url="https://www.ebi.ac.uk/gwas/api/search/downloads?q=chromosomeName: {} AND chromosomePosition:[ {} TO {}"\
             "]&pvalfilter=&orfilter=&betafilter=&datefilter=&genomicfilter=&genotypingfilter[]=&traitfilter[]=&dateaddedfilter=&facet=association&efo=true".format(
             chromosome,start,end)
