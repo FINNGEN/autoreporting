@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from autoreporting_utils import *
 import gwcatalog_api
+import custom_catalog
 import os
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -198,6 +199,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     return top_level_df
          
+#TODO: deprecate this in favour of custom catalog
 def load_summary_files(summary_fpath,endpoint_fpath,columns):
     necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
     summary_df_1=pd.DataFrame(columns=necessary_columns)
