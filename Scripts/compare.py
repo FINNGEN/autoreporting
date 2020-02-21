@@ -9,6 +9,7 @@ import gwcatalog_api
 import custom_catalog
 import os
 from multiprocessing.dummy import Pool as ThreadPool
+from typing import Dict
 
 def map_alleles(a1,a2):
     """
@@ -262,6 +263,18 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_t
     gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
     return gwas_df
 
+def load_custom_dataresource(df: pd.DataFrame, gwascatalog_pad: int, gwascatalog_pval: float, resourceapi: custom_catalog.CustomCatalog, columns: Dict[str, str]):
+    #make regions based on pos_rmin, pos_rmax
+    range_df = df.loc[:,[columns["chrom"],"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
+    regions = prune_regions(range_df,columns)
+    outputs=[]
+    for _, region in regions.iterrows():
+        outputs.append(resourceapi.get_associations(region[columns["chrom"]], region["pos_rmin"],region["pos_rmax"],gwascatalog_pval))
+    customresource_df = pd.DataFrame(outputs)
+    if customresource_df.empty:
+        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","study_doi"])
+    return customresource_df
+
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
     if df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]<=1:
         return
@@ -456,6 +469,7 @@ if __name__ == "__main__":
     parser.add_argument("--compare-style",type=str,default="gwascatalog",choices=['file','gwascatalog','both'],help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
+    parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
