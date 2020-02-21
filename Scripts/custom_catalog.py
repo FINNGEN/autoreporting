@@ -7,15 +7,16 @@ from gwcatalog_api import ExtDB
 class CustomCatalog(ExtDB):
     def __init__(self, fname):
         self.fname=fname
-        self.data = pd.read_csv(fname,sep="\t",na_rep="NA")
+        self.data = pd.read_csv(fname,sep="\t",na_values="NA")
         #load data into dataframe
-        #fix the following column types: pval, beta as float, pos as int, chr as str
+        #fix the following column types: pval, beta as float, pos as int, chrom as str
         self.data["pval"] = pd.to_numeric(self.data["pval"],errors="coerce")
         self.data["beta"] = pd.to_numeric(self.data["beta"],errors="coerce")
         self.data["pos"] = pd.to_numeric(self.data["pos"],errors="coerce") 
+        self.data = self.data.astype({"#chrom":"str"})
         self.data=self.data.dropna(axis="index",subset=["#chrom","pos","ref","alt","pval"])
 
-    def get_associations(self,chromosome: str,start: int,end: int,pval: float,size: int)-> List[Dict[str,Any]]:
+    def get_associations(self,chromosome: str,start: int,end: int,pval: float,size: int=0)-> List[Dict[str,Any]]:
         #filter by chromosome, pos, pval
         tmpdata=self.data.loc[self.data["#chrom"] == chromosome,:]
         tmpdata=tmpdata.loc[(tmpdata["pos"]>= start) &(tmpdata["pos"]<= end),: ]
