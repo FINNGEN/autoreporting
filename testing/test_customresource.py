@@ -9,7 +9,7 @@ from Scripts import custom_catalog
 from io import StringIO
 
 def create_data() -> pd.DataFrame:
-    cols = ["#chrom","pos","ref","alt","pval","beta","se","trait","study_doi"]
+    cols = ["chrom","pos","ref","alt","pval","beta","se","trait","study_doi"]
     chroms = ["1"]*100
     pos = list(range(1,101))
     ref = ["A","C","G","T"]*25
@@ -46,7 +46,7 @@ class TestCustomCat(unittest.TestCase):
         range_end=20
         pval=1.0
         chromosome="1"
-        validation_data = data.loc[data["#chrom"]== chromosome,:].copy()
+        validation_data = data.loc[data["chrom"]== chromosome,:].copy()
         validation_data=validation_data.loc[(validation_data["pos"] >=range_start) & (validation_data["pos"] <=range_end) ,:]
         validation_data=validation_data.loc[validation_data["pval"]<=pval,:]
         validation_data = validation_data.replace("NA",np.nan).reset_index(drop=True)

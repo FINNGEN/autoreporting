@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 
-import argparse,shlex,subprocess, glob
+import argparse,shlex,subprocess, glob, re
 from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
@@ -263,16 +263,32 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_t
     gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
     return gwas_df
 
-def load_custom_dataresource(df: pd.DataFrame, gwascatalog_pad: int, gwascatalog_pval: float, resourceapi: custom_catalog.CustomCatalog, columns: Dict[str, str]):
+def load_custom_dataresource(df: pd.DataFrame, gwascatalog_pad: int, gwascatalog_pval: float, resourceapi: custom_catalog.CustomCatalog, columns: Dict[str, str]) -> pd.DataFrame :
+    """Load variants from custom dataresource
+    Load variants corresponding to the filtered variants from a custom dataresource, i.e. a CustomCatalog.
+
+    Args:
+        df (pd.DataFrame): Input dataframe
+        gwascatalog_pad (int): Range around group to search for variants for
+        gwascatalog_pval (float): P-value threshold
+        resourceapi (custom_catalog.CustomCatalog): The catalog to get associations from
+        columns (Dict[str, str]): Column names for df
+    Returns:
+        pd.DataFrame: A dataframe containing the variants that are in roughly the same region as filtered variants. 
+    """
     #make regions based on pos_rmin, pos_rmax
     range_df = df.loc[:,[columns["chrom"],"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
     regions = prune_regions(range_df,columns)
     outputs=[]
     for _, region in regions.iterrows():
-        outputs.append(resourceapi.get_associations(region[columns["chrom"]], region["pos_rmin"],region["pos_rmax"],gwascatalog_pval))
+        outputs.append(resourceapi.get_associations(region[columns["chrom"]], region["min"],region["max"],gwascatalog_pval))
+    outputs=[r for r in outputs if r != None]
+    outputs=[i for sublist in outputs for i in sublist]
     customresource_df = pd.DataFrame(outputs)
     if customresource_df.empty:
-        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","study_doi"])
+        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","trait_name","study_doi"])
+    customresource_df = filter_invalid_alleles(customresource_df,columns)
+    customresource_df["trait_name"] = customresource_df["trait"]
     return customresource_df
 
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
@@ -348,10 +364,24 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
     Popen(shlex.split(rmcmd)+corr_files,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
     return ld
 
+def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataFrame :
+    """Filter alleles that do not have ACGT in them out
+    Args:
+        df (pd.DataFrame): Input dataframe
+        columns (Dict[str,str]): column names
+    Returns:
+        pd.DataFrame: dataframe with invalid variants removed 
+    """
+    mset='^[acgtACGT]+$'
+    matchset1=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
+    matchset2=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
+    retval = df[matchset1 & matchset2].copy()
+    return retval
+
 def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
             prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
             ldstore_threads, ld_treshold, cache_gwas, columns, 
-            gwapi):
+            gwapi, customdataresource_path):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
     In: df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
@@ -373,7 +403,12 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
     summary_df_2=pd.DataFrame()
     #building summaries, external files and/or gwascatalog
     if compare_style in ["file","both"]:
-        summary_df_1=load_summary_files(summary_fpath,endpoints,columns)
+        #create custom catalog
+        customdataresource=custom_catalog.CustomCatalog(customdataresource_path)
+        summary_df_1=load_custom_dataresource(df.copy(), gwascatalog_pad, gwascatalog_pval, customdataresource,columns)
+        rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
+        summary_df_1=summary_df_1.rename(columns=rename_dict)
+        summary_df_1.loc[:,"#variant"]=create_variant_column(summary_df_1,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     if compare_style in ["gwascatalog","both"]:
         gwas_df=None
         if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
@@ -511,7 +546,7 @@ if __name__ == "__main__":
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    gwapi=gwapi)
+                                    gwapi=gwapi, customdataresource_path=args.custom_dataresource)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df

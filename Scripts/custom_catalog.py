@@ -13,12 +13,12 @@ class CustomCatalog(ExtDB):
         self.data["pval"] = pd.to_numeric(self.data["pval"],errors="coerce")
         self.data["beta"] = pd.to_numeric(self.data["beta"],errors="coerce")
         self.data["pos"] = pd.to_numeric(self.data["pos"],errors="coerce") 
-        self.data = self.data.astype({"#chrom":"str"})
-        self.data=self.data.dropna(axis="index",subset=["#chrom","pos","ref","alt","pval"])
+        self.data = self.data.astype({"chrom":"str"})
+        self.data=self.data.dropna(axis="index",subset=["chrom","pos","ref","alt","pval"])
 
     def get_associations(self,chromosome: str,start: int,end: int,pval: float,size: int=0)-> List[Dict[str,Any]]:
         #filter by chromosome, pos, pval
-        tmpdata=self.data.loc[self.data["#chrom"] == chromosome,:]
+        tmpdata=self.data.loc[self.data["chrom"] == chromosome,:]
         tmpdata=tmpdata.loc[(tmpdata["pos"]>= start) &(tmpdata["pos"]<= end),: ]
         tmpdata=tmpdata.loc[tmpdata["pval"]<=pval,:]
         return tmpdata.to_dict("records")
