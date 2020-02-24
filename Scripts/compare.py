@@ -336,12 +336,12 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
 def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
             prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
             ldstore_threads, ld_treshold, cache_gwas, columns, 
-            localdb_path, database_choice):
+            gwapi):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
     In: df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
         prefix, report_out, ld_report_out, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
-        ldstore_threads, ld_treshold, cahcle_gwas, column labels, localdb_path, database_choice
+        ldstore_threads, ld_treshold, cache_gwas, columns, gwapi
     Out: A tuple (report_df, ld_df)
         report_df: the dataframe containing all of the variants and their previous associations, as well as annotations
         ld_df (optional): a dataframe containing the LD paired associations of variants
@@ -361,25 +361,15 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         summary_df_1=load_summary_files(summary_fpath,endpoints,columns)
     if compare_style in ["gwascatalog","both"]:
         gwas_df=None
-        gwapi=None
         if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
             print("reading gwas results from gwas_out_mapping.tsv...")
             gwas_df=pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
-            gwapi=gwcatalog_api.GwasApi()
         else:
             rm_gwas_out="rm {}gwas_out_mapping.tsv".format(prefix)
             subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            threads=gwascatalog_threads
-            if database_choice=="local":
-                gwapi=gwcatalog_api.LocalDB(localdb_path)
-                threads=1
-            elif database_choice=="summary_stats":
-                gwapi=gwcatalog_api.SummaryApi()
-            else:
-                gwapi=gwcatalog_api.GwasApi()
             gwas_load_df=df.copy()
             gwas_load_df=df_replace_value(gwas_load_df,columns["chrom"],"23","X")
-            gwas_df=load_api_summaries(gwas_load_df,gwascatalog_pad,gwascatalog_pval,gwapi,threads,columns)
+            gwas_df=load_api_summaries(gwas_load_df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
             gwas_df=df_replace_value(gwas_df,"chrom","X","23")
             if cache_gwas:
                 gwas_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)
@@ -393,12 +383,11 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
             gwas_df=gwas_df.loc[~gwas_df.loc[:,"code"].isin(filter_out_codes)]
             gwas_df.loc[:,"#variant"]=create_variant_column(gwas_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
             summary_df_2=gwas_df
-            if database_choice != "local":
-                unique_efos=list(summary_df_2["trait"].unique())
-                trait_name_map={}
-                for key in unique_efos:
-                    trait_name_map[key]=gwapi.get_trait(key)
-                summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
+            unique_efos=list(summary_df_2["trait"].unique())
+            trait_name_map={}
+            for key in unique_efos:
+                trait_name_map[key]=gwapi.get_trait(key)
+            summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
             summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
     if compare_style not in ["file","gwascatalog","both"]:
         raise NotImplementedError("comparison method '{}' not yet implemented".format(compare_style))
@@ -462,7 +451,7 @@ if __name__ == "__main__":
     parser.add_argument("compare_fname",type=str,help="GWS result file")
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
-    parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
+    parser.add_argument("--compare-style",type=str,default="gwascatalog",choices=['file','gwascatalog','both'],help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
@@ -483,7 +472,7 @@ if __name__ == "__main__":
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
-    parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
+    parser.add_argument("--db",dest="database_choice",type=str,choices=['local','gwas','summary_stats'],default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
     columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
@@ -491,12 +480,22 @@ if __name__ == "__main__":
     args.report_out = "{}{}".format(args.prefix,args.report_out)
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
+
+    gwapi=None
+    if args.database_choice=="local":
+        gwapi=gwcatalog_api.LocalDB(args.localdb_path)
+        args.gwascatalog_threads=1
+    elif args.database_choice=="summary_stats":
+        gwapi=gwcatalog_api.SummaryApi()
+    else:
+        gwapi=gwcatalog_api.GwasApi()
+
     df=pd.read_csv(args.compare_fname,sep="\t")
     [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    localdb_path=args.localdb_path, database_choice=args.database_choice)
+                                    gwapi=gwapi)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
