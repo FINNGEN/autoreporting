@@ -4,6 +4,7 @@ import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
+import gwcatalog_api
 from linkage import PlinkLD, OnlineLD
 
 def main(args):
@@ -16,6 +17,16 @@ def main(args):
     args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
     args.strict_group_r2 = max(args.strict_group_r2,args.ld_r2)
     columns=autoreporting_utils.columns_from_arguments(args.column_labels)
+
+    gwapi=None
+    if args.database_choice=="local":
+        gwapi=gwcatalog_api.LocalDB(args.localdb_path)
+        args.gwascatalog_threads=1
+    elif database_choice=="summary_stats":
+        gwapi=gwcatalog_api.SummaryApi()
+    else:
+        gwapi=gwcatalog_api.GwasApi()
+
     ld_api=None
     if args.ld_api_choice == "plink":
         ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
@@ -60,7 +71,7 @@ def main(args):
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    localdb_path=args.localdb_path, database_choice=args.database_choice)
+                                    gwapi=gwapi)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report
@@ -101,7 +112,7 @@ if __name__=="__main__":
     parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     
     #compare results
-    parser.add_argument("--compare-style",type=str,default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
+    parser.add_argument("--compare-style",type=str,choices=['file','gwascatalog','both'],default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
     parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
     parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
@@ -118,7 +129,7 @@ if __name__=="__main__":
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
-    parser.add_argument("--db",dest="database_choice",type=str,default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
+    parser.add_argument("--db",dest="database_choice",type=str,choices=['local','gwas','summary_stats'],default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."
