@@ -4,7 +4,7 @@ import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
-import gwcatalog_api
+import gwcatalog_api, custom_catalog
 from linkage import PlinkLD, OnlineLD
 
 def main(args):
@@ -34,6 +34,10 @@ def main(args):
         ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
+
+    customdataresource=None
+    if args.custom_dataresource != "":
+        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
     ###########################
     ###Filter and Group SNPs###
     ###########################

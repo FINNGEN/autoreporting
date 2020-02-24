@@ -372,8 +372,6 @@ def compare(df, compare_style, ld_check, plink_mem, ld_panel_path,
     summary_df_2=pd.DataFrame()
     #building summaries, external files and/or gwascatalog
     if compare_style in ["file","both"]:
-        #create custom catalog
-        customdataresource=custom_catalog.CustomCatalog(customdataresource_path)
         summary_df_1=load_custom_dataresource(df.copy(), gwascatalog_pad, gwascatalog_pval, customdataresource,columns)
         rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
         summary_df_1=summary_df_1.rename(columns=rename_dict)
@@ -509,6 +507,9 @@ if __name__ == "__main__":
         gwapi=gwcatalog_api.GwasApi()
 
     df=pd.read_csv(args.compare_fname,sep="\t")
+    customdataresource = None
+    if args.custom_dataresource != "":
+        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
     [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
