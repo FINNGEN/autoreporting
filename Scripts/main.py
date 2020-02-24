@@ -67,7 +67,7 @@ def main(args):
     ######Compare results######
     ###########################
     print("Compare results to previous findings")
-    [report_df,ld_out_df] = compare.compare(annotate_df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
+    [report_df,ld_out_df] = compare.compare(annotate_df,compare_style=args.compare_style, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
@@ -113,8 +113,6 @@ if __name__=="__main__":
     
     #compare results
     parser.add_argument("--compare-style",type=str,choices=['file','gwascatalog','both'],default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
-    parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
-    parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")

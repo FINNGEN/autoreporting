@@ -92,42 +92,6 @@ class TestCompare(unittest.TestCase):
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
     
-    def test_load_summaries(self):
-        """Test cases:
-        Normal
-        Empty files
-        either file does not exist, should throw a normal FileNotFoundError
-        File specified in summary_fpath does not exist (should throw an understandable error message, preferably with information about which file was not found, and in which file was that file declared)
-        """
-        #normal case: summary file with 2 entries, entries have some variants 
-        summ_fpath="testing/compare_resources/summary_fpath_1"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
-        df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        validate=pd.read_csv("testing/compare_resources/loaded_summary_files_1.csv",sep="\t")
-        for col in df.columns:
-            self.assertEqual(list(df[col]),list(validate[col]))
-        #empty files
-        summ_fpath="testing/compare_resources/summary_fpath_2"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_2"
-        df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        validate=pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval", "#variant", "trait", "trait_name"])
-        self.assertTrue(df.equals(validate))
-        #either file does not exist
-        summ_fpath="testing/compare_resources/summary_fpath_2"
-        endpoint_fpath="DOES_NOT_EXIST"
-        with self.assertRaises(FileNotFoundError) as notfound:
-            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        #file does not exist
-        summ_fpath="testing/compare_resources/summary_fpath_no_file"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
-        with self.assertRaises(FileNotFoundError) as notfound:
-            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        #summary and endpoint amounts do not agree
-        summ_fpath="testing/compare_resources/summary_fpath_2"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
-        with self.assertRaises(RuntimeError) as notfound:
-            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
 
     def test_api_summaries(self):
         # test load_api_summaries

@@ -199,38 +199,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
-         
-#TODO: deprecate this in favour of custom catalog
-def load_summary_files(summary_fpath,endpoint_fpath,columns):
-    necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
-    summary_df_1=pd.DataFrame(columns=necessary_columns)
-    with open(summary_fpath,"r") as f:
-        s_paths=f.readlines()
-        s_paths=[s.strip("\n").strip() for s in s_paths]
-    with open(endpoint_fpath,"r") as f:
-        endpoints=f.readlines()
-        endpoints=[s.strip("\n").strip() for s in endpoints]
-    if len(s_paths)!=len(endpoints):
-        raise RuntimeError("summary file amount and endpoint amounts are not equal. {} =/= {}".format(len(s_paths),len(endpoints)))
-    for idx in range(0,len(s_paths) ):
-        s_path=s_paths[idx]
-        endpoint=endpoints[idx]
-        try:
-            s_df=pd.read_csv(s_path,sep="\t")
-        except FileNotFoundError as e:
-            raise FileNotFoundError("File {} does not exist. Given as line {} in file {} given in argument '--summary-fpath' .".format(s_path,idx+1,summary_fpath))
-        #make sure the variant column exists
-        summary_cols=s_df.columns
-        if "#variant" not in summary_cols:
-            s_df.loc[:, "#variant"]=create_variant_column(s_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        s_df.loc[:,"trait"] = endpoint
-        s_df.loc[:,"trait_name"] = endpoint
-        cols=s_df.columns.to_list()
-        if not all(nec_col in cols for nec_col in necessary_columns):
-            Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
-        summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)
-    summary_df_1=summary_df_1.loc[:,necessary_columns].reset_index(drop=True)
-    return summary_df_1
+
     
 def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_threads, columns):
     range_df=df.loc[:,[columns["chrom"],columns["pos"] ]].copy(deep=True)
@@ -378,7 +347,7 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
     retval = df[matchset1 & matchset2].copy()
     return retval
 
-def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
+def compare(df, compare_style, ld_check, plink_mem, ld_panel_path,
             prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
             ldstore_threads, ld_treshold, cache_gwas, columns, 
             gwapi, customdataresource_path):
@@ -502,8 +471,6 @@ if __name__ == "__main__":
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("--compare-style",type=str,default="gwascatalog",choices=['file','gwascatalog','both'],help="use 'file', 'gwascatalog' or 'both'")
-    parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
-    parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
@@ -542,7 +509,7 @@ if __name__ == "__main__":
         gwapi=gwcatalog_api.GwasApi()
 
     df=pd.read_csv(args.compare_fname,sep="\t")
-    [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
+    [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
