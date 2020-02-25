@@ -255,10 +255,10 @@ def load_custom_dataresource(df: pd.DataFrame, gwascatalog_pad: int, gwascatalog
     outputs=[i for sublist in outputs for i in sublist]
     customresource_df = pd.DataFrame(outputs)
     if customresource_df.empty:
-        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","trait_name","study_doi","#variant"])
+        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","trait_name","study_link","#variant"])
     customresource_df = filter_invalid_alleles(customresource_df,columns)
     customresource_df["trait_name"] = customresource_df["trait"]
-    rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
+    rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"],"study_doi":"study_link"}
     customresource_df=customresource_df.rename(columns=rename_dict)
     customresource_df.loc[:,"#variant"]=create_variant_column(customresource_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     return customresource_df
