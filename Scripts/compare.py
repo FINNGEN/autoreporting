@@ -396,15 +396,16 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
         #just abort, output the top report but no merging summary df cause it doesn't exist
         print("No summary variants, report will be incomplete")
         report_out_df=df.copy()
-        report_out_df["#variant_hit"]="NA"
-        report_out_df["pval_trait"]="NA"
-        report_out_df["trait"]="NA"
-        report_out_df["trait_name"]="NA"
+        report_out_df["#variant_hit"]=np.nan
+        report_out_df["pval_trait"]=np.nan
+        report_out_df["trait"]=np.nan
+        report_out_df["trait_name"]=np.nan
+        report_out_df["study_link"]=np.nan
     else:
         summary_df.to_csv("{}summary_df.tsv".format(prefix),sep="\t",index=False)
         summary_df=map_column(summary_df,"map_variant",columns)
         df=map_column(df,"map_variant",columns)
-        necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name"]
+        necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name","study_link"]
         report_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
         report_out_df=report_out_df.drop(columns=["map_variant"])
         report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait"})
