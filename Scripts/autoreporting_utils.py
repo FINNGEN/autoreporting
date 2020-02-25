@@ -94,9 +94,9 @@ def prune_regions(df,columns={"chrom":"#chrom"}):
                     found=True
                     break
             if not found:
-                regions.append({columns["chrom"]:t._1,"min":t.pos_rmin,"max":t.pos_rmax})
+                regions.append({columns["chrom"]:str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
         else:
-            regions.append({columns["chrom"]:t._1,"min":t.pos_rmin,"max":t.pos_rmax})
+            regions.append({columns["chrom"]:str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
     return pd.DataFrame(regions)
 
 def columns_from_arguments(column_labels):

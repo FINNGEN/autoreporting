@@ -19,25 +19,31 @@ def main(args):
     columns=autoreporting_utils.columns_from_arguments(args.column_labels)
 
     gwapi=None
-    if args.database_choice=="local":
-        gwapi=gwcatalog_api.LocalDB(args.localdb_path)
-        args.gwascatalog_threads=1
-    elif database_choice=="summary_stats":
-        gwapi=gwcatalog_api.SummaryApi()
-    else:
-        gwapi=gwcatalog_api.GwasApi()
+    customdataresource=None
+    if args.compare_style in ["gwascatalog","both"]:
+        if args.database_choice=="local":
+            gwapi=gwcatalog_api.LocalDB(args.localdb_path)
+            args.gwascatalog_threads=1
+        elif database_choice=="summary_stats":
+            gwapi=gwcatalog_api.SummaryApi()
+        else:
+            gwapi=gwcatalog_api.GwasApi()
+    if args.compare_style in ["file","both"]:
+        if args.custom_dataresource != "":
+            customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
+        else:
+            print("No custom data resource specified! Use the --custom-dataresource flag or change --compare-style to be gwascatalog!")
+            raise ValueError("value of --custom-dataresource: {}. Value of --compare-style: {}".format(args.custom_dataresource, args.compare_style))
 
     ld_api=None
-    if args.ld_api_choice == "plink":
-        ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
-    elif args.ld_api_choice == "online":
-        ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
-    else:
-        raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
-
-    customdataresource=None
-    if args.custom_dataresource != "":
-        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
+    if args.grouping_method != "simple":
+        if args.ld_api_choice == "plink":
+            ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
+        elif args.ld_api_choice == "online":
+            ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
+        else:
+            raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
+    
     ###########################
     ###Filter and Group SNPs###
     ###########################
@@ -75,7 +81,7 @@ def main(args):
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    gwapi=gwapi, customdataresource_path=args.custom_dataresource)
+                                    gwapi=gwapi, customdataresource=customdataresource)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report

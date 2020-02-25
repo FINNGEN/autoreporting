@@ -255,9 +255,12 @@ def load_custom_dataresource(df: pd.DataFrame, gwascatalog_pad: int, gwascatalog
     outputs=[i for sublist in outputs for i in sublist]
     customresource_df = pd.DataFrame(outputs)
     if customresource_df.empty:
-        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","trait_name","study_doi"])
+        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","trait_name","study_doi","#variant"])
     customresource_df = filter_invalid_alleles(customresource_df,columns)
     customresource_df["trait_name"] = customresource_df["trait"]
+    rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
+    customresource_df=customresource_df.rename(columns=rename_dict)
+    customresource_df.loc[:,"#variant"]=create_variant_column(customresource_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     return customresource_df
 
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
@@ -350,7 +353,7 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
 def compare(df, compare_style, ld_check, plink_mem, ld_panel_path,
             prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
             ldstore_threads, ld_treshold, cache_gwas, columns, 
-            gwapi, customdataresource_path):
+            gwapi, customdataresource):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
     In: df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
@@ -373,9 +376,6 @@ def compare(df, compare_style, ld_check, plink_mem, ld_panel_path,
     #building summaries, external files and/or gwascatalog
     if compare_style in ["file","both"]:
         summary_df_1=load_custom_dataresource(df.copy(), gwascatalog_pad, gwascatalog_pval, customdataresource,columns)
-        rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
-        summary_df_1=summary_df_1.rename(columns=rename_dict)
-        summary_df_1.loc[:,"#variant"]=create_variant_column(summary_df_1,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     if compare_style in ["gwascatalog","both"]:
         gwas_df=None
         if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
@@ -498,23 +498,28 @@ if __name__ == "__main__":
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
 
     gwapi=None
-    if args.database_choice=="local":
-        gwapi=gwcatalog_api.LocalDB(args.localdb_path)
-        args.gwascatalog_threads=1
-    elif args.database_choice=="summary_stats":
-        gwapi=gwcatalog_api.SummaryApi()
-    else:
-        gwapi=gwcatalog_api.GwasApi()
+    customdataresource=None
+    if args.compare_style in ["gwascatalog","both"]:
+        if args.database_choice=="local":
+            gwapi=gwcatalog_api.LocalDB(args.localdb_path)
+            args.gwascatalog_threads=1
+        elif database_choice=="summary_stats":
+            gwapi=gwcatalog_api.SummaryApi()
+        else:
+            gwapi=gwcatalog_api.GwasApi()
+    if args.compare_style in ["file","both"]:
+        if args.custom_dataresource != "":
+            customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
+        else:
+            print("No custom data resource specified! Use the --custom-dataresource flag or change --compare-style to be gwascatalog!")
+            raise ValueError("value of --custom-dataresource: {}. Value of --compare-style: {}".format(args.custom_dataresource, args.compare_style))
 
     df=pd.read_csv(args.compare_fname,sep="\t")
-    customdataresource = None
-    if args.custom_dataresource != "":
-        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
     [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    gwapi=gwapi, customdataresource_path=args.custom_dataresource)
+                                    gwapi=gwapi, customdataresource=customdataresource)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
