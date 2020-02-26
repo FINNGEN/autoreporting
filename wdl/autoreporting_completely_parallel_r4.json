@@ -1,7 +1,7 @@
 {
     "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_test_shortlist",
     "autoreporting.credsetlist": "gs://r4_data_west1/autoreporting/r4_credible_set_list_200124",
-    "autoreporting.input_array_file": "gs://r4_data_west1/autoreporting/test_input_array.tsv",
+    "autoreporting.input_array_file": "gs://r4_data_west1/autoreporting/short_pheno_array.tsv",
     "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:756d41e7",
     "autoreporting.memory":20,
     "autoreporting.gnomad_exome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",

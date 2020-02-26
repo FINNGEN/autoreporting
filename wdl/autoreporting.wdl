@@ -3,10 +3,11 @@ task report {
     String docker
     Array[String] input_file_list
     Int arr_len = length(input_file_list)
-    Boolean credset_filtering = if arr_len > 1 then true else false
-    File summ_stat = input_file_list[0]
+    Boolean credset_filtering = if arr_len > 2 then true else false
+    String phenotype_name = input_file_list[0]
+    File summ_stat = input_file_list[1]
     File summ_stat_tb=summ_stat+".tbi"
-    File credible_set = if credset_filtering then input_file_list[1] else summ_stat #'if a else summstat' so that it evaluates into a file
+    File credible_set = if credset_filtering then input_file_list[2] else summ_stat #'if a else summstat' so that it evaluates into a file
 
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
@@ -48,7 +49,6 @@ task report {
     String primary_grouping_method
     String secondary_grouping_method
     String ignore_region
-    String map_pheno=sub(basename(basename(summ_stat),".gz" ),"finngen_R4_","")#might work
 
     String compare_style
     String db_choice
@@ -62,6 +62,7 @@ task report {
         from subprocess import PIPE
         #do everything a wrapper should do
         #unchanged variables
+        pheno_id = "${phenotype_name}"
         plink_path = "${ld_panel_bed}".replace(".bed","")
         gnomad_exome="${gnomad_exome}"
         gnomad_genome="${gnomad_genome}"
@@ -106,9 +107,9 @@ task report {
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
         efo_cmd=""
-        if "${map_pheno}" in efos.keys():
-            if efos["${map_pheno}"] != "NA" and efos["${map_pheno}"] != "":
-                efo_cmd="--efo-codes {}".format()
+        if pheno_id in efos.keys():
+            if efos[pheno_id] != "NA" and efos[pheno_id] != "":
+                efo_cmd="--efo-codes {}".format(efos[pheno_id])
 
         phenotype_name=summstat.split("/")[-1].split(".")[0].replace("finngen_R4_","")
         call_command=("main.py {} "
