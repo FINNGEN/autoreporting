@@ -1,5 +1,5 @@
 {
-    "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_phenotype_list_200124",
+    "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_test_shortlist",
     "autoreporting.credsetlist": "gs://r4_data_west1/autoreporting/r4_credible_set_list_200124",
     "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:56fa1653",
     "autoreporting.memory":20,
@@ -14,7 +14,7 @@
     "autoreporting.annotation_version":"r4",
     "autoreporting.compare_style":"gwascatalog",
     "autoreporting.db_choice":"local",
-    "autoreporting.efo_code_file":"gs://r4_data_west1/autoreporting/r4_efo_mapping_2020_01_28.tsv",
+    "autoreporting.efo_code_file":"gs://r4_data_west1/autoreporting/efo_map_na.tsv",
     "autoreporting.ignore_region":"6:23000000-38000000",
     "autoreporting.include_batch_freq":true,
     "autoreporting.ld_treshold":0.7,

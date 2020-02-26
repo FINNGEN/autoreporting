@@ -26,7 +26,7 @@ task report_credible_set {
     File functional_annotation
     File functional_annotation_tb=functional_annotation+".tbi"
     #credible set annotation, no tabix
-    Array[String] efo_array
+    File efo_map
 
     File? summary_stat_listing
     File? endpoint_listing
@@ -110,8 +110,9 @@ task report_credible_set {
             with open("${write_lines(selected_credsets)}","r") as f2:
                 credsets=["--credible-set-file {}".format(l.strip()) for l in f2]
         #efo codes
-        with open("${write_lines(efo_array)}","r") as f3:
-            efo_array=["--efo-codes {}".format(l.strip()) if l.strip().replace("\"","")!="" else "" for l in f3 ]
+        with open("${efo_map}","r") as f:
+            efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
+        efo_array=["--efo-codes {}".format(efos[a.split("/")[-1].split(".")[0].replace("finngen_R4_","")]) if a.split("/")[-1].split(".")[0].replace("finngen_R4_","") in efos.keys() else "" for a in summstats ]
 
 
         for i in range(num_phenos):
@@ -246,13 +247,12 @@ workflow autoreporting{
     call utils.credset_filter as credset_filter {
         input:additional_prefix="finngen_R4_",phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
     }
-    call utils.fill_efo_map as c_efos{
-        input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=credset_filter.filtered_pheno_list,efomap=efo_code_file
-    }
-    call utils.fill_efo_map as n_efos{
-        input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=credset_filter.other_pheno_list,efomap=efo_code_file
-    }
-    
+    #call utils.fill_efo_map as c_efos{
+    #    input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=credset_filter.filtered_pheno_list,efomap=efo_code_file
+    #}
+    #call utils.fill_efo_map as n_efos{
+    #    input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=credset_filter.other_pheno_list,efomap=efo_code_file
+    #}
     #common pheno chunks
     call utils.simple_preprocess_chunks as common_phenos {
         input: phenotypelist=credset_filter.filtered_pheno_list, num=phenos_per_worker,docker=docker
@@ -261,14 +261,7 @@ workflow autoreporting{
     call utils.simple_preprocess_chunks as common_creds {
         input: phenotypelist=credset_filter.filtered_cred_list, num=phenos_per_worker,docker=docker
     }
-    #EFOS, transform to correctly indexed 2d arrays
-    call utils.simple_preprocess_chunks as credset_efos {
-        input: phenotypelist=c_efos.efo_arr, num=phenos_per_worker,docker=docker
-    }
-    call utils.simple_preprocess_chunks as nocred_efos {
-        input: phenotypelist=n_efos.efo_arr, num=phenos_per_worker,docker=docker
-    }
-    #phenos without credsets
+
     call utils.simple_preprocess_chunks as other_phenos {
         input: phenotypelist=credset_filter.other_pheno_list, num=phenos_per_worker,docker=docker
     }
@@ -277,8 +270,6 @@ workflow autoreporting{
 
     Array[Array[File]] credset_arr = read_tsv(common_creds.out_tsv)
 
-    Array[Array[File]] credset_efo_array = read_tsv(credset_efos.out_tsv)
-    Array[Array[File]] nocred_efo_array = read_tsv(nocred_efos.out_tsv)
 
     Array[Array[File]] o_pheno_arr = read_tsv(other_phenos.out_tsv)
     Array[Array[File]] o_pheno_tbi_arr = read_tsv(other_phenos.out_tbi_tsv)
@@ -300,7 +291,6 @@ workflow autoreporting{
             annotation_version=annotation_version, 
             compare_style=compare_style, 
             db_choice=db_choice, 
-            efo_array=credset_efo_array[i],
             include_batch_freq=include_batch_freq, 
             ignore_region=ignore_region, 
             ld_treshold=ld_treshold, 
@@ -315,7 +305,8 @@ workflow autoreporting{
             gwascatalog_threads=gwascatalog_threads, 
             group=group, 
             overlap=overlap, 
-            check_for_ld=check_for_ld
+            check_for_ld=check_for_ld,
+            efo_map=efo_code_file
         }
     }
     #reports with no credible sets
@@ -336,7 +327,6 @@ workflow autoreporting{
             annotation_version=annotation_version, 
             compare_style=compare_style, 
             db_choice=db_choice, 
-            efo_array=nocred_efo_array[i], 
             include_batch_freq=include_batch_freq, 
             ignore_region=ignore_region, 
             ld_treshold=ld_treshold, 
@@ -351,7 +341,8 @@ workflow autoreporting{
             gwascatalog_threads=gwascatalog_threads, 
             group=group,
             overlap=overlap,
-            check_for_ld=check_for_ld
+            check_for_ld=check_for_ld,
+            efo_map=efo_code_file
         }
     }
 }
