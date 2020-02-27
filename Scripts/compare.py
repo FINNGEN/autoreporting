@@ -350,15 +350,15 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
     retval = df[matchset1 & matchset2].copy()
     return retval
 
-def compare(df, compare_style, ld_check, plink_mem, ld_panel_path,
+def compare(df, ld_check, plink_mem, ld_panel_path,
             prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
             ldstore_threads, ld_treshold, cache_gwas, columns, 
             gwapi, customdataresource):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
-    In: df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
-        prefix, report_out, ld_report_out, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
-        ldstore_threads, ld_treshold, cache_gwas, columns, gwapi
+    In: df, ld_check, plink_mem, ld_panel_path,
+        prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
+        ldstore_threads, ld_treshold, cache_gwas, columns, gwapi, customdataresource
     Out: A tuple (report_df, ld_df)
         report_df: the dataframe containing all of the variants and their previous associations, as well as annotations
         ld_df (optional): a dataframe containing the LD paired associations of variants
@@ -374,9 +374,9 @@ def compare(df, compare_style, ld_check, plink_mem, ld_panel_path,
     summary_df_1=pd.DataFrame()
     summary_df_2=pd.DataFrame()
     #building summaries, external files and/or gwascatalog
-    if compare_style in ["file","both"]:
+    if customdataresource != None:
         summary_df_1=load_custom_dataresource(df.copy(), gwascatalog_pad, gwascatalog_pval, customdataresource,columns)
-    if compare_style in ["gwascatalog","both"]:
+    if gwapi != None:
         gwas_df=None
         if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
             print("reading gwas results from gwas_out_mapping.tsv...")
@@ -406,8 +406,6 @@ def compare(df, compare_style, ld_check, plink_mem, ld_panel_path,
                 trait_name_map[key]=gwapi.get_trait(key)
             summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
             summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
-    if compare_style not in ["file","gwascatalog","both"]:
-        raise NotImplementedError("comparison method '{}' not yet implemented".format(compare_style))
     summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
@@ -468,7 +466,7 @@ if __name__ == "__main__":
     parser.add_argument("compare_fname",type=str,help="GWS result file")
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
-    parser.add_argument("--compare-style",type=str,default="gwascatalog",choices=['file','gwascatalog','both'],help="use 'file', 'gwascatalog' or 'both'")
+    parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
@@ -499,23 +497,19 @@ if __name__ == "__main__":
 
     gwapi=None
     customdataresource=None
-    if args.compare_style in ["gwascatalog","both"]:
+    if args.use_gwascatalog:
         if args.database_choice=="local":
             gwapi=gwcatalog_api.LocalDB(args.localdb_path)
             args.gwascatalog_threads=1
-        elif database_choice=="summary_stats":
+        elif args.database_choice=="summary_stats":
             gwapi=gwcatalog_api.SummaryApi()
         else:
             gwapi=gwcatalog_api.GwasApi()
-    if args.compare_style in ["file","both"]:
-        if args.custom_dataresource != "":
-            customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
-        else:
-            print("No custom data resource specified! Use the --custom-dataresource flag or change --compare-style to be gwascatalog!")
-            raise ValueError("value of --custom-dataresource: {}. Value of --compare-style: {}".format(args.custom_dataresource, args.compare_style))
+    if args.custom_dataresource != "":
+        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
 
     df=pd.read_csv(args.compare_fname,sep="\t")
-    [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, ld_check=args.ld_check,
+    [report_df,ld_out_df] = compare(df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,

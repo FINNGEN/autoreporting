@@ -20,20 +20,16 @@ def main(args):
 
     gwapi=None
     customdataresource=None
-    if args.compare_style in ["gwascatalog","both"]:
+    if args.use_gwascatalog:
         if args.database_choice=="local":
             gwapi=gwcatalog_api.LocalDB(args.localdb_path)
             args.gwascatalog_threads=1
-        elif database_choice=="summary_stats":
+        elif args.database_choice=="summary_stats":
             gwapi=gwcatalog_api.SummaryApi()
         else:
             gwapi=gwcatalog_api.GwasApi()
-    if args.compare_style in ["file","both"]:
-        if args.custom_dataresource != "":
-            customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
-        else:
-            print("No custom data resource specified! Use the --custom-dataresource flag or change --compare-style to be gwascatalog!")
-            raise ValueError("value of --custom-dataresource: {}. Value of --compare-style: {}".format(args.custom_dataresource, args.compare_style))
+    if args.custom_dataresource != "":
+        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
 
     ld_api=None
     if args.grouping_method != "simple":
@@ -77,7 +73,7 @@ def main(args):
     ######Compare results######
     ###########################
     print("Compare results to previous findings")
-    [report_df,ld_out_df] = compare.compare(annotate_df,compare_style=args.compare_style, ld_check=args.ld_check,
+    [report_df,ld_out_df] = compare.compare(annotate_df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
                                     gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
@@ -122,7 +118,7 @@ if __name__=="__main__":
     parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     
     #compare results
-    parser.add_argument("--compare-style",type=str,choices=['file','gwascatalog','both'],default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
+    parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")
