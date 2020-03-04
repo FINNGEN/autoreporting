@@ -113,17 +113,20 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                [--functional-path FUNCTIONAL_PATH]
                [--annotate-out ANNOTATE_OUT]
                [--finngen-annotation-version FG_ANN_VERSION]
-               [--compare-style COMPARE_STYLE] [--summary-fpath SUMMARY_FPATH]
-               [--endpoint-fpath ENDPOINTS] [--check-for-ld]
-               [--report-out REPORT_OUT] [--ld-report-out LD_REPORT_OUT]
+               [--use-gwascatalog] [--custom-dataresource CUSTOM_DATARESOURCE]
+               [--check-for-ld] [--report-out REPORT_OUT]
+               [--ld-report-out LD_REPORT_OUT]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--gwascatalog-threads GWASCATALOG_THREADS]
                [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
-               [--cache-gwas] [--column-labels CHROM POS REF ALT PVAL]
+               [--cache-gwas]
+               [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
                [--top-report-out TOP_REPORT_OUT]
+               [--strict-group-r2 STRICT_GROUP_R2]
                [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
-               [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
+               [--local-gwascatalog LOCALDB_PATH]
+               [--db {local,gwas,summary_stats}]
                gws_fpath
 ```
 
@@ -149,11 +152,11 @@ Argument   |  Meaning   |   Example | Original script
 --gnomad-exome-path | path to gnomAD exome annotation file. Must be tabixed. Required for annotation. | --gnomad-exome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
 --include-batch-freq | Include batch frequencies from FinnGen annotation file | --include-batch-freq | annotate<span></span>.py
 --finngen-path | Path to FinnGen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
+--functional-path | File path to functional annotation file | --functional-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
 --finngen-annotation-version | Specify whether the FinnGen annotations are r3_0 or before or r3_1 or after. Values 'r3' and 'r4' allowed. use 'r4' for annotations with version r3_1 or higher. Default value 'r3'. | --finngen-annotation-version r3 \| r4 | annotate<span></span>.py
---compare-style | Whether to use GWAS Catalog and/or additional summary statistics to compare findings to literature. Use values 'file', 'gwascatalog' or 'both', default 'gwascatalog' | --compare-style file \| gwascatalog \| both | compare<span></span>.py
---summary-fpath | path to a file containing external summary statistic file paths. List one summary file per line. | --summary-fpath summary_file_list | compare<span></span>.py
---endpoint-fpath | path to a file containing endpoints for summary statistic files. List one endpoint per line. The endpoints should be in the same order as the summary files in --summary-fpath file | --endpoint-fpath endpoint_list | compare<span></span>.py
+--use-gwascatalog | Add flag to compare results against GWAS Catalog associations | --use-gwascatalog | compare<span></span>.py
+--custom-dataresource | Compare against associations defined in an additional file. | --custom-dataresource file.tsv | compare<span></span>.py
 --check-for-ld | When supplied, gws variants and summary statistics (from file or GWAS Catalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
 --raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if asked for. | --raport-out raport_out.tsv | compare<span></span>.py
 --ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
@@ -163,9 +166,9 @@ Argument   |  Meaning   |   Example | Original script
 --ldstore-threads | Number of threads to use with LDstore. At most the number of logical cores your processor has. Default 4.| --ldstore-threads 2 | compare<span></span>.py
 --ld-treshold | LD threshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
 --cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
---column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval only). Default is '#chrom pos ref alt pval'. | --column-labels CHR POS REF ALT PVAL | all scripts
---top-report-out | Name of top-level report, that reports traits from GWAScatalog hits per group. | --top-report-out top_report.csv | compare<span></span>.py
---efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Oncology codes. | --efo-traits EFO_1 EFO_2 EFO_3 EFO_4 | compare<span></span>.py
+--column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval, beta, MAF, MAF_cases, MAF_controls) . Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'. | --column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL | all scripts
+--top-report-out | Name of per-group aggregated report output | --top-report-out top_report.csv | compare<span></span>.py
+--efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Ontology codes. | --efo-traits EFO_1 EFO_2 EFO_3 EFO_4 | compare<span></span>.py
 --local-gwascatalog | File path to gwas catalog downloadable associations with mapped ontologies. | --local-gwascatalog gwascatalog-associations-with-ontologies.tsv | compare<span></span>.py
 --db | Choose which comparison database to use: GWAS Catalog proper, GWAS Catalog's summary statistic api, or a local copy of GWAS Catalog. With local copy, you need to supply the --local-gwascatalog filepath | --db gwas \| summary_stats \| local | compare<span></span>.py
 gws_path |  Path to the tabixed and gzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
@@ -201,7 +204,7 @@ gnomad_exome=path_to_annotation/gnomad_exomes.gz            # gnomad exome annot
 finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
 functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
 finngen_ann_version=r4                                      # finngen annotation version, r3 for <=r3_0, r4 for >=r3_1
-compare_style=gwascatalog                                   # comparison data from gwas catalog. Options are [gwascatalog, file, both]
+use_gwascatalog="--use-gwascatalog"                         # Compare against GWAS Catalog
 db=gwas                                                     # GWAS Catalog database: local copy (local), normal (gwas), or summary statistic API (summ_stats)
 
 
@@ -217,7 +220,7 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --finngen-path $finngen_ann \
         --finngen-annotation-version $finngen_ann_version \
         --functional-path $functional_ann \
-        --compare-style $compare_style --db $db
+        $use_gwascatalog --db $db
 ```
 
 ## 4.2 <a name='Subroutines'></a>Tool subroutines
@@ -234,9 +237,10 @@ usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                     [--alt-sign-treshold SIG_TRESHOLD_2]
                     [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
                     [--plink-memory PLINK_MEM] [--overlap]
-                    [--column-labels CHROM POS REF ALT PVAL]
+                    [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
                     [--ignore-region IGNORE_REGION]
                     [--credible-set-file CRED_SET_FILE]
+                    [--ld-api LD_API_CHOICE]
                     gws_fpath
 ```
 The gws_fetch.py script is used to filter genome-wide significant variants from the summary statistic file as well as optionally group the variants, using either location-based grouping, ld-based grouping or grouping around credible sets. The arguments used are the same as the ones in main<span></span>.py. For example, Here is a small bash script for running the gws_fetch.py script:
@@ -303,7 +307,7 @@ usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--include-batch-freq] [--finngen-path FINNGEN_PATH]
                    [--functional-path FUNCTIONAL_PATH] [--prefix PREFIX]
                    [--annotate-out ANNOTATE_OUT]
-                   [--column-labels CHROM POS REF ALT PVAL]
+                   [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
                    [--finngen-annotation-version FG_ANN_VERSION]
                    annotate_fpath
 ```
@@ -348,20 +352,23 @@ python3 annotate.py variant_file_path/variants.tsv --gnomad-genome-path path_to_
 ##  4.2.3. <a name='comparespanspanpy'></a>compare<span></span>.py:
 
 ```
-usage: compare.py [-h] [--compare-style COMPARE_STYLE]
-                  [--summary-fpath SUMMARY_FPATH] [--endpoint-fpath ENDPOINTS]
-                  [--check-for-ld] [--plink-memory PLINK_MEM]
-                  [--ld-panel-path LD_PANEL_PATH] [--prefix PREFIX]
-                  [--report-out REPORT_OUT] [--ld-report-out LD_REPORT_OUT]
+usage: compare.py [-h] [--sign-treshold SIG_TRESHOLD]
+                  [--grouping-method GROUPING_METHOD] [--use-gwascatalog]
+                  [--custom-dataresource CUSTOM_DATARESOURCE] [--check-for-ld]
+                  [--plink-memory PLINK_MEM] [--ld-panel-path LD_PANEL_PATH]
+                  [--prefix PREFIX] [--report-out REPORT_OUT]
+                  [--ld-report-out LD_REPORT_OUT]
                   [--gwascatalog-pval GWASCATALOG_PVAL]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--gwascatalog-threads GWASCATALOG_THREADS]
                   [--ldstore-threads LDSTORE_THREADS]
                   [--ld-treshold LD_TRESHOLD] [--cache-gwas]
-                  [--column-labels CHROM POS REF ALT PVAL]
+                  [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
                   [--top-report-out TOP_REPORT_OUT]
+                  [--strict-group-r2 STRICT_GROUP_R2]
                   [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
-                  [--local-gwascatalog LOCALDB_PATH] [--db DATABASE_CHOICE]
+                  [--local-gwascatalog LOCALDB_PATH]
+                  [--db {local,gwas,summary_stats}]
                   compare_fname
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The optional arguments are the same as the arguments to main<span></span>.py. Here's an example bash script for running compare<span></span>.py:
@@ -372,14 +379,14 @@ file=annotate_output                                        # input file
 prefix='compare_prefix'                                     # output file prefix
 gwascatalog_pval='5e-8'                                     # The result p-value threshold for gwas catalog hits 
 gwascatalog_threads=10                                      # how many concurrent requests to gwascatalog
-compare_style=gwascatalog                                   # comparison data from gwas catalog or external summaries. Options are [gwascatalog, file, both]
+use_gwascatalog="--use-gwascatalog"                         # Compare results against GWAS Catalog
 db=gwas                                                     # GWAS Catalog database: local copy (local), normal (gwas), or summary statistic API (summ_stats)
 
 
 python3 Scripts/compare.py $file --prefix $prefix \
         --gwascatalog-pval $gwascatalog_pval \
         --gwascatalog-threads $gwascatalog_threads \
-        --compare-style $compare_style --db $db
+        $use_gwascatalog --db $db
 ```
 
 ###  4.2.3.1. <a name='detailedcompare'></a>A detailed description of compare<span></span>.py:  
@@ -394,14 +401,14 @@ ld_report_out: A tsv report of those variants that are in LD with external summa
 top_report_out: A tsv report of variant groups. Information about the associated phenotypes, functional variants and credible set variants is included. More specific match information is presented in report_out. Functional variants and associations are divided into two columns, `_relaxed` and `_strict`. The `_relaxed`-columns show the functional variants/associations for the whole group, and `_strict`-columns show the functional variants/associations for 1) the credible set in case grouping around credible sets, 2) for variants in the group whose p-value is under the p-value threshold in case of other grouping methods.
 
 __Script function__:
-The comparison script takes in a filtered and annotated variant tsv file, and reports if those variants have been announced in earlier studies. The comparison can be done against GWAS Catalog, an online variant database, external summary statistics, or both. Additional phenotypes of interest can be added using the ```--efo-codes``` flag. If these phenotypes are present in the compared associations, they are presented on the top report on their own column.  
+The comparison script takes in a filtered and annotated variant tsv file, and reports if those variants have been announced in earlier studies. The comparison can be done against GWAS Catalog, an online variant database, or against an additional dataresource. Phenotypes of interest can be added using the `--efo-codes` flag. If these phenotypes are present in the compared associations, they are presented on the top report on their own column.  
 The GWAS Catalog API access can be controlled using parameters ```--gwascatalog-threads```, ```--gwascatalog-pval``` and ```--gwascatalog-width-kb```. The ```--gwascatalog-threads``` parameters decides how many concurrent connections to the GWAS Catalog are allowed. This is not limited by the number of logical cores in your computer's processor. The ```--gwascatalog-pval``` parameter sets the threshold for associations from GWAS Catalog: If the association has a smaller p-value, it is included. The ```--gwascatalog-width-kb``` parameter is not currently used.   
 Optionally, genome-wide significant variants can also be tested for LD against database associations using the flag ```--check-for-ld```. Variants for which the ld value is larger than `--ld-treshold` value are reported. Same parameters that were used in gws_fetch.py, like ```--plink-memory``` and ```--ld-panel-path``` need to be used. However, these results are not incorporated to the top report.
 
 
 ##  5. <a name='WDLpipeline'></a>WDL pipeline
 
-The WDL pipeline can be used to run a set of phenotypes as a batch job on a Cromwell server. There are two pipelines to choose from: the ```autoreporting.wdl``` pipeline assigns a container for each phenotype, which creates a lot of overhead per phenotype. The ```autoreporting_partially_serialized.wdl``` pipeline groups multiple phenotypes per one container, and therefore reduces the overhead per phenotype. 
+The WDL pipeline can be used to run a set of phenotypes as a batch job on a Cromwell server. There are two pipelines to choose from: the ```autoreporting.wdl``` pipeline assigns a container for each phenotype, which creates a lot of overhead per phenotype. The ```autoreporting_partially_serialized.wdl``` pipeline groups multiple phenotypes per one container, and therefore reduces the overhead per phenotype.  
 <!-- 
 The WDL pipeline can be used to run multiple phenotypes as a batch job on a cromwell server. This is very useful for e.g. processing all of the phenotypes in one data release. There are two different pipelines: the autoreporting.wdl is run parallel per phenotype, in that every phenotype gets its own container. This is easy to implement, but due to the large files necessary to run these pipelines (such as the LD panel), the initialization of the containers takes a substantial amount of the total processing time.  
 The autoreporting_partially_serialized.wdl pipeline divides the phenotypes into smaller groups, which are then processed one group per container. This amortizes the time taken in downloading resources between the phenotypes in a group, lowering total machine time required to process all phenotypes, but possibly increasing the total time to process all phenotypes (as the time taken to process all phenotypes is the time of the slowest container). The size of these groups is changeable. The parameters in the json resource file are similarly named as the parameters in the command line.  -->
