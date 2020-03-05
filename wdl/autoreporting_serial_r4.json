@@ -31,5 +31,6 @@
     "autoreporting.overlap":false,
     "autoreporting.check_for_ld":false,
     "autoreporting.report_credible_set.grouping_method":"cred",
-    "autoreporting.report_nocred.grouping_method":"ld"
+    "autoreporting.report_nocred.grouping_method":"ld",
+    "autoreporting.additional_prefix":"finngen_R4_"
 }

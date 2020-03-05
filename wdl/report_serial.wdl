@@ -58,6 +58,7 @@ task report_credible_set {
     String db_choice
     String annotation_version
     String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
+    String additional_prefix
     #String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
     String dollar = "$"  
 
@@ -76,6 +77,7 @@ task report_credible_set {
         ext_summary_stats="${write_lines(ext_summary_stats)}"
         endpoint_listing="${"--endpoint-fpath " + endpoint_listing}"
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
+        prefix="${additional_prefix}"
 
         sign_treshold=${sign_treshold}
         alt_sign_treshold=${alt_sign_treshold}
@@ -112,11 +114,11 @@ task report_credible_set {
         #efo codes
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
-        efo_array=["--efo-codes {}".format(efos[a.split("/")[-1].split(".")[0].replace("finngen_R4_","")]) if a.split("/")[-1].split(".")[0].replace("finngen_R4_","") in efos.keys() else "" for a in summstats ]
+        efo_array=["--efo-codes {}".format(efos[a.split("/")[-1].split(".")[0].replace(prefix,"")]) if a.split("/")[-1].split(".")[0].replace(prefix,"") in efos.keys() else "" for a in summstats ]
 
 
         for i in range(num_phenos):
-            phenotype_name=summstats[i].split("/")[-1].split(".")[0].replace("finngen_R4_","")
+            phenotype_name=summstats[i].split("/")[-1].split(".")[0].replace(prefix,"")
             call_command=("main.py {} "
                         " --sign-treshold {} " 
                         "--alt-sign-treshold {} "
@@ -243,16 +245,12 @@ workflow autoreporting{
     Boolean group
     Boolean overlap
     Boolean check_for_ld
+    String additional_prefix
 
     call utils.credset_filter as credset_filter {
-        input:additional_prefix="finngen_R4_",phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
+        input:additional_prefix=additional_prefix,phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
     }
-    #call utils.fill_efo_map as c_efos{
-    #    input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=credset_filter.filtered_pheno_list,efomap=efo_code_file
-    #}
-    #call utils.fill_efo_map as n_efos{
-    #    input:additional_prefix="finngen_R4_",docker=docker,phenotypelist=credset_filter.other_pheno_list,efomap=efo_code_file
-    #}
+
     #common pheno chunks
     call utils.simple_preprocess_chunks as common_phenos {
         input: phenotypelist=credset_filter.filtered_pheno_list, num=phenos_per_worker,docker=docker
@@ -306,7 +304,8 @@ workflow autoreporting{
             group=group, 
             overlap=overlap, 
             check_for_ld=check_for_ld,
-            efo_map=efo_code_file
+            efo_map=efo_code_file,
+            additional_prefix=additional_prefix
         }
     }
     #reports with no credible sets
@@ -342,7 +341,8 @@ workflow autoreporting{
             group=group,
             overlap=overlap,
             check_for_ld=check_for_ld,
-            efo_map=efo_code_file
+            efo_map=efo_code_file,
+            additional_prefix=additional_prefix
         }
     }
 }
