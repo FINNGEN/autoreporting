@@ -55,6 +55,7 @@ task report {
     String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else "" 
     String annotation_version
     Float strict_group_r2
+    String phenoname = basename(phenotype_name,".gz")
 
     command <<<
         python3 <<CODE
@@ -62,7 +63,7 @@ task report {
         from subprocess import PIPE
         #do everything a wrapper should do
         #unchanged variables
-        pheno_id = "${phenotype_name}"
+        pheno_id="${phenotype_name}"
         plink_path = "${ld_panel_bed}".replace(".bed","")
         gnomad_exome="${gnomad_exome}"
         gnomad_genome="${gnomad_genome}"
@@ -111,7 +112,6 @@ task report {
             if efos[pheno_id] != "NA" and efos[pheno_id] != "":
                 efo_cmd="--efo-codes {}".format(efos[pheno_id])
 
-        phenotype_name=summstat.split("/")[-1].split(".")[0].replace("finngen_R4_","")
         call_command=("main.py {} "
                     " --sign-treshold {} " 
                     "--alt-sign-treshold {} "
@@ -177,16 +177,16 @@ task report {
                         local_gwascatalog,
                         efo_cmd,
                         ignore_cmd,
-                        phenotype_name,
-                        phenotype_name,
-                        phenotype_name,
-                        phenotype_name,
-                        phenotype_name)
-        print("--- phenotype {} COMMAND ---".format(phenotype_name))
+                        pheno_id,
+                        pheno_id,
+                        pheno_id,
+                        pheno_id,
+                        pheno_id)
+        print("--- phenotype {} COMMAND ---".format(pheno_id))
         print(call_command)
         pr=subprocess.run(shlex.split(call_command),stdout=PIPE,stderr=subprocess.STDOUT,encoding="utf8")
-        print("--- phenotype {} RETURN CODE: {} ---".format(phenotype_name,pr.returncode))
-        print("--- phenotype {} STDOUT ---".format(phenotype_name))
+        print("--- phenotype {} RETURN CODE: {} ---".format(pheno_id,pr.returncode))
+        print("--- phenotype {} STDOUT ---".format(pheno_id))
         print(pr.stdout)
         CODE
     >>>
