@@ -1,17 +1,40 @@
-import "report_utils.wdl" as utils
+task preprocess_serial{
+    File input_array
+    Int phenos_per_worker
+    String docker
+    command{
+        python3 process_serial.py ${input_array} --n ${phenos_per_worker}
+    }
+    runtime {
+        docker: "${docker}"
+        cpu: "1"
+        memory: "2 GB"
+        disks: "local-disk 5 HDD"
+        zones: "europe-west1-b"
+        preemptible: 2 
+    }
+    output {
+        File pheno_array = "pheno_array"
+        File summ_array = "summ_array"
+        File summ_tb_array = "summ_tb_array"
+        File credset_array = "credset_array"
+        File credset_map = "boolean_map"
+    }
+}
 
-task report_credible_set {
+
+task report{
     #variables
     String docker
     Int memory
+    Array[String] pheno_ids
     Array[File] summ_stat
-    Int len = length(summ_stat)
     Array[File] summ_stat_tb
+    Map[String, Boolean] credset_status
     Array[File?] credsets
+    Int len = length(summ_stat)
     Array[File] selected_credsets=select_all(credsets)
-    Boolean empty_credset = length(selected_credsets)==0
-    #File credset_file = if defined(credsets) then write_lines(credsets) else write_lines(summ_stat_tb)
-    String real_credset = if !empty_credset then "True" else "False"
+
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
     File gnomad_genome
@@ -28,11 +51,11 @@ task report_credible_set {
     #credible set annotation, no tabix
     File efo_map
 
-    File? summary_stat_listing
-    File? endpoint_listing
+    #File? summary_stat_listing
+    #File? endpoint_listing
     #trick wdl to write the external summary stats paths as a file
     #NOTE: does not work with partially serialized widdle. 
-    Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
+    #Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
     File? local_gwcatalog
 
     Float sign_treshold
@@ -52,19 +75,20 @@ task report_credible_set {
     Boolean include_batch_freq
     Boolean check_for_ld
 
-    String grouping_method
+    String primary_grouping_method
+    String secondary_grouping_method
     String ignore_region
     String compare_style
     String db_choice
     String annotation_version
-    String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
+    #String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
     String additional_prefix
     #String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
     String dollar = "$"  
 
     command <<<
         python3 <<CODE
-        import subprocess, shlex
+        import subprocess, shlex, json
         from subprocess import PIPE
         #do everything a wrapper should do
         #unchanged variables
@@ -74,8 +98,6 @@ task report_credible_set {
         gnomad_genome="${gnomad_genome}"
         finngen_annotation="${finngen_annotation}"
         functional_annotation="${functional_annotation}"
-        ext_summary_stats="${write_lines(ext_summary_stats)}"
-        endpoint_listing="${"--endpoint-fpath " + endpoint_listing}"
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
         prefix="${additional_prefix}"
 
@@ -95,27 +117,33 @@ task report_credible_set {
         overlap="--overlap" if "${overlap}"=="true" else ""
         include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
         check_for_ld="--check-for-ld" if "${check_for_ld}"=="true" else ""
-        grouping_method = "${grouping_method}"
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         compare_style = "${compare_style}"
         db_choice = "${db_choice}"
         annotation_version = "${annotation_version}"
-        summary_cmd="${summary_cmd} ${write_lines(ext_summary_stats)}"
 
-        #changing variables
-        #summ stat
-        with open("${write_lines( summ_stat )}","r") as f:
-            summstats=[l.strip() for l in f]
-        #credible set
-        credsets=[""]*num_phenos
-        if ${real_credset} == True:
-            with open("${write_lines(selected_credsets)}","r") as f2:
-                credsets=["--credible-set-file {}".format(l.strip()) for l in f2]
+        #process the summstats and credsets etc
+        summstats="${sep=";" summ_stat}".split(";")
+        phenotypes="${sep=";" pheno_ids}".split(";")
+
+        credset_calls = []
+        boolean_map = json.load(open("${write_json(credset_status)}","r"))
+        credset_list="${sep=";" selected_credsets}".split(";")
+        credset_count=0
+        group_method=[]
+        for i,pheno in enumerate(phenotypes):
+            if boolean_map[pheno] != True:
+                credset_calls.append("")
+                group_method.append("${secondary_grouping_method}")
+            else:
+                credset_calls.append(credst_list[credset_count])
+                group_method.append("${primary_grouping_method}")
+                credset_count += 1
         #efo codes
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
         efo_array=["--efo-codes {}".format(efos[a.split("/")[-1].split(".")[0].replace(prefix,"")]) if a.split("/")[-1].split(".")[0].replace(prefix,"") in efos.keys() else "" for a in summstats ]
-
+        
 
         for i in range(num_phenos):
             phenotype_name=summstats[i].split("/")[-1].split(".")[0].replace(prefix,"")
@@ -141,8 +169,8 @@ task report_credible_set {
                         "--ldstore-threads {} "
                         "--gwascatalog-threads {} "
                         "--strict-group-r2 {} "
-                        "{} "
-                        "{} "
+                        #"{} "
+                        #"{} "
                         "--gwascatalog-pval {} "
                         "--gwascatalog-width-kb {} "
                         "--db {} "
@@ -176,8 +204,8 @@ task report_credible_set {
                             cpus,
                             gwascatalog_threads,
                             strict_group_r2,
-                            summary_cmd,
-                            endpoint_listing,
+                            #summary_cmd,
+                            #endpoint_listing,
                             gwascatalog_pval,
                             gwascatalog_width_kb,
                             db_choice,
@@ -213,8 +241,7 @@ task report_credible_set {
 
 
 workflow autoreporting{
-    File phenotypelist
-    File credsetlist
+    File input_array_file
     Int phenos_per_worker
     Int memory
     String docker 
@@ -246,37 +273,28 @@ workflow autoreporting{
     Boolean overlap
     Boolean check_for_ld
     String additional_prefix
+    String primary_grouping_method
+    String secondary_grouping_method
 
-    call utils.credset_filter as credset_filter {
-        input:additional_prefix=additional_prefix,phenotypelist=phenotypelist,credsetlist=credsetlist,docker=docker
+    call preprocess_serial{
+        input: input_array = input_array_file, phenos_per_worker = phenos_per_worker, docker=docker
     }
 
-    #common pheno chunks
-    call utils.simple_preprocess_chunks as common_phenos {
-        input: phenotypelist=credset_filter.filtered_pheno_list, num=phenos_per_worker,docker=docker
-    }
-    #common credsets, tbi files are not valid but no matter
-    call utils.simple_preprocess_chunks as common_creds {
-        input: phenotypelist=credset_filter.filtered_cred_list, num=phenos_per_worker,docker=docker
-    }
+    Array[Array[File]] pheno_arr = read_tsv(preprocess_serial.summ_array)
+    Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_serial.summ_tb_array)
+    Array[Array[File]] credset_arr = read_tsv(preprocess_serial.credset_array)
+    Array[Array[String]] pheno_ids = read_tsv(preprocess_serial.pheno_array)
+    Map[String,Boolean] credset_available = read_map(preprocess_serial.credset_map)
 
-    call utils.simple_preprocess_chunks as other_phenos {
-        input: phenotypelist=credset_filter.other_pheno_list, num=phenos_per_worker,docker=docker
-    }
-    Array[Array[File]] c_pheno_arr = read_tsv(common_phenos.out_tsv)
-    Array[Array[File]] c_pheno_tbi_arr = read_tsv(common_phenos.out_tbi_tsv)
-
-    Array[Array[File]] credset_arr = read_tsv(common_creds.out_tsv)
-
-
-    Array[Array[File]] o_pheno_arr = read_tsv(other_phenos.out_tsv)
-    Array[Array[File]] o_pheno_tbi_arr = read_tsv(other_phenos.out_tbi_tsv)
-    #credset reports
-    scatter (i in range(length(c_pheno_arr))) {
-        call report_credible_set{
-            input: summ_stat=c_pheno_arr[i], 
-            summ_stat_tb=c_pheno_tbi_arr[i], 
+    #reports
+    scatter (i in range(length(pheno_arr))) {
+        call report{
+            input: 
+            pheno_ids=pheno_ids[i],
+            summ_stat=pheno_arr[i], 
+            summ_stat_tb=pheno_tbi_arr[i], 
             credsets=credset_arr[i], 
+            credset_status = credset_available,
             docker=docker, 
             memory=memory, 
             cpus=cpus, 
@@ -305,43 +323,8 @@ workflow autoreporting{
             overlap=overlap, 
             check_for_ld=check_for_ld,
             efo_map=efo_code_file,
-            additional_prefix=additional_prefix
-        }
-    }
-    #reports with no credible sets
-    scatter (i in range(length(o_pheno_arr))) {
-        call report_credible_set as report_nocred{
-            input: summ_stat=o_pheno_arr[i], 
-            summ_stat_tb=o_pheno_tbi_arr[i], 
-            credsets=empty_credset,
-            docker=docker,
-            memory=memory, 
-            cpus=cpus, 
-            gnomad_exome=gnomad_exome,
-            gnomad_genome=gnomad_genome, 
-            ld_panel=ld_panel, 
-            finngen_annotation=finngen_annotation, 
-            functional_annotation=functional_annotation, 
-            local_gwcatalog=local_gwcatalog, 
-            annotation_version=annotation_version, 
-            compare_style=compare_style, 
-            db_choice=db_choice, 
-            include_batch_freq=include_batch_freq, 
-            ignore_region=ignore_region, 
-            ld_treshold=ld_treshold, 
-            sign_treshold=sign_treshold, 
-            alt_sign_treshold=alt_sign_treshold, 
-            grouping_locus_width=grouping_locus_width, 
-            ld_r2=ld_r2, 
-            strict_group_r2=strict_group_r2,
-            plink_memory=plink_memory,
-            gwascatalog_pval=gwascatalog_pval,
-            gwascatalog_width_kb=gwascatalog_width_kb,
-            gwascatalog_threads=gwascatalog_threads, 
-            group=group,
-            overlap=overlap,
-            check_for_ld=check_for_ld,
-            efo_map=efo_code_file,
+            primary_grouping_method=primary_grouping_method,
+            secondary_grouping_method=secondary_grouping_method,
             additional_prefix=additional_prefix
         }
     }
