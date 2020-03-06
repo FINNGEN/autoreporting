@@ -1,7 +1,6 @@
 {
-    "autoreporting.phenotypelist": "gs://r4_data_west1/autoreporting/r4_test_shortlist",
-    "autoreporting.credsetlist": "gs://r4_data_west1/autoreporting/r4_credible_set_list_200124",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:56fa1653",
+    "autoreporting.input_array_file": "gs://r4_data_west1/autoreporting/short_pheno_array.tsv",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:6f6ef9",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 5,
     "autoreporting.cpus":4,
@@ -30,7 +29,7 @@
     "autoreporting.group":true,
     "autoreporting.overlap":false,
     "autoreporting.check_for_ld":false,
-    "autoreporting.report_credible_set.grouping_method":"cred",
-    "autoreporting.report_nocred.grouping_method":"ld",
+    "autoreporting.primary_grouping_method":"cred",
+    "autoreporting.secondary_grouping_method":"ld",
     "autoreporting.additional_prefix":"finngen_R4_"
 }

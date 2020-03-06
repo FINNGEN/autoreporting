@@ -15,3 +15,5 @@ COPY Scripts/compare.py /usr/local/bin/
 COPY Scripts/autoreporting_utils.py /usr/local/bin/
 COPY Scripts/gwcatalog_api.py /usr/local/bin/
 COPY Scripts/linkage.py /usr/local/bin/
+COPY Scripts/wdl_processing_scripts/process_serial.py /usr/local/bin
+RUN chmod +x /usr/local/bin/process_serial.py
