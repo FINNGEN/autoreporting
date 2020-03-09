@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import pandas as pd, numpy as np
 import json, argparse
 
