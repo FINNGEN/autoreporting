@@ -3,7 +3,7 @@ task preprocess_serial{
     Int phenos_per_worker
     String docker
     command{
-        python3 process_serial.py ${input_array} --n ${phenos_per_worker}
+        process_serial.py ${input_array} --n ${phenos_per_worker}
     }
     runtime {
         docker: "${docker}"
