@@ -5,8 +5,8 @@ from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
 from autoreporting_utils import *
-import gwcatalog_api
-import custom_catalog
+from data_access import gwcatalog_api
+from data_access import custom_catalog
 import os
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import Dict

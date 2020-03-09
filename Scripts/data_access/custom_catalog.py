@@ -1,7 +1,7 @@
 import abc
 from typing import List, Text, Dict,Any
 import pandas as pd, numpy as np
-from gwcatalog_api import ExtDB
+from data_access.db import ExtDB
 
 
 class CustomCatalog(ExtDB):

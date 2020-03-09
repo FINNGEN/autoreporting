@@ -4,8 +4,8 @@ import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
-import gwcatalog_api, custom_catalog
-from linkage import PlinkLD, OnlineLD
+from data_access import gwcatalog_api, custom_catalog
+from data_access.linkage import PlinkLD, OnlineLD
 
 def main(args):
     print("input file: {}".format(args.gws_fpath))

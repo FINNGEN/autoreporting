@@ -4,6 +4,7 @@ import abc
 from typing import List, Text, Dict,Any
 from io import StringIO
 import pandas as pd, numpy as np
+from data_access.db import ExtDB
 
 class RequestError(Exception):
     """
@@ -27,25 +28,6 @@ class ResponseFailure(RequestError):
     def __init__(self,parameters=None):
         super(RequestError,self).__init__()
         self.parameters=parameters
-
-
-class ExtDB(object):
-
-    @abc.abstractmethod
-    def get_associations(self,chromosome: str,start: int,end: int,pval: float,size: int)-> List[Dict[str,Any]]:
-        """ Return associations of range chr:start-end that have pval smaller than pval. Get results in at most size sized chunks.
-            Args: chromosome start end pval size
-            Returns: List of Dictionaries with elements "chrom":chromosome "pos":position "ref":ref_allele "alt":alt_allele "pval":p-value "trait":phenotype_code
-        """
-        return
-
-    @abc.abstractmethod
-    def get_trait(self, trait_code : str)-> str:
-        """ Return trait given trait code
-            Args: trait_code
-            Returns: Trait name
-        """
-        return
 
 def parse_output(dumplst):
     rows=[]
@@ -165,7 +147,7 @@ class SummaryApi(ExtDB):
         retval_=parse_output(dumplst)
         retval=[]
         for record in retval_:
-            if record["code"] not in [9, 14, 15, 16, 17, 18]:
+            if record["hm_code"] not in [9, 14, 15, 16, 17, 18]:
                 retval.append({"chrom":record["chromosome"],"pos":record["base_pair_location"],"ref":record["hm_effect_allele"],
                 "alt":record["hm_other_allele"],"pval":record["p_value"],"trait":record["trait"][0]})
         return retval

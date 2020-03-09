@@ -5,8 +5,8 @@ sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
-from Scripts import compare
-from Scripts import autoreporting_utils as autils
+import Scripts.compare as compare
+import Scripts.autoreporting_utils as autils
 
 def top_merge(df,summary_df,columns):
     summary_df=compare.map_column(summary_df,"map_variant",columns)

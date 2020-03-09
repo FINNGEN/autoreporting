@@ -5,7 +5,7 @@ import pandas as pd, numpy as np
 sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
-from Scripts import custom_catalog
+from Scripts.data_access import custom_catalog
 from io import StringIO
 
 def create_data() -> pd.DataFrame:
