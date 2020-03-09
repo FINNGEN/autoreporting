@@ -18,7 +18,7 @@ task preprocess_serial{
         File summ_array = "summ_array"
         File summ_tb_array = "summ_tb_array"
         File credset_array = "credset_array"
-        File credset_map = "boolean_map"
+        File credset_map = "boolmap"
     }
 }
 
@@ -31,9 +31,10 @@ task report{
     Array[File] summ_stat
     Array[File] summ_stat_tb
     Map[String, Boolean] credset_status
-    Array[File?] credsets
+    Array[String] credsets
+    Int credset_len = length(credsets)
+    Array[File] selected_credsets = if credset_len > 0 then select_all(credsets) else summ_stat
     Int len = length(summ_stat)
-    Array[File] selected_credsets=select_all(credsets)
 
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
@@ -136,7 +137,7 @@ task report{
                 credset_calls.append("")
                 group_method.append("${secondary_grouping_method}")
             else:
-                credset_calls.append(credst_list[credset_count])
+                credset_calls.append("--credible-set-file {}".format(credset_list[credset_count]) )
                 group_method.append("${primary_grouping_method}")
                 credset_count += 1
         #efo codes
@@ -186,7 +187,7 @@ task report{
                             sign_treshold,
                             alt_sign_treshold,
                             group,
-                            grouping_method,
+                            group_method[i],
                             grouping_locus_width,
                             plink_path,
                             ld_r2,
@@ -196,7 +197,7 @@ task report{
                             functional_annotation,
                             gnomad_genome,
                             gnomad_exome,
-                            credsets[i],
+                            credset_calls[i],
                             annotation_version,
                             compare_style,
                             check_for_ld,
@@ -284,7 +285,7 @@ workflow autoreporting{
     Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_serial.summ_tb_array)
     Array[Array[File]] credset_arr = read_tsv(preprocess_serial.credset_array)
     Array[Array[String]] pheno_ids = read_tsv(preprocess_serial.pheno_array)
-    Map[String,Boolean] credset_available = read_map(preprocess_serial.credset_map)
+    Map[String,Boolean] credset_available = read_json(preprocess_serial.credset_map)
 
     #reports
     scatter (i in range(length(pheno_arr))) {

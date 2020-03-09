@@ -23,8 +23,9 @@ def process_phenos(input_array_fname,num_per_worker):
         phenos = "\t".join( list(tmp_dat["pheno"]) ) + "\n"
         summ_stat = "\t".join( list(tmp_dat["ss"]) ) + "\n"
         summ_stat_tb = "\t".join([a+".tbi" for a in tmp_dat["ss"] ]) + "\n"
-        credset_grp = [a for a in list(tmp_dat["credset"]) if a != "" ] 
-        credset = "\t".join(credset_grp) + "\n"
+        credset_grp = [a for a in list(tmp_dat["credset"]) if a != "" ]
+        credset_additional_tabs = len([a for a in list(tmp_dat["credset"]) if a == ""]) 
+        credset = "\t".join(credset_grp) +"".join( ["\t"] * credset_additional_tabs ) + "\n" #all empty values to the back because it doesn't work otherwise
         phenolines.append(phenos)
         summstatlines.append(summ_stat)
         summstattbilines.append(summ_stat_tb)
