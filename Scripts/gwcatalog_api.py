@@ -35,8 +35,7 @@ class ExtDB(object):
     def get_associations(self,chromosome: str,start: int,end: int,pval: float,size: int)-> List[Dict[str,Any]]:
         """ Return associations of range chr:start-end that have pval smaller than pval. Get results in at most size sized chunks.
             Args: chromosome start end pval size
-            Returns: List of Dictionaries with elements "chrom":chromosome "pos":position "ref":ref_allele 
-            "alt":alt_allele "pval":p-value "trait":phenotype_code "code":harmonization_code
+            Returns: List of Dictionaries with elements "chrom":chromosome "pos":position "ref":ref_allele "alt":alt_allele "pval":p-value "trait":phenotype_code
         """
         return
 
@@ -166,8 +165,9 @@ class SummaryApi(ExtDB):
         retval_=parse_output(dumplst)
         retval=[]
         for record in retval_:
-            retval.append({"chrom":record["chromosome"],"pos":record["base_pair_location"],"ref":record["hm_effect_allele"],
-            "alt":record["hm_other_allele"],"pval":record["p_value"],"trait":record["trait"][0],"code":record["hm_code"]})
+            if record["code"] not in [9, 14, 15, 16, 17, 18]:
+                retval.append({"chrom":record["chromosome"],"pos":record["base_pair_location"],"ref":record["hm_effect_allele"],
+                "alt":record["hm_other_allele"],"pval":record["p_value"],"trait":record["trait"][0]})
         return retval
 
     def get_trait(self, trait_code):
@@ -287,11 +287,10 @@ class LocalDB(ExtDB):
             return
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
-        retval.loc[:,"code"]=20
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
         retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
-        retcols=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","code","study","study_link"]
+        retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str})
+        retcols=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","study","study_link"]
         return retval.loc[:,retcols].to_dict("records")
     
     def get_trait(self, trait_code):
@@ -328,7 +327,7 @@ class GwasApi(ExtDB):
         out = get_rsid_alleles_ensembl(rsids)
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
-        cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","MAPPED_TRAIT","MAPPED_TRAIT_URI"]
+        cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
@@ -336,12 +335,10 @@ class GwasApi(ExtDB):
             return
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
-        retval.loc[:,"code"]=20
-        rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval"}
+        rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
         retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str,"code":int})
-        retval=retval[retval["pval"]<=pval ]
-        retcols=["chrom","pos","ref","alt","pval","trait","code"]
+        retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str})
+        retcols=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","study","study_link"]
         return retval.loc[:,retcols].to_dict("records")
 
     def get_trait(self, trait_code):

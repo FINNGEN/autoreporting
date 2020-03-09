@@ -225,7 +225,7 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_t
     gwas_df=pd.DataFrame(result_lst)
     #resolve indels
     if gwas_df.empty:
-        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","code","study","study_link"])
+        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","study","study_link"])
     indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
     indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
     gwas_df=gwas_df.loc[~indel_idx,:]
@@ -395,9 +395,6 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         if gwas_df.empty:
             summary_df_2=gwas_df
         else:    
-            #filter out invalid values
-            filter_out_codes=[9, 14, 15, 16, 17, 18]
-            gwas_df=gwas_df.loc[~gwas_df.loc[:,"code"].isin(filter_out_codes)]
             gwas_df.loc[:,"#variant"]=create_variant_column(gwas_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
             summary_df_2=gwas_df
             unique_efos=list(summary_df_2["trait"].unique())
