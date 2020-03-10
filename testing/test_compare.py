@@ -109,7 +109,7 @@ class TestCompare(unittest.TestCase):
         with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
             mock_threadpool.starmap=lambda *args: r_lst
             mock_threadpool.return_value.__enter__.return_value=mock_threadpool
-            value=compare.load_api_summaries(df,10,0.1,mock_threadpool,1,columns)
+            value=compare.load_api_summaries(df,mock_threadpool,1,columns)
         self.assertTrue(value.empty)
         # DF with indels and normal hits
         r_lst=[[{"chrom":"1",
@@ -130,7 +130,7 @@ class TestCompare(unittest.TestCase):
         with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
             mock_threadpool.starmap=lambda *args: r_lst
             mock_threadpool.return_value.__enter__.return_value=mock_threadpool
-            value=compare.load_api_summaries(df,10,0.1,mock_threadpool,1,columns).astype(object)
+            value=compare.load_api_summaries(df,mock_threadpool,1,columns).astype(object)
         for col in ["chrom","pos","ref","alt"]:
             self.assertTrue(value[col].equals(validate_df[col]))
 

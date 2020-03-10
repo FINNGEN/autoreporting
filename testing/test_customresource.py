@@ -9,7 +9,7 @@ from Scripts.data_access import custom_catalog
 from io import StringIO
 
 def create_data() -> pd.DataFrame:
-    cols = ["chrom","pos","ref","alt","pval","beta","se","trait","study_doi"]
+    cols = ["chrom","pos","ref","alt","pval","beta","se","trait","study_doi","trait_name"]
     chroms = ["1"]*100
     pos = list(range(1,101))
     ref = ["A","C","G","T"]*25
@@ -19,7 +19,8 @@ def create_data() -> pd.DataFrame:
     se=["NA"]*100
     trait = ["test_trait"]*100
     study_doi=["NA"]*100
-    data=pd.DataFrame({ cols[0]:chroms, cols[1]:pos, cols[2]:ref, cols[3]:alt, cols[4]:pval, cols[5]:beta, cols[6]:se, cols[7]:trait, cols[8]:study_doi })
+    trait_name = ["test_trait"]*100
+    data=pd.DataFrame({ cols[0]:chroms, cols[1]:pos, cols[2]:ref, cols[3]:alt, cols[4]:pval, cols[5]:beta, cols[6]:se, cols[7]:trait, cols[8]:study_doi, cols[9]:trait_name })
     return data
 
 def create_catalog() -> custom_catalog.CustomCatalog:
@@ -28,7 +29,7 @@ def create_catalog() -> custom_catalog.CustomCatalog:
     file_obj = StringIO()
     data.to_csv(file_obj,sep="\t",index=False)
     file_obj.seek(0)
-    return custom_catalog.CustomCatalog(file_obj)
+    return custom_catalog.CustomCatalog(file_obj, 1.0, 0)
 
 class TestCustomCat(unittest.TestCase):
     def test_init(self):
@@ -50,7 +51,7 @@ class TestCustomCat(unittest.TestCase):
         validation_data=validation_data.loc[(validation_data["pos"] >=range_start) & (validation_data["pos"] <=range_end) ,:]
         validation_data=validation_data.loc[validation_data["pval"]<=pval,:]
         validation_data = validation_data.replace("NA",np.nan).reset_index(drop=True)
-        out = pd.DataFrame(catalog.get_associations(chromosome,range_start,range_end,pval)).reset_index(drop=True)
+        out = pd.DataFrame(catalog.get_associations(chromosome,range_start,range_end)).reset_index(drop=True)
         for col in out.columns:
             pd.testing.assert_series_equal(out[col], validation_data[col])
 

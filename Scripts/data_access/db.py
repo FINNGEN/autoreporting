@@ -11,7 +11,7 @@ import pandas as pd, numpy as np
 class ExtDB(object):
 
     @abc.abstractmethod
-    def get_associations(self, chromosome: str, start: int, end: int, pval: float, size: int)-> List[Dict[str, Any]]:
+    def get_associations(self, chromosome: str, start: int, end: int)-> List[Dict[str, Any]]:
         """ Return associations of range chr:start-end that have pval smaller than pval. Get results in at most size sized chunks.
             Args: chromosome start end pval size
             Returns: List of Dictionaries with elements "chrom":chromosome "pos":position "ref":ref_allele "alt":alt_allele "pval":p-value "trait":phenotype_code
@@ -27,7 +27,7 @@ class ExtDB(object):
         return
 
     @abc.abstractmethod
-    def associations_for_regions(self, regions: List[Dict[str, Any]]):
+    def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Return associations for a list of regions of type {"chrom": str, "min": int, "max": int }
         Args:
             regions (List[Dict[str, Any]]): The list of regions for which associations are queried

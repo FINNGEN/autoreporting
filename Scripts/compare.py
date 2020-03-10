@@ -201,20 +201,20 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     return top_level_df
 
     
-def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_threads, columns):
+def load_api_summaries(df, gwapi,gwascatalog_threads, columns):
     range_df=df.loc[:,[columns["chrom"],columns["pos"] ]].copy(deep=True)
     range_df.loc[:,"pos2"]=range_df.loc[:,columns["pos"] ]
     range_df=range_df.rename(columns={columns["pos"]:"pos_rmin","pos2":"pos_rmax"})
 
-    pad=gwascatalog_pad*1000
-    range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-pad
-    range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+pad
-    range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
+    #pad=gwascatalog_pad*1000
+    #range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-pad
+    #range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+pad
+    #range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
     regions=prune_regions(range_df,columns=columns)
     #use api to get all gwascatalog hits
     data_lst=[]
     for _,region in regions.iterrows():
-        data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],gwascatalog_pval])
+        data_lst.append([region[ columns["chrom"] ], region["min"],region["max"]])
     r_lst=None
     threads=gwascatalog_threads
     with ThreadPool(threads) as pool:
@@ -232,14 +232,12 @@ def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_t
     gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
     return gwas_df
 
-def load_custom_dataresource(df: pd.DataFrame, gwascatalog_pad: int, gwascatalog_pval: float, resourceapi: custom_catalog.CustomCatalog, columns: Dict[str, str]) -> pd.DataFrame :
+def load_custom_dataresource(df: pd.DataFrame, resourceapi: custom_catalog.CustomCatalog, columns: Dict[str, str]) -> pd.DataFrame :
     """Load variants from custom dataresource
     Load variants corresponding to the filtered variants from a custom dataresource, i.e. a CustomCatalog.
 
     Args:
         df (pd.DataFrame): Input dataframe
-        gwascatalog_pad (int): Range around group to search for variants for
-        gwascatalog_pval (float): P-value threshold
         resourceapi (custom_catalog.CustomCatalog): The catalog to get associations from
         columns (Dict[str, str]): Column names for df
     Returns:
@@ -250,14 +248,14 @@ def load_custom_dataresource(df: pd.DataFrame, gwascatalog_pad: int, gwascatalog
     regions = prune_regions(range_df,columns)
     outputs=[]
     for _, region in regions.iterrows():
-        outputs.append(resourceapi.get_associations(region[columns["chrom"]], region["min"],region["max"],gwascatalog_pval))
+        outputs.append(resourceapi.get_associations(region[columns["chrom"]], region["min"],region["max"]))
     outputs=[r for r in outputs if r != None]
     outputs=[i for sublist in outputs for i in sublist]
     customresource_df = pd.DataFrame(outputs)
     if customresource_df.empty:
         return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","trait_name","study_link","#variant"])
     customresource_df = filter_invalid_alleles(customresource_df,columns)
-    customresource_df["trait_name"] = customresource_df["trait"]
+    #customresource_df["trait_name"] = customresource_df["trait"]
     rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"],"study_doi":"study_link"}
     customresource_df=customresource_df.rename(columns=rename_dict)
     customresource_df.loc[:,"#variant"]=create_variant_column(customresource_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
@@ -375,7 +373,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
     summary_df_2=pd.DataFrame()
     #building summaries, external files and/or gwascatalog
     if customdataresource != None:
-        summary_df_1=load_custom_dataresource(df.copy(), gwascatalog_pad, gwascatalog_pval, customdataresource,columns)
+        summary_df_1=load_custom_dataresource(df.copy(), customdataresource,columns)
     if gwapi != None:
         gwas_df=None
         if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
@@ -386,7 +384,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
             subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             gwas_load_df=df.copy()
             gwas_load_df=df_replace_value(gwas_load_df,columns["chrom"],"23","X")
-            gwas_df=load_api_summaries(gwas_load_df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
+            gwas_df=load_api_summaries(gwas_load_df,gwapi,gwascatalog_threads,columns)
             gwas_df=df_replace_value(gwas_df,"chrom","X","23")
             if cache_gwas:
                 gwas_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)

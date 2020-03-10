@@ -22,14 +22,14 @@ def main(args):
     customdataresource=None
     if args.use_gwascatalog:
         if args.database_choice=="local":
-            gwapi=gwcatalog_api.LocalDB(args.localdb_path)
+            gwapi=gwcatalog_api.LocalDB(args.localdb_path,args.gwascatalog_pval,args.gwascatalog_pad*1000)
             args.gwascatalog_threads=1
         elif args.database_choice=="summary_stats":
-            gwapi=gwcatalog_api.SummaryApi()
+            gwapi=gwcatalog_api.SummaryApi(args.gwascatalog_pval, args.gwascatalog_pad*1000,args.gwascatalog_threads)
         else:
-            gwapi=gwcatalog_api.GwasApi()
+            gwapi=gwcatalog_api.GwasApi(args.gwascatalog_pval, args.gwascatalog_pad*1000,args.gwascatalog_threads)
     if args.custom_dataresource != "":
-        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
+        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource,args.gwascatalog_pval,args.gwascatalog_pad*1000)
 
     ld_api=None
     if args.grouping_method != "simple":
@@ -124,7 +124,7 @@ if __name__=="__main__":
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")
     parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.rsv",help="LD check report output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,type=float,help="P-value cutoff for GWASCatalog searches")
-    parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
+    parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=0,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
