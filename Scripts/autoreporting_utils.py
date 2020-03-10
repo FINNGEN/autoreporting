@@ -71,7 +71,7 @@ def load_tb_df(df,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"})
     out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
     return out_df
 
-def prune_regions(df,columns={"chrom":"#chrom"}):
+def prune_regions(df):
     """Prune overlapping tabix regions so that no duplicate calls are made
     In: dataframe with the regions
     Out:dataframe with pruned regions
@@ -81,7 +81,7 @@ def prune_regions(df,columns={"chrom":"#chrom"}):
         if regions:
             found=False
             for region in regions:
-                if (( int(t.pos_rmax)<region["min"] ) or ( int(t.pos_rmin) > region["max"] ) ) or (str(t._1)!=region[ columns["chrom"] ] ):
+                if (( int(t.pos_rmax)<region["min"] ) or ( int(t.pos_rmin) > region["max"] ) ) or (str(t._1)!=region[ "chrom" ] ):
                     continue
                 elif int(t.pos_rmin)>=region["min"] and int(t.pos_rmax)<=region["max"]:
                     found=True
@@ -94,9 +94,9 @@ def prune_regions(df,columns={"chrom":"#chrom"}):
                     found=True
                     break
             if not found:
-                regions.append({columns["chrom"]:str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
+                regions.append({"chrom":str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
         else:
-            regions.append({columns["chrom"]:str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
+            regions.append({"chrom":str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
     return pd.DataFrame(regions)
 
 def columns_from_arguments(column_labels):

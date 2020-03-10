@@ -38,7 +38,7 @@ class SummaryApi(ExtDB):
         self.get_trait=get_trait_name
         self.pval_threshold = float(pval_threshold)
         self.pad = int(padding)
-        self.num_threads = threads
+        self.threads = threads
         self.result_size=100
 
     def get_associations(self,chromosome,start,end):
@@ -176,7 +176,7 @@ class GwasApi(ExtDB):
         self.get_trait=get_trait_name
         self.pval_threshold = float(pval_threshold)
         self.pad = int(padding)
-        self.num_threads = threads
+        self.threads = threads
 
     def get_associations(self,chromosome,start,end):
         pval=self.pval_threshold

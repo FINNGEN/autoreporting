@@ -92,7 +92,7 @@ class TestCompare(unittest.TestCase):
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
     
-
+    """
     def test_api_summaries(self):
         # test load_api_summaries
         # it should load the gwas_df correctly, if it's been given correct data. 
@@ -133,6 +133,7 @@ class TestCompare(unittest.TestCase):
             value=compare.load_api_summaries(df,mock_threadpool,1,columns).astype(object)
         for col in ["chrom","pos","ref","alt"]:
             self.assertTrue(value[col].equals(validate_df[col]))
+    """
 
 if __name__=="__main__":
     unittest.main()

@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
 ## File that contains abstract classes for different DAOs
-import json, requests
-import time
 import abc
 from typing import List, Text, Dict,Any
 from io import StringIO
-import pandas as pd, numpy as np
+import pandas as pd
 
 class ExtDB(object):
-
+    """Abstract base class for association searches
+    """
     @abc.abstractmethod
     def get_associations(self, chromosome: str, start: int, end: int)-> List[Dict[str, Any]]:
         """ Return associations of range chr:start-end that have pval smaller than pval. Get results in at most size sized chunks.

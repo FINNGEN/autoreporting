@@ -200,66 +200,6 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     return top_level_df
 
-    
-def load_api_summaries(df, gwapi,gwascatalog_threads, columns):
-    range_df=df.loc[:,[columns["chrom"],columns["pos"] ]].copy(deep=True)
-    range_df.loc[:,"pos2"]=range_df.loc[:,columns["pos"] ]
-    range_df=range_df.rename(columns={columns["pos"]:"pos_rmin","pos2":"pos_rmax"})
-
-    #pad=gwascatalog_pad*1000
-    #range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-pad
-    #range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+pad
-    #range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
-    regions=prune_regions(range_df,columns=columns)
-    #use api to get all gwascatalog hits
-    data_lst=[]
-    for _,region in regions.iterrows():
-        data_lst.append([region[ columns["chrom"] ], region["min"],region["max"]])
-    r_lst=None
-    threads=gwascatalog_threads
-    with ThreadPool(threads) as pool:
-        r_lst=pool.starmap(gwapi.get_associations,data_lst)
-    #remove empties, flatten
-    r_lst=[r for r in r_lst if r != None]
-    result_lst=[i for sublist in r_lst for i in sublist]
-    gwas_df=pd.DataFrame(result_lst)
-    #resolve indels
-    if gwas_df.empty:
-        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","study","study_link"])
-    indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
-    indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
-    gwas_df=gwas_df.loc[~indel_idx,:]
-    gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
-    return gwas_df
-
-def load_custom_dataresource(df: pd.DataFrame, resourceapi: custom_catalog.CustomCatalog, columns: Dict[str, str]) -> pd.DataFrame :
-    """Load variants from custom dataresource
-    Load variants corresponding to the filtered variants from a custom dataresource, i.e. a CustomCatalog.
-
-    Args:
-        df (pd.DataFrame): Input dataframe
-        resourceapi (custom_catalog.CustomCatalog): The catalog to get associations from
-        columns (Dict[str, str]): Column names for df
-    Returns:
-        pd.DataFrame: A dataframe containing the variants that are in roughly the same region as filtered variants. 
-    """
-    #make regions based on pos_rmin, pos_rmax
-    range_df = df.loc[:,[columns["chrom"],"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
-    regions = prune_regions(range_df,columns)
-    outputs=[]
-    for _, region in regions.iterrows():
-        outputs.append(resourceapi.get_associations(region[columns["chrom"]], region["min"],region["max"]))
-    outputs=[r for r in outputs if r != None]
-    outputs=[i for sublist in outputs for i in sublist]
-    customresource_df = pd.DataFrame(outputs)
-    if customresource_df.empty:
-        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","beta","se","trait","trait_name","study_link","#variant"])
-    customresource_df = filter_invalid_alleles(customresource_df,columns)
-    #customresource_df["trait_name"] = customresource_df["trait"]
-    rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"],"study_doi":"study_link"}
-    customresource_df=customresource_df.rename(columns=rename_dict)
-    customresource_df.loc[:,"#variant"]=create_variant_column(customresource_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-    return customresource_df
 
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
     if df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]<=1:
@@ -342,16 +282,15 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
     Returns:
         pd.DataFrame: dataframe with invalid variants removed 
     """
-    mset='^[acgtACGT]+$'
+    mset='^[acgtACGT-]+$'
     matchset1=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
     matchset2=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
     retval = df[matchset1 & matchset2].copy()
     return retval
 
 def compare(df, ld_check, plink_mem, ld_panel_path,
-            prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
-            ldstore_threads, ld_treshold, cache_gwas, columns, 
-            gwapi, customdataresource):
+            prefix, ldstore_threads, ld_treshold,  cache_gwas, columns, 
+            association_db):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
     In: df, ld_check, plink_mem, ld_panel_path,
@@ -369,39 +308,25 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
     df_cols=df.columns.to_list()
     if not all(nec_col in df_cols for nec_col in necessary_columns):
         Exception("GWS variant file {} did not contain all of the necessary columns:\n{} ".format(compare_fname,necessary_columns))
-    summary_df_1=pd.DataFrame()
-    summary_df_2=pd.DataFrame()
-    #building summaries, external files and/or gwascatalog
-    if customdataresource != None:
-        summary_df_1=load_custom_dataresource(df.copy(), customdataresource,columns)
-    if gwapi != None:
-        gwas_df=None
-        if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
-            print("reading gwas results from gwas_out_mapping.tsv...")
-            gwas_df=pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
-        else:
-            rm_gwas_out="rm {}gwas_out_mapping.tsv".format(prefix)
-            subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            gwas_load_df=df.copy()
-            gwas_load_df=df_replace_value(gwas_load_df,columns["chrom"],"23","X")
-            gwas_df=load_api_summaries(gwas_load_df,gwapi,gwascatalog_threads,columns)
-            gwas_df=df_replace_value(gwas_df,"chrom","X","23")
-            if cache_gwas:
-                gwas_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)
-        gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
-        gwas_df=gwas_df.rename(columns=gwas_rename)
-        if gwas_df.empty:
-            summary_df_2=gwas_df
-        else:    
-            gwas_df.loc[:,"#variant"]=create_variant_column(gwas_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-            summary_df_2=gwas_df
-            unique_efos=list(summary_df_2["trait"].unique())
-            trait_name_map={}
-            for key in unique_efos:
-                trait_name_map[key]=gwapi.get_trait(key)
-            summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
-            summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
-    summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
+    if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
+        summary_df = pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
+    else:
+        range_df = df.loc[:,[columns["chrom"],"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
+        regions = prune_regions(range_df).to_dict("records")
+        assoc_records = association_db.associations_for_regions(regions)
+        assoc_df = pd.DataFrame(assoc_records)
+        if not assoc_df.empty:
+            assoc_df=filter_invalid_alleles(assoc_df, columns)
+            indel_idx=(assoc_df["ref"]=="-")|(assoc_df["alt"]=="-")
+            indels=solve_indels(assoc_df.loc[indel_idx,:],df,columns)
+            assoc_df=assoc_df.loc[~indel_idx,:]
+            assoc_df=pd.concat([assoc_df,indels],sort=False).reset_index(drop=True)
+            rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
+            assoc_df=assoc_df.rename(columns=rename_dict)
+            assoc_df.loc[:,"#variant"]=create_variant_column(assoc_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        summary_df=assoc_df
+        if cache_gwas:
+            summary_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
         print("No summary variants, report will be incomplete")
@@ -490,25 +415,19 @@ if __name__ == "__main__":
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
 
-    gwapi=None
-    customdataresource=None
-    if args.use_gwascatalog:
-        if args.database_choice=="local":
-            gwapi=gwcatalog_api.LocalDB(args.localdb_path)
-            args.gwascatalog_threads=1
-        elif args.database_choice=="summary_stats":
-            gwapi=gwcatalog_api.SummaryApi()
-        else:
-            gwapi=gwcatalog_api.GwasApi()
-    if args.custom_dataresource != "":
-        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource)
+    assoc_db = datafactory.db_factory(args.use_gwascatalog,
+                                                    args.custom_dataresource,
+                                                    args.database_choice,
+                                                    args.localdb_path,
+                                                    args.gwascatalog_pad,
+                                                    args.gwascatalog_pval,
+                                                    args.gwascatalog_threads)
 
     df=pd.read_csv(args.compare_fname,sep="\t")
     [report_df,ld_out_df] = compare(df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
-                                    gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    gwapi=gwapi, customdataresource=customdataresource)
+                                    association_db=assoc_db)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df

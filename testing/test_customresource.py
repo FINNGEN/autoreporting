@@ -51,6 +51,7 @@ class TestCustomCat(unittest.TestCase):
         validation_data=validation_data.loc[(validation_data["pos"] >=range_start) & (validation_data["pos"] <=range_end) ,:]
         validation_data=validation_data.loc[validation_data["pval"]<=pval,:]
         validation_data = validation_data.replace("NA",np.nan).reset_index(drop=True)
+        validation_data=validation_data.rename(columns={"study_doi":"study_link"})
         out = pd.DataFrame(catalog.get_associations(chromosome,range_start,range_end)).reset_index(drop=True)
         for col in out.columns:
             pd.testing.assert_series_equal(out[col], validation_data[col])

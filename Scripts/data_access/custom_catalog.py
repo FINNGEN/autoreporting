@@ -25,7 +25,8 @@ class CustomCatalog(ExtDB):
         tmpdata=tmpdata.loc[(tmpdata["pos"]>= start) &(tmpdata["pos"]<= end),: ]
         tmpdata=tmpdata.loc[tmpdata["pval"]<=self.pval_threshold,:]
         tmpdata["trait_name"] = tmpdata["trait"].apply(lambda x: self.get_trait(x))
-        return tmpdata.to_dict("records")
+        rename_d = {"study_doi":"study_link"}
+        return tmpdata.rename(columns=rename_d).to_dict("records")
         #return results
 
     def get_trait(self, trait_code: str) -> str:
@@ -41,5 +42,6 @@ class CustomCatalog(ExtDB):
         """
         out= []
         for region in regions:
-            out.extend(self.get_associations(regions["chrom"],regions["min"],regions["max"]))
+            assocs=self.get_associations(region["chrom"],region["min"],region["max"])
+            out.extend(assocs)
         return out

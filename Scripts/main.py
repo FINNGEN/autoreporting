@@ -4,7 +4,7 @@ import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
-from data_access import gwcatalog_api, custom_catalog
+from data_access import gwcatalog_api, custom_catalog, datafactory
 from data_access.linkage import PlinkLD, OnlineLD
 
 def main(args):
@@ -18,18 +18,13 @@ def main(args):
     args.strict_group_r2 = max(args.strict_group_r2,args.ld_r2)
     columns=autoreporting_utils.columns_from_arguments(args.column_labels)
 
-    gwapi=None
-    customdataresource=None
-    if args.use_gwascatalog:
-        if args.database_choice=="local":
-            gwapi=gwcatalog_api.LocalDB(args.localdb_path,args.gwascatalog_pval,args.gwascatalog_pad*1000)
-            args.gwascatalog_threads=1
-        elif args.database_choice=="summary_stats":
-            gwapi=gwcatalog_api.SummaryApi(args.gwascatalog_pval, args.gwascatalog_pad*1000,args.gwascatalog_threads)
-        else:
-            gwapi=gwcatalog_api.GwasApi(args.gwascatalog_pval, args.gwascatalog_pad*1000,args.gwascatalog_threads)
-    if args.custom_dataresource != "":
-        customdataresource = custom_catalog.CustomCatalog(args.custom_dataresource,args.gwascatalog_pval,args.gwascatalog_pad*1000)
+    assoc_db = datafactory.db_factory(args.use_gwascatalog,
+                                                    args.custom_dataresource,
+                                                    args.database_choice,
+                                                    args.localdb_path,
+                                                    args.gwascatalog_pad,
+                                                    args.gwascatalog_pval,
+                                                    args.gwascatalog_threads)
 
     ld_api=None
     if args.grouping_method != "simple":
@@ -75,9 +70,8 @@ def main(args):
     print("Compare results to previous findings")
     [report_df,ld_out_df] = compare.compare(annotate_df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
-                                    gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    gwapi=gwapi, customdataresource=customdataresource)
+                                    association_db=assoc_db)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report
