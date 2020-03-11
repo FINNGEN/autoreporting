@@ -35,13 +35,13 @@ class SummaryApi(ExtDB):
     Gwas Catalog summary statistic API
     """
     def __init__(self, pval_threshold, padding, threads):
-        self.get_trait=get_trait_name
+        self.__get_trait=get_trait_name
         self.pval_threshold = float(pval_threshold)
         self.pad = int(padding)
         self.threads = threads
         self.result_size=100
 
-    def get_associations(self,chromosome,start,end):
+    def __get_associations(self,chromosome,start,end):
         pval=self.pval_threshold
         start=max(0,int(start)-self.pad)
         end=int(end)+self.pad
@@ -89,7 +89,7 @@ class SummaryApi(ExtDB):
                 retval.append({"chrom":record["chromosome"],"pos":record["base_pair_location"],"ref":record["hm_effect_allele"],
                 "alt":record["hm_other_allele"],"pval":record["p_value"],"trait":record["trait"][0]})
         for record in retval:
-            record["trait_name"] = self.get_trait(record["trait"])
+            record["trait_name"] = self.__get_trait(record["trait"])
         return retval
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -102,7 +102,7 @@ class SummaryApi(ExtDB):
             data_lst.append([region["chrom"],region["min"],region["max"]])
         results = None
         with ThreadPool(self.threads) as pool:
-            results=pool.starmap(self.get_associations,data_lst)
+            results=pool.starmap(self.__get_associations,data_lst)
         results=[r for r in results if r != None]
         results=[i for sublist in results for i in sublist]
         return results
@@ -110,7 +110,7 @@ class SummaryApi(ExtDB):
 class LocalDB(ExtDB):
 
     def __init__(self, db_path: str, pval_threshold: float, padding: int):
-        self.get_trait=get_trait_name
+        self.__get_trait=get_trait_name
         self.pad = int(padding)
         self.pval_threshold = float(pval_threshold)
         try:
@@ -127,7 +127,7 @@ class LocalDB(ExtDB):
         self.df=self.df.astype({"CHR_POS":int,"P-VALUE":float})
         self.df=self.df.loc[self.df["P-VALUE"]<=self.pval_threshold ,:] #filter the df now by pval
     
-    def get_associations(self, chromosome: str, start: int, end: int):
+    def __get_associations(self, chromosome: str, start: int, end: int):
         start=max(0,int(start)-self.pad)
         end=int(end)+self.pad
         #filter based on chromosome, start, end, pval
@@ -164,7 +164,7 @@ class LocalDB(ExtDB):
         """
         out= []
         for region in regions:
-            out.extend(self.get_associations(regions["chrom"],regions["min"],regions["max"]))
+            out.extend(self.__get_associations(regions["chrom"],regions["min"],regions["max"]))
         return out
 
 class GwasApi(ExtDB):
@@ -173,12 +173,12 @@ class GwasApi(ExtDB):
     """
 
     def __init__(self, pval_threshold, padding, threads):
-        self.get_trait=get_trait_name
+        self.__get_trait=get_trait_name
         self.pval_threshold = float(pval_threshold)
         self.pad = int(padding)
         self.threads = threads
 
-    def get_associations(self,chromosome,start,end):
+    def __get_associations(self,chromosome,start,end):
         pval=self.pval_threshold
         start=max(0,int(start)-self.pad)
         end=int(end)+self.pad
@@ -223,7 +223,7 @@ class GwasApi(ExtDB):
             data_lst.append([region["chrom"],region["min"],region["max"]])
         results = None
         with ThreadPool(self.threads) as pool:
-            results=pool.starmap(self.get_associations,data_lst)
+            results=pool.starmap(self.__get_associations,data_lst)
         results=[r for r in results if r != None]
         results=[i for sublist in results for i in sublist]
         return results

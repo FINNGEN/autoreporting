@@ -10,7 +10,7 @@ class ExtDB(object):
     """Abstract base class for association searches
     """
     @abc.abstractmethod
-    def get_associations(self, chromosome: str, start: int, end: int)-> List[Dict[str, Any]]:
+    def __get_associations(self, chromosome: str, start: int, end: int)-> List[Dict[str, Any]]:
         """ Return associations of range chr:start-end that have pval smaller than pval. Get results in at most size sized chunks.
             Args: chromosome start end pval size
             Returns: List of Dictionaries with elements "chrom":chromosome "pos":position "ref":ref_allele "alt":alt_allele "pval":p-value "trait":phenotype_code
@@ -18,7 +18,7 @@ class ExtDB(object):
         return
 
     @abc.abstractmethod
-    def get_trait(self, trait_code: str)-> str:
+    def __get_trait(self, trait_code: str)-> str:
         """ Return trait given trait code
             Args: trait_code
             Returns: Trait name

@@ -52,14 +52,14 @@ class TestCustomCat(unittest.TestCase):
         validation_data=validation_data.loc[validation_data["pval"]<=pval,:]
         validation_data = validation_data.replace("NA",np.nan).reset_index(drop=True)
         validation_data=validation_data.rename(columns={"study_doi":"study_link"})
-        out = pd.DataFrame(catalog.get_associations(chromosome,range_start,range_end)).reset_index(drop=True)
+        out = pd.DataFrame(catalog._CustomCatalog__get_associations(chromosome,range_start,range_end)).reset_index(drop=True)
         for col in out.columns:
             pd.testing.assert_series_equal(out[col], validation_data[col])
 
     def test_get_trait(self):
         trait="TRAIT"
         catalog=create_catalog()
-        self.assertEqual(catalog.get_trait(trait),trait)
+        self.assertEqual(catalog._CustomCatalog__get_trait(trait),trait)
 
 if __name__=="__main__":
     unittest.main()

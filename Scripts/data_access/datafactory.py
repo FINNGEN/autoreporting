@@ -13,8 +13,8 @@ class CompoundDB(ExtDB):
         self.db=[]
         for db in conf:
             self.db.append(db)
-        self.get_trait=None
-        self.get_associations=None
+        self.__get_trait=None
+        self.__get_associations=None
 
     def associations_for_regions(self, regions: List[Dict[str, Any]] ) -> List[Dict[str, Any]]:
         #for every database, query the regions and append the results

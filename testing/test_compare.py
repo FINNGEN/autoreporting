@@ -92,48 +92,6 @@ class TestCompare(unittest.TestCase):
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
     
-    """
-    def test_api_summaries(self):
-        # test load_api_summaries
-        # it should load the gwas_df correctly, if it's been given correct data. 
-        # Therefore, what the functions inside it do is of no concern: They will be mocked.
-        chrom=["1","6"]
-        pos=[100000,32441740]
-        ref=["A","T"]
-        alt=["T","AT"]
-        pval=[2e-8,1e-9]
-        df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt,"pval":pval})
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
-        #DF with no hits
-        r_lst=[None,None]
-        with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
-            mock_threadpool.starmap=lambda *args: r_lst
-            mock_threadpool.return_value.__enter__.return_value=mock_threadpool
-            value=compare.load_api_summaries(df,mock_threadpool,1,columns)
-        self.assertTrue(value.empty)
-        # DF with indels and normal hits
-        r_lst=[[{"chrom":"1",
-                "pos":100000,
-                "ref":"A",
-                "alt":"T",
-                "pval":5e-9,
-                "trait":"0"}],
-                [{"chrom":"6",
-                "pos":32441741,
-                "ref":"-",
-                "alt":"T",
-                "pval":1.2e-8,
-                "trait":"1"}]]
-        validate_df=df.copy()
-        validate_df["trait"]=["0","1"]
-        validate_df=validate_df.rename(columns={"#chrom":"chrom"}).astype(object)
-        with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
-            mock_threadpool.starmap=lambda *args: r_lst
-            mock_threadpool.return_value.__enter__.return_value=mock_threadpool
-            value=compare.load_api_summaries(df,mock_threadpool,1,columns).astype(object)
-        for col in ["chrom","pos","ref","alt"]:
-            self.assertTrue(value[col].equals(validate_df[col]))
-    """
 
 if __name__=="__main__":
     unittest.main()

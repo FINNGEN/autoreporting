@@ -17,19 +17,19 @@ class CustomCatalog(ExtDB):
         self.data = self.data.astype({"chrom":"str"})
         self.data=self.data.dropna(axis="index",subset=["chrom","pos","ref","alt","pval"])
 
-    def get_associations(self,chromosome: str,start: int,end: int)-> List[Dict[str,Any]]:
+    def __get_associations(self,chromosome: str,start: int,end: int)-> List[Dict[str,Any]]:
         start=max(0,int(start)-self.pad)
         end=int(end)+self.pad
         #filter by chromosome, pos, pval
         tmpdata=self.data.loc[self.data["chrom"] == chromosome,:]
         tmpdata=tmpdata.loc[(tmpdata["pos"]>= start) &(tmpdata["pos"]<= end),: ]
         tmpdata=tmpdata.loc[tmpdata["pval"]<=self.pval_threshold,:]
-        tmpdata["trait_name"] = tmpdata["trait"].apply(lambda x: self.get_trait(x))
+        tmpdata["trait_name"] = tmpdata["trait"].apply(lambda x: self.__get_trait(x))
         rename_d = {"study_doi":"study_link"}
         return tmpdata.rename(columns=rename_d).to_dict("records")
         #return results
 
-    def get_trait(self, trait_code: str) -> str:
+    def __get_trait(self, trait_code: str) -> str:
         """Return trait name
         Return trait code as name as the custom data resource only has a trait defined, no trait code
         """
@@ -42,6 +42,6 @@ class CustomCatalog(ExtDB):
         """
         out= []
         for region in regions:
-            assocs=self.get_associations(region["chrom"],region["min"],region["max"])
+            assocs=self.__get_associations(region["chrom"],region["min"],region["max"])
             out.extend(assocs)
         return out
