@@ -18,7 +18,6 @@ task preprocess_serial{
         File summ_array = "summ_array"
         File summ_tb_array = "summ_tb_array"
         File credset_array = "credset_array"
-        File credset_map = "boolmap"
     }
 }
 
@@ -30,11 +29,10 @@ task report{
     Array[String] pheno_ids
     Array[File] summ_stat
     Array[File] summ_stat_tb
-    Map[String, Boolean] credset_status
     Array[String] credsets
-    Int credset_len = length(credsets)
-    Array[File] selected_credsets = if credset_len > 0 then select_all(credsets) else summ_stat
-    Int len = length(summ_stat)
+    Boolean use_credsets = if length(credsets) > 0 then true else false
+    Array[File] selected_credsets = if use_credsets then credsets else []
+    Int len = length(pheno_ids)
 
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
@@ -52,11 +50,6 @@ task report{
     #credible set annotation, no tabix
     File efo_map
 
-    #File? summary_stat_listing
-    #File? endpoint_listing
-    #trick wdl to write the external summary stats paths as a file
-    #NOTE: does not work with partially serialized widdle. 
-    #Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
     File? local_gwcatalog
 
     Float sign_treshold
@@ -82,10 +75,6 @@ task report{
     String compare_style
     String db_choice
     String annotation_version
-    #String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else ""
-    String additional_prefix
-    #String efo_cmd = if efo_codes != "" then "--efo-codes" else ""
-    String dollar = "$"  
 
     command <<<
         python3 <<CODE
@@ -100,7 +89,6 @@ task report{
         finngen_annotation="${finngen_annotation}"
         functional_annotation="${functional_annotation}"
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
-        prefix="${additional_prefix}"
 
         sign_treshold=${sign_treshold}
         alt_sign_treshold=${alt_sign_treshold}
@@ -122,32 +110,21 @@ task report{
         compare_style = "${compare_style}"
         db_choice = "${db_choice}"
         annotation_version = "${annotation_version}"
-
+        grouping_method = "${primary_grouping_method}" if "true" == "${use_credsets}" else "${secondary_grouping_method}"
         #process the summstats and credsets etc
         summstats="${sep=";" summ_stat}".split(";")
         phenotypes="${sep=";" pheno_ids}".split(";")
 
         credset_calls = []
-        boolean_map = json.load(open("${write_json(credset_status)}","r"))
-        credset_list="${sep=";" selected_credsets}".split(";")
-        credset_count=0
-        group_method=[]
-        for i,pheno in enumerate(phenotypes):
-            if boolean_map[pheno] != True:
-                credset_calls.append("")
-                group_method.append("${secondary_grouping_method}")
-            else:
-                credset_calls.append("--credible-set-file {}".format(credset_list[credset_count]) )
-                group_method.append("${primary_grouping_method}")
-                credset_count += 1
+        credset_cmds=["--credible-set-file {}".format(a) for a in "${sep=";" selected_credsets}".split(";")] if "true" == "${use_credsets}" else [""] * ${len}
         #efo codes
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
-        efo_array=["--efo-codes {}".format(efos[a.split("/")[-1].split(".")[0].replace(prefix,"")]) if a.split("/")[-1].split(".")[0].replace(prefix,"") in efos.keys() else "" for a in summstats ]
+        efo_array=["--efo-codes {}".format(efos[a]) if a in efos.keys() else "" for a in phenotypes ]
         
 
         for i in range(num_phenos):
-            phenotype_name=summstats[i].split("/")[-1].split(".")[0].replace(prefix,"")
+            phenotype_name=phenotypes[i]
             call_command=("main.py {} "
                         " --sign-treshold {} " 
                         "--alt-sign-treshold {} "
@@ -170,8 +147,6 @@ task report{
                         "--ldstore-threads {} "
                         "--gwascatalog-threads {} "
                         "--strict-group-r2 {} "
-                        #"{} "
-                        #"{} "
                         "--gwascatalog-pval {} "
                         "--gwascatalog-width-kb {} "
                         "--db {} "
@@ -187,7 +162,7 @@ task report{
                             sign_treshold,
                             alt_sign_treshold,
                             group,
-                            group_method[i],
+                            grouping_method,
                             grouping_locus_width,
                             plink_path,
                             ld_r2,
@@ -197,7 +172,7 @@ task report{
                             functional_annotation,
                             gnomad_genome,
                             gnomad_exome,
-                            credset_calls[i],
+                            credset_cmds[i],
                             annotation_version,
                             compare_style,
                             check_for_ld,
@@ -205,8 +180,6 @@ task report{
                             cpus,
                             gwascatalog_threads,
                             strict_group_r2,
-                            #summary_cmd,
-                            #endpoint_listing,
                             gwascatalog_pval,
                             gwascatalog_width_kb,
                             db_choice,
@@ -234,7 +207,7 @@ task report{
         docker: "${docker}"
         cpu: "${cpus}"
         memory: "${memory} GB"
-        disks: "local-disk 300 HDD"
+        disks: "local-disk 200 HDD"
         zones: "europe-west1-b"
         preemptible: 2 
     }
@@ -273,7 +246,6 @@ workflow autoreporting{
     Boolean group
     Boolean overlap
     Boolean check_for_ld
-    String additional_prefix
     String primary_grouping_method
     String secondary_grouping_method
 
@@ -285,17 +257,16 @@ workflow autoreporting{
     Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_serial.summ_tb_array)
     Array[Array[File]] credset_arr = read_tsv(preprocess_serial.credset_array)
     Array[Array[String]] pheno_ids = read_tsv(preprocess_serial.pheno_array)
-    Map[String,Boolean] credset_available = read_json(preprocess_serial.credset_map)
 
     #reports
     scatter (i in range(length(pheno_arr))) {
+        Array[String] some_shit = if length(credset_arr[i]) == length(pheno_arr[i]) then credset_arr[i]  else []
         call report{
             input: 
             pheno_ids=pheno_ids[i],
             summ_stat=pheno_arr[i], 
             summ_stat_tb=pheno_tbi_arr[i], 
             credsets=credset_arr[i], 
-            credset_status = credset_available,
             docker=docker, 
             memory=memory, 
             cpus=cpus, 
@@ -325,8 +296,7 @@ workflow autoreporting{
             check_for_ld=check_for_ld,
             efo_map=efo_code_file,
             primary_grouping_method=primary_grouping_method,
-            secondary_grouping_method=secondary_grouping_method,
-            additional_prefix=additional_prefix
+            secondary_grouping_method=secondary_grouping_method
         }
     }
 }
