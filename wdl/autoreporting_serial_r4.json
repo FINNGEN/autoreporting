@@ -1,6 +1,6 @@
 {
-    "autoreporting.input_array_file": "gs://r4_data_west1/autoreporting/short_pheno_array.tsv",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:1337e6",
+    "autoreporting.input_array_file": "gs://r4_data_west1/autoreporting/r4_input_array_2020_03_17.tsv",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:b56d1f",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 5,
     "autoreporting.cpus":4,
@@ -30,6 +30,5 @@
     "autoreporting.overlap":false,
     "autoreporting.check_for_ld":false,
     "autoreporting.primary_grouping_method":"cred",
-    "autoreporting.secondary_grouping_method":"ld",
-    "autoreporting.additional_prefix":"finngen_R4_"
+    "autoreporting.secondary_grouping_method":"ld"
 }
