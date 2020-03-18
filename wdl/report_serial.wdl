@@ -213,6 +213,37 @@ task report{
     }
 }
 
+task output_data_and_readme{
+    String docker
+    String release_version
+    Array[Array[String]] outputs
+    File input_array
+    Array[File] flattened_outputs = flatten(outputs)
+    command <<<
+        #process the files to files
+        mkdir autoreporting_results
+        mkdir autoreporting_results/group_results
+        mkdir autoreporting_results/variant_results
+        cat ${write_lines(flattened_outputs)}| grep ".top.out" | xargs mv -t autoreporting_results/group_results/
+        cat ${write_lines(flattened_outputs)}| grep ".report.out" | xargs mv -t autoreporting_results/group_results/
+        #process README 
+        process_wdl_results.py ${write_lines(flattened_outputs)} --release ${release_version} --in-array ${input_array}  --readme-template ../data/readme_template.md --out autoreporting_results/README.md
+        #compress result folder for easy extraction
+        tar -zcf autoreporting_results.tar.gz autoreporting_results
+    >>>
+
+    runtime {
+        docker: "${docker}"
+        cpu: "1"
+        memory: "3 GB"
+        disks: "local-disk 10 HDD"
+        zones: "europe-west1-b"
+        preemptible: 2 
+    }
+    output {
+        File compressed_output = "autoreporting_results.tar.gz"
+    }
+}
 
 workflow autoreporting{
     File input_array_file
@@ -248,6 +279,7 @@ workflow autoreporting{
     Boolean check_for_ld
     String primary_grouping_method
     String secondary_grouping_method
+    String release_version
 
     call preprocess_serial{
         input: input_array = input_array_file, phenos_per_worker = phenos_per_worker, docker=docker
@@ -298,5 +330,10 @@ workflow autoreporting{
             primary_grouping_method=primary_grouping_method,
             secondary_grouping_method=secondary_grouping_method
         }
+    }
+
+    call output_data_and_readme{
+        input: docker=docker, outputs=report.out, release_version=release_version,
+        input_array = input_array_file
     }
 }
