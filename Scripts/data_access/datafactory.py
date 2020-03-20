@@ -5,7 +5,7 @@
 #How about just an object that has e.g. a dict for those
 from typing import List, Dict, Any
 from data_access.db import ExtDB
-from data_access import *
+from data_access import custom_catalog, gwcatalog_api
 
 #TODO: change into ExtDB because it kinda already is
 class CompoundDB(ExtDB):

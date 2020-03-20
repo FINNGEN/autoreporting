@@ -5,10 +5,8 @@ from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
 from autoreporting_utils import *
-from data_access import gwcatalog_api
-from data_access import custom_catalog
 import os
-from multiprocessing.dummy import Pool as ThreadPool
+from data_access import datafactory
 from typing import Dict
 
 def map_alleles(a1,a2):
