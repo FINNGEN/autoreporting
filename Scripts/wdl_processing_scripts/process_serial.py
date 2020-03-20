@@ -25,7 +25,7 @@ def process_phenos(input_array_fname, num_per_worker):
         idx_start = i*num_per_worker
         idx_end = (i+1)*num_per_worker-1 # -1 because of pandas indexing being start and end inclusive
         tmp_dat = cr_data.loc[idx_start:idx_end,:]
-        additional_tabs = len([a for a in list(tmp_dat[phenoname]) if a == ""]) 
+        additional_tabs = max(num_per_worker - len(list(tmp_dat[phenoname])),0)
         phenos = "\t".join( list(tmp_dat[phenoname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
         summ_stat = "\t".join( list(tmp_dat[ssname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
         summ_stat_tb = "\t".join([a+".tbi" for a in tmp_dat[ssname] ]) +"".join( ["\t"] * additional_tabs ) + "\n"
@@ -39,11 +39,11 @@ def process_phenos(input_array_fname, num_per_worker):
         idx_start = i*num_per_worker
         idx_end = (i+1)*num_per_worker-1 # -1 because of pandas indexing being start and end inclusive
         tmp_dat = ld_data.loc[idx_start:idx_end,:]
-        additional_tabs = len([a for a in list(tmp_dat[phenoname]) if a == ""]) 
+        additional_tabs = max(num_per_worker - len(list(tmp_dat[phenoname])),0)
         phenos = "\t".join( list(tmp_dat[phenoname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
         summ_stat = "\t".join( list(tmp_dat[ssname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
         summ_stat_tb = "\t".join([a+".tbi" for a in tmp_dat[ssname] ]) +"".join( ["\t"] * additional_tabs ) + "\n"
-        credset = "\t\n" #use at least one \t so wdl does not remove this cell
+        credset = "".join(["\t"] * max(num_per_worker-1, 1) )+"\n" #use at least one \t so wdl does not remove this cell
         phenolines.append(phenos)
         summstatlines.append(summ_stat)
         summstattbilines.append(summ_stat_tb)
