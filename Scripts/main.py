@@ -4,8 +4,8 @@ import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils
-import gwcatalog_api
-from linkage import PlinkLD, OnlineLD
+from data_access import datafactory
+from data_access.linkage import PlinkLD, OnlineLD
 
 def main(args):
     print("input file: {}".format(args.gws_fpath))
@@ -18,22 +18,23 @@ def main(args):
     args.strict_group_r2 = max(args.strict_group_r2,args.ld_r2)
     columns=autoreporting_utils.columns_from_arguments(args.column_labels)
 
-    gwapi=None
-    if args.database_choice=="local":
-        gwapi=gwcatalog_api.LocalDB(args.localdb_path)
-        args.gwascatalog_threads=1
-    elif database_choice=="summary_stats":
-        gwapi=gwcatalog_api.SummaryApi()
-    else:
-        gwapi=gwcatalog_api.GwasApi()
+    assoc_db = datafactory.db_factory(args.use_gwascatalog,
+                                                    args.custom_dataresource,
+                                                    args.database_choice,
+                                                    args.localdb_path,
+                                                    args.gwascatalog_pad,
+                                                    args.gwascatalog_pval,
+                                                    args.gwascatalog_threads)
 
     ld_api=None
-    if args.ld_api_choice == "plink":
-        ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
-    elif args.ld_api_choice == "online":
-        ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
-    else:
-        raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
+    if args.grouping_method != "simple":
+        if args.ld_api_choice == "plink":
+            ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
+        elif args.ld_api_choice == "online":
+            ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
+        else:
+            raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
+    
     ###########################
     ###Filter and Group SNPs###
     ###########################
@@ -67,11 +68,10 @@ def main(args):
     ######Compare results######
     ###########################
     print("Compare results to previous findings")
-    [report_df,ld_out_df] = compare.compare(annotate_df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
+    [report_df,ld_out_df] = compare.compare(annotate_df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
-                                    gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    gwapi=gwapi)
+                                    association_db=assoc_db)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report
@@ -112,14 +112,13 @@ if __name__=="__main__":
     parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     
     #compare results
-    parser.add_argument("--compare-style",type=str,choices=['file','gwascatalog','both'],default="gwascatalog",help="use 'file', 'gwascatalog' or 'both'")
-    parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
-    parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
+    parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
+    parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")
     parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.rsv",help="LD check report output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,type=float,help="P-value cutoff for GWASCatalog searches")
-    parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
+    parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=0,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")

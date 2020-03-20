@@ -5,8 +5,8 @@ sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
-from Scripts import compare
-from Scripts import autoreporting_utils as autils
+import Scripts.compare as compare
+import Scripts.autoreporting_utils as autils
 
 def top_merge(df,summary_df,columns):
     summary_df=compare.map_column(summary_df,"map_variant",columns)
@@ -92,83 +92,6 @@ class TestCompare(unittest.TestCase):
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
     
-    def test_load_summaries(self):
-        """Test cases:
-        Normal
-        Empty files
-        either file does not exist, should throw a normal FileNotFoundError
-        File specified in summary_fpath does not exist (should throw an understandable error message, preferably with information about which file was not found, and in which file was that file declared)
-        """
-        #normal case: summary file with 2 entries, entries have some variants 
-        summ_fpath="testing/compare_resources/summary_fpath_1"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
-        df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        validate=pd.read_csv("testing/compare_resources/loaded_summary_files_1.csv",sep="\t")
-        for col in df.columns:
-            self.assertEqual(list(df[col]),list(validate[col]))
-        #empty files
-        summ_fpath="testing/compare_resources/summary_fpath_2"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_2"
-        df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        validate=pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval", "#variant", "trait", "trait_name"])
-        self.assertTrue(df.equals(validate))
-        #either file does not exist
-        summ_fpath="testing/compare_resources/summary_fpath_2"
-        endpoint_fpath="DOES_NOT_EXIST"
-        with self.assertRaises(FileNotFoundError) as notfound:
-            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        #file does not exist
-        summ_fpath="testing/compare_resources/summary_fpath_no_file"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
-        with self.assertRaises(FileNotFoundError) as notfound:
-            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-        #summary and endpoint amounts do not agree
-        summ_fpath="testing/compare_resources/summary_fpath_2"
-        endpoint_fpath="testing/compare_resources/endpoint_fpath_1"
-        with self.assertRaises(RuntimeError) as notfound:
-            df=compare.load_summary_files(summ_fpath,endpoint_fpath,columns)
-
-    def test_api_summaries(self):
-        # test load_api_summaries
-        # it should load the gwas_df correctly, if it's been given correct data. 
-        # Therefore, what the functions inside it do is of no concern: They will be mocked.
-        chrom=["1","6"]
-        pos=[100000,32441740]
-        ref=["A","T"]
-        alt=["T","AT"]
-        pval=[2e-8,1e-9]
-        df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt,"pval":pval})
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
-        #DF with no hits
-        r_lst=[None,None]
-        with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
-            mock_threadpool.starmap=lambda *args: r_lst
-            mock_threadpool.return_value.__enter__.return_value=mock_threadpool
-            value=compare.load_api_summaries(df,10,0.1,mock_threadpool,1,columns)
-        self.assertTrue(value.empty)
-        # DF with indels and normal hits
-        r_lst=[[{"chrom":"1",
-                "pos":100000,
-                "ref":"A",
-                "alt":"T",
-                "pval":5e-9,
-                "trait":"0"}],
-                [{"chrom":"6",
-                "pos":32441741,
-                "ref":"-",
-                "alt":"T",
-                "pval":1.2e-8,
-                "trait":"1"}]]
-        validate_df=df.copy()
-        validate_df["trait"]=["0","1"]
-        validate_df=validate_df.rename(columns={"#chrom":"chrom"}).astype(object)
-        with mock.patch("Scripts.compare.ThreadPool") as mock_threadpool:
-            mock_threadpool.starmap=lambda *args: r_lst
-            mock_threadpool.return_value.__enter__.return_value=mock_threadpool
-            value=compare.load_api_summaries(df,10,0.1,mock_threadpool,1,columns).astype(object)
-        for col in ["chrom","pos","ref","alt"]:
-            self.assertTrue(value[col].equals(validate_df[col]))
 
 if __name__=="__main__":
     unittest.main()

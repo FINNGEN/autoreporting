@@ -3,22 +3,8 @@ import argparse,shlex,subprocess, glob, time
 from subprocess import Popen, PIPE
 from typing import List, Text, Dict,Any
 import pandas as pd, numpy as np
-from gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
-
-
-class LDAccess(object):
-    """
-    Abstract object for getting LD
-    """
-
-    @abc.abstractmethod
-    def get_ranges(self, variants: pd.DataFrame, window: int, ld_threshold: float) -> pd.DataFrame:#List[ Dict[str, Any ]]:
-        """
-        Return LD for multiple variant ranges
-        In: variant data, i.e. a dataframe with columns [chr, pos, ref, alt, #variant], a window,ld threshold
-        Out: Dataframe with LD information
-        """
-        return
+from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
+from data_access.db import LDAccess
 
 
 class OnlineLD(LDAccess):

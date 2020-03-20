@@ -6,7 +6,7 @@ import sys,os,io
 import pandas as pd, numpy as np
 import tabix
 from autoreporting_utils import *
-from linkage import PlinkLD, OnlineLD
+from data_access.linkage import PlinkLD, OnlineLD
 
 def parse_region(region):
     chrom=region.split(":")[0]

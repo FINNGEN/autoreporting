@@ -1,13 +1,13 @@
 #! /usr/bin/python3
 
-import argparse,shlex,subprocess, glob
+import argparse,shlex,subprocess, glob, re
 from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
 from autoreporting_utils import *
-import gwcatalog_api
 import os
-from multiprocessing.dummy import Pool as ThreadPool
+from data_access import datafactory
+from typing import Dict
 
 def map_alleles(a1,a2):
     """
@@ -197,68 +197,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
-         
-def load_summary_files(summary_fpath,endpoint_fpath,columns):
-    necessary_columns=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","trait","trait_name"]
-    summary_df_1=pd.DataFrame(columns=necessary_columns)
-    with open(summary_fpath,"r") as f:
-        s_paths=f.readlines()
-        s_paths=[s.strip("\n").strip() for s in s_paths]
-    with open(endpoint_fpath,"r") as f:
-        endpoints=f.readlines()
-        endpoints=[s.strip("\n").strip() for s in endpoints]
-    if len(s_paths)!=len(endpoints):
-        raise RuntimeError("summary file amount and endpoint amounts are not equal. {} =/= {}".format(len(s_paths),len(endpoints)))
-    for idx in range(0,len(s_paths) ):
-        s_path=s_paths[idx]
-        endpoint=endpoints[idx]
-        try:
-            s_df=pd.read_csv(s_path,sep="\t")
-        except FileNotFoundError as e:
-            raise FileNotFoundError("File {} does not exist. Given as line {} in file {} given in argument '--summary-fpath' .".format(s_path,idx+1,summary_fpath))
-        #make sure the variant column exists
-        summary_cols=s_df.columns
-        if "#variant" not in summary_cols:
-            s_df.loc[:, "#variant"]=create_variant_column(s_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        s_df.loc[:,"trait"] = endpoint
-        s_df.loc[:,"trait_name"] = endpoint
-        cols=s_df.columns.to_list()
-        if not all(nec_col in cols for nec_col in necessary_columns):
-            Exception("Summary statistic file {} did not contain all of the necessary columns:\n{} ".format(args.summary_files[idx],necessary_columns))
-        summary_df_1=pd.concat([summary_df_1,s_df],axis=0,sort=True)
-    summary_df_1=summary_df_1.loc[:,necessary_columns].reset_index(drop=True)
-    return summary_df_1
-    
-def load_api_summaries(df, gwascatalog_pad, gwascatalog_pval,gwapi,gwascatalog_threads, columns):
-    range_df=df.loc[:,[columns["chrom"],columns["pos"] ]].copy(deep=True)
-    range_df.loc[:,"pos2"]=range_df.loc[:,columns["pos"] ]
-    range_df=range_df.rename(columns={columns["pos"]:"pos_rmin","pos2":"pos_rmax"})
 
-    pad=gwascatalog_pad*1000
-    range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"]-pad
-    range_df.loc[:,"pos_rmax"]=range_df.loc[:,"pos_rmax"]+pad
-    range_df.loc[:,"pos_rmin"]=range_df.loc[:,"pos_rmin"].clip(lower=0)
-    regions=prune_regions(range_df,columns=columns)
-    #use api to get all gwascatalog hits
-    data_lst=[]
-    for _,region in regions.iterrows():
-        data_lst.append([region[ columns["chrom"] ], region["min"],region["max"],gwascatalog_pval])
-    r_lst=None
-    threads=gwascatalog_threads
-    with ThreadPool(threads) as pool:
-        r_lst=pool.starmap(gwapi.get_associations,data_lst)
-    #remove empties, flatten
-    r_lst=[r for r in r_lst if r != None]
-    result_lst=[i for sublist in r_lst for i in sublist]
-    gwas_df=pd.DataFrame(result_lst)
-    #resolve indels
-    if gwas_df.empty:
-        return pd.DataFrame(columns=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","code","study","study_link"])
-    indel_idx=(gwas_df["ref"]=="-")|(gwas_df["alt"]=="-")
-    indels=solve_indels(gwas_df.loc[indel_idx,:],df,columns)
-    gwas_df=gwas_df.loc[~indel_idx,:]
-    gwas_df=pd.concat([gwas_df,indels],sort=True).reset_index(drop=True)
-    return gwas_df
 
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
     if df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]<=1:
@@ -333,15 +272,28 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
     Popen(shlex.split(rmcmd)+corr_files,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
     return ld
 
-def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
-            prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
-            ldstore_threads, ld_treshold, cache_gwas, columns, 
-            gwapi):
+def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataFrame :
+    """Filter alleles that do not have ACGT in them out
+    Args:
+        df (pd.DataFrame): Input dataframe
+        columns (Dict[str,str]): column names
+    Returns:
+        pd.DataFrame: dataframe with invalid variants removed 
+    """
+    mset='^[acgtACGT-]+$'
+    matchset1=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
+    matchset2=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
+    retval = df[matchset1 & matchset2].copy()
+    return retval
+
+def compare(df, ld_check, plink_mem, ld_panel_path,
+            prefix, ldstore_threads, ld_treshold,  cache_gwas, columns, 
+            association_db):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
-    In: df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld_panel_path,
-        prefix, report_out, ld_report_out, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
-        ldstore_threads, ld_treshold, cache_gwas, columns, gwapi
+    In: df, ld_check, plink_mem, ld_panel_path,
+        prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
+        ldstore_threads, ld_treshold, cache_gwas, columns, gwapi, customdataresource
     Out: A tuple (report_df, ld_df)
         report_df: the dataframe containing all of the variants and their previous associations, as well as annotations
         ld_df (optional): a dataframe containing the LD paired associations of variants
@@ -354,44 +306,25 @@ def compare(df, compare_style, summary_fpath, endpoints, ld_check, plink_mem, ld
     df_cols=df.columns.to_list()
     if not all(nec_col in df_cols for nec_col in necessary_columns):
         Exception("GWS variant file {} did not contain all of the necessary columns:\n{} ".format(compare_fname,necessary_columns))
-    summary_df_1=pd.DataFrame()
-    summary_df_2=pd.DataFrame()
-    #building summaries, external files and/or gwascatalog
-    if compare_style in ["file","both"]:
-        summary_df_1=load_summary_files(summary_fpath,endpoints,columns)
-    if compare_style in ["gwascatalog","both"]:
-        gwas_df=None
-        if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
-            print("reading gwas results from gwas_out_mapping.tsv...")
-            gwas_df=pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
-        else:
-            rm_gwas_out="rm {}gwas_out_mapping.tsv".format(prefix)
-            subprocess.call(shlex.split(rm_gwas_out),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            gwas_load_df=df.copy()
-            gwas_load_df=df_replace_value(gwas_load_df,columns["chrom"],"23","X")
-            gwas_df=load_api_summaries(gwas_load_df,gwascatalog_pad,gwascatalog_pval,gwapi,gwascatalog_threads,columns)
-            gwas_df=df_replace_value(gwas_df,"chrom","X","23")
-            if cache_gwas:
-                gwas_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)
-        gwas_rename={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
-        gwas_df=gwas_df.rename(columns=gwas_rename)
-        if gwas_df.empty:
-            summary_df_2=gwas_df
-        else:    
-            #filter out invalid values
-            filter_out_codes=[9, 14, 15, 16, 17, 18]
-            gwas_df=gwas_df.loc[~gwas_df.loc[:,"code"].isin(filter_out_codes)]
-            gwas_df.loc[:,"#variant"]=create_variant_column(gwas_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-            summary_df_2=gwas_df
-            unique_efos=list(summary_df_2["trait"].unique())
-            trait_name_map={}
-            for key in unique_efos:
-                trait_name_map[key]=gwapi.get_trait(key)
-            summary_df_2.loc[:,"trait_name"]=summary_df_2.loc[:,"trait"].apply(lambda x: trait_name_map[x])
-            summary_df_2=summary_df_2.drop_duplicates(subset=["#variant","trait"])
-    if compare_style not in ["file","gwascatalog","both"]:
-        raise NotImplementedError("comparison method '{}' not yet implemented".format(compare_style))
-    summary_df=pd.concat([summary_df_1,summary_df_2],sort=True)
+    if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
+        summary_df = pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
+    else:
+        range_df = df.loc[:,[columns["chrom"],"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
+        regions = prune_regions(range_df).to_dict("records")
+        assoc_records = association_db.associations_for_regions(regions)
+        assoc_df = pd.DataFrame(assoc_records)
+        if not assoc_df.empty:
+            assoc_df=filter_invalid_alleles(assoc_df, columns)
+            indel_idx=(assoc_df["ref"]=="-")|(assoc_df["alt"]=="-")
+            indels=solve_indels(assoc_df.loc[indel_idx,:],df,columns)
+            assoc_df=assoc_df.loc[~indel_idx,:]
+            assoc_df=pd.concat([assoc_df,indels],sort=False).reset_index(drop=True)
+            rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
+            assoc_df=assoc_df.rename(columns=rename_dict)
+            assoc_df.loc[:,"#variant"]=create_variant_column(assoc_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        summary_df=assoc_df
+        if cache_gwas:
+            summary_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)
     if summary_df.empty:
         #just abort, output the top report but no merging summary df cause it doesn't exist
         print("No summary variants, report will be incomplete")
@@ -452,9 +385,8 @@ if __name__ == "__main__":
     parser.add_argument("compare_fname",type=str,help="GWS result file")
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
-    parser.add_argument("--compare-style",type=str,default="gwascatalog",choices=['file','gwascatalog','both'],help="use 'file', 'gwascatalog' or 'both'")
-    parser.add_argument("--summary-fpath",dest="summary_fpath",type=str,help="Summary listing file path.")
-    parser.add_argument("--endpoint-fpath",dest="endpoints",type=str,help="Endpoint listing file path.")
+    parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
+    parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
@@ -482,21 +414,19 @@ if __name__ == "__main__":
     args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
     args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
 
-    gwapi=None
-    if args.database_choice=="local":
-        gwapi=gwcatalog_api.LocalDB(args.localdb_path)
-        args.gwascatalog_threads=1
-    elif args.database_choice=="summary_stats":
-        gwapi=gwcatalog_api.SummaryApi()
-    else:
-        gwapi=gwcatalog_api.GwasApi()
+    assoc_db = datafactory.db_factory(args.use_gwascatalog,
+                                                    args.custom_dataresource,
+                                                    args.database_choice,
+                                                    args.localdb_path,
+                                                    args.gwascatalog_pad,
+                                                    args.gwascatalog_pval,
+                                                    args.gwascatalog_threads)
 
     df=pd.read_csv(args.compare_fname,sep="\t")
-    [report_df,ld_out_df] = compare(df,compare_style=args.compare_style, summary_fpath=args.summary_fpath, endpoints=args.endpoints,ld_check=args.ld_check,
+    [report_df,ld_out_df] = compare(df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
-                                    gwascatalog_pval=args.gwascatalog_pval, gwascatalog_pad=args.gwascatalog_pad, gwascatalog_threads=args.gwascatalog_threads,
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    gwapi=gwapi)
+                                    association_db=assoc_db)
     if type(report_df) != type(None):
         report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
