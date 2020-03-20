@@ -260,13 +260,13 @@ workflow autoreporting{
 
     #reports
     scatter (i in range(length(pheno_arr))) {
-        Array[String] some_shit = if length(credset_arr[i]) == length(pheno_arr[i]) then credset_arr[i]  else []
+        Array[String] credset_input = if length(credset_arr[i]) == length(pheno_arr[i]) then credset_arr[i]  else []
         call report{
             input: 
             pheno_ids=pheno_ids[i],
             summ_stat=pheno_arr[i], 
             summ_stat_tb=pheno_tbi_arr[i], 
-            credsets=credset_arr[i], 
+            credsets=credset_input, 
             docker=docker, 
             memory=memory, 
             cpus=cpus, 
