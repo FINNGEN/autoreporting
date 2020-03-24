@@ -22,10 +22,6 @@ task report {
     File functional_annotation
     File functional_annotation_tb=functional_annotation+".tbi"
     
-    File? summary_stat_listing
-    File? endpoint_listing
-    #trick wdl to write the external summary stats paths as a file
-    Array[File]? ext_summary_stats = if defined(summary_stat_listing) then read_lines(summary_stat_listing  ) else []
     File? local_gwcatalog
 
     Float sign_treshold
@@ -50,9 +46,7 @@ task report {
     String secondary_grouping_method
     String ignore_region
 
-    String compare_style
     String db_choice
-    String summary_cmd=if defined(ext_summary_stats) then "--summary-fpath" else "" 
     String annotation_version
     Float strict_group_r2
     String phenoname = basename(phenotype_name,".gz")
@@ -69,8 +63,6 @@ task report {
         gnomad_genome="${gnomad_genome}"
         finngen_annotation="${finngen_annotation}"
         functional_annotation="${functional_annotation}"
-        ext_summary_stats="${write_lines(ext_summary_stats)}"
-        endpoint_listing="${"--endpoint-fpath " + endpoint_listing}"
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
 
         sign_treshold=${sign_treshold}
@@ -91,10 +83,8 @@ task report {
         check_for_ld="--check-for-ld" if "${check_for_ld}"=="true" else ""
         grouping_method = "${primary_grouping_method}" if ${arr_len} >1 else "${secondary_grouping_method}" 
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
-        compare_style = "${compare_style}"
         db_choice = "${db_choice}"
         annotation_version = "${annotation_version}"
-        summary_cmd="${summary_cmd} ${write_lines(ext_summary_stats)}"
 
         #changing variables
         #summ stat
@@ -128,14 +118,12 @@ task report {
                     "--gnomad-exome-path {} "
                     "{} "
                     "--finngen-annotation-version {} "
-                    "--compare-style {} "
+                    "--use-gwascatalog "
                     "{} "
                     "--ld-treshold {} "
                     "--ldstore-threads {} "
                     "--gwascatalog-threads {} "
                     "--strict-group-r2 {} "
-                    "{} " #summary_cmd
-                    "{} " #endpoint listing
                     "--gwascatalog-pval {} "
                     "--gwascatalog-width-kb {} "
                     "--db {} "
@@ -163,14 +151,11 @@ task report {
                         gnomad_exome,
                         credset,
                         annotation_version,
-                        compare_style,
                         check_for_ld,
                         ld_treshold,
                         cpus,
                         gwascatalog_threads,
                         strict_group_r2,
-                        summary_cmd,
-                        endpoint_listing,
                         gwascatalog_pval,
                         gwascatalog_width_kb,
                         db_choice,
@@ -218,7 +203,6 @@ workflow autoreporting{
     String functional_annotation
     String local_gwcatalog
     String annotation_version
-    String compare_style
     String db_choice
     File efo_code_file
     String ignore_region
@@ -255,7 +239,6 @@ workflow autoreporting{
             functional_annotation=functional_annotation,
             local_gwcatalog=local_gwcatalog, 
             annotation_version=annotation_version,
-            compare_style=compare_style, 
             db_choice=db_choice, 
             efo_map=efo_code_file,
             include_batch_freq=include_batch_freq, 
