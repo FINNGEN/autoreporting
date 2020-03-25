@@ -49,6 +49,7 @@ task report{
     File functional_annotation_tb=functional_annotation+".tbi"
     #credible set annotation, no tabix
     File efo_map
+    File custom_dataresource
 
     File? local_gwcatalog
 
@@ -112,6 +113,7 @@ task report{
         #process the summstats and credsets etc
         summstats="${sep=";" summ_stat}".split(";")
         phenotypes="${sep=";" pheno_ids}".split(";")
+        custom_dataresource="${custom_dataresource}"
 
         credset_calls = []
         credset_cmds=["--credible-set-file {}".format(a) for a in "${sep=";" selected_credsets}".split(";")] if "true" == "${use_credsets}" else [""] * ${len}
@@ -151,6 +153,7 @@ task report{
                         "{} "
                         "{} "
                         "{} "
+                        "--custom-dataresource {} "
                         "--fetch-out {}.fetch.out "
                         "--annotate-out {}.annotate.out "
                         "--report-out {}.report.out "
@@ -183,6 +186,7 @@ task report{
                             local_gwascatalog,
                             efo_array[i],
                             ignore_cmd,
+                            custom_dataresource,
                             phenotype_name,
                             phenotype_name,
                             phenotype_name,
@@ -244,6 +248,7 @@ workflow autoreporting{
     Boolean check_for_ld
     String primary_grouping_method
     String secondary_grouping_method
+    File custom_dataresource
 
     call preprocess_serial{
         input: input_array = input_array_file, phenos_per_worker = phenos_per_worker, docker=docker
@@ -291,7 +296,8 @@ workflow autoreporting{
             check_for_ld=check_for_ld,
             efo_map=efo_code_file,
             primary_grouping_method=primary_grouping_method,
-            secondary_grouping_method=secondary_grouping_method
+            secondary_grouping_method=secondary_grouping_method,
+            custom_dataresource=custom_dataresource
         }
     }
 }

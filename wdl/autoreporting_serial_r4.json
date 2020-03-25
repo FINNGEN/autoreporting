@@ -29,5 +29,6 @@
     "autoreporting.overlap":false,
     "autoreporting.check_for_ld":false,
     "autoreporting.primary_grouping_method":"cred",
-    "autoreporting.secondary_grouping_method":"ld"
+    "autoreporting.secondary_grouping_method":"ld",
+    "autoreporting.custom_dataresource":"gs://r4_data_west1/autoreporting/custom_dataresource_r4_2020_03_25.tsv"
 }

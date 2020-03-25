@@ -36,6 +36,7 @@ task report {
     Int gwascatalog_threads
     Int docker_memory
     File efo_map
+    File custom_dataresource
 
     Boolean group
     Boolean overlap
@@ -85,6 +86,7 @@ task report {
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
         annotation_version = "${annotation_version}"
+        custom_dataresource="${custom_dataresource}"
 
         #changing variables
         #summ stat
@@ -130,6 +132,7 @@ task report {
                     "{} " #local gwascatalog
                     "{} " #efo
                     "{} " #ignore
+                    "--custom-dataresource {} "
                     "--fetch-out {}.fetch.out "
                     "--annotate-out {}.annotate.out "
                     "--report-out {}.report.out "
@@ -162,6 +165,7 @@ task report {
                         local_gwascatalog,
                         efo_cmd,
                         ignore_cmd,
+                        custom_dataresource,
                         pheno_id,
                         pheno_id,
                         pheno_id,
@@ -222,6 +226,7 @@ workflow autoreporting{
     Float strict_group_r2
     String primary_grouping_method
     String secondary_grouping_method
+    File custom_dataresource
 
     scatter (arr in  input_array ){
         call report {
@@ -254,7 +259,8 @@ workflow autoreporting{
             gwascatalog_threads=gwascatalog_threads, 
             group=group, 
             overlap=overlap, 
-            check_for_ld=check_for_ld
+            check_for_ld=check_for_ld,
+            custom_dataresource=custom_dataresource
         }
     }
 
