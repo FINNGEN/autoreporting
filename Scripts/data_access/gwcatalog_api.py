@@ -164,7 +164,7 @@ class LocalDB(ExtDB):
         """
         out= []
         for region in regions:
-            out.extend(self.__get_associations(regions["chrom"],regions["min"],regions["max"]))
+            out.extend(self.__get_associations(region["chrom"],region["min"],region["max"]))
         return out
 
 class GwasApi(ExtDB):
