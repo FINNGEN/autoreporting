@@ -49,6 +49,7 @@ task report {
 
     String db_choice
     String annotation_version
+    Array[String] column_names
     Float strict_group_r2
     String phenoname = basename(phenotype_name,".gz")
 
@@ -87,6 +88,7 @@ task report {
         db_choice = "${db_choice}"
         annotation_version = "${annotation_version}"
         custom_dataresource="${custom_dataresource}"
+        column_names = "${sep=" " column_names}"
 
         #changing variables
         #summ stat
@@ -129,6 +131,7 @@ task report {
                     "--gwascatalog-pval {} "
                     "--gwascatalog-width-kb {} "
                     "--db {} "
+                    "--column-labels {} "
                     "{} " #local gwascatalog
                     "{} " #efo
                     "{} " #ignore
@@ -162,6 +165,7 @@ task report {
                         gwascatalog_pval,
                         gwascatalog_width_kb,
                         db_choice,
+                        column_names,
                         local_gwascatalog,
                         efo_cmd,
                         ignore_cmd,
@@ -227,6 +231,7 @@ workflow autoreporting{
     String primary_grouping_method
     String secondary_grouping_method
     File custom_dataresource
+    Array[String] column_names
 
     scatter (arr in  input_array ){
         call report {
@@ -260,7 +265,8 @@ workflow autoreporting{
             group=group, 
             overlap=overlap, 
             check_for_ld=check_for_ld,
-            custom_dataresource=custom_dataresource
+            custom_dataresource=custom_dataresource,
+            column_names=column_names
         }
     }
 
