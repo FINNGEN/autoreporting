@@ -56,14 +56,14 @@ class SummaryApi(ExtDB):
             r=try_request("GET",url,params=payload)
         except ResourceNotFound:
             print("No variants found in {}:{}-{}".format(chromosome,start,end))
-            return
+            return []
         except ResponseFailure:
             print("Request failure for {}:{}-{}".format(chromosome,start,end))
-            return
+            return []
         dump=r.json()
         dumplst=[]
         if "_links" not in dump.keys():
-            return
+            return []
         dumplst.append(dump["_embedded"]["associations"])
         i=1
         while "next" in dump["_links"].keys():
@@ -71,10 +71,10 @@ class SummaryApi(ExtDB):
                 r=try_request("GET",url,params=payload)
             except ResourceNotFound:
                 print("No variants found in {}:{}-{}".format(chromosome,start,end))
-                return
+                return []
             except ResponseFailure:
                 print("Request failure for {}:{}-{}".format(chromosome,start,end))
-                return
+                return []
             if type(r) == type(None):
                 break
             dump=r.json()
@@ -139,14 +139,14 @@ class LocalDB(ExtDB):
         out = get_rsid_alleles_ensembl(rsids)
         rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
         if rsid_df.empty:
-            return
+            return []
         df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
         tmpdf=df_out.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
         if retval.empty:
-            return
+            return []
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
@@ -164,7 +164,10 @@ class LocalDB(ExtDB):
         """
         out= []
         for region in regions:
-            out.extend(self.__get_associations(region["chrom"],region["min"],region["max"]))
+            try:
+                out.extend(self.__get_associations(region["chrom"],region["min"],region["max"]))
+            except:
+                pass
         return out
 
 class GwasApi(ExtDB):
@@ -189,14 +192,14 @@ class GwasApi(ExtDB):
         try:
             gwcat_response=try_request("GET",url=url)
         except ResourceNotFound:
-            return
+            return []
         except ResponseFailure as e:
             print(e,e.parameters)
-            return
+            return []
         s_io=StringIO(gwcat_response.text)
         df=pd.read_csv(s_io,sep="\t")
         if df.empty:
-            return
+            return []
         rsids=list(df["SNPS"])
         rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
         rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
@@ -208,7 +211,7 @@ class GwasApi(ExtDB):
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
         if retval.empty:
-            return
+            return []
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
