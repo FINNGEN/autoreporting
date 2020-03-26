@@ -75,6 +75,7 @@ task report{
     String ignore_region
     String db_choice
     String annotation_version
+    Array[String] column_names
 
     command <<<
         python3 <<CODE
@@ -114,7 +115,7 @@ task report{
         summstats="${sep=";" summ_stat}".split(";")
         phenotypes="${sep=";" pheno_ids}".split(";")
         custom_dataresource="${custom_dataresource}"
-
+        column_names = "${sep=" " column_names}"
         credset_calls = []
         credset_cmds=["--credible-set-file {}".format(a) for a in "${sep=";" selected_credsets}".split(";")] if "true" == "${use_credsets}" else [""] * ${len}
         #efo codes
@@ -150,6 +151,7 @@ task report{
                         "--gwascatalog-pval {} "
                         "--gwascatalog-width-kb {} "
                         "--db {} "
+                        "--column-labels {} "
                         "{} "
                         "{} "
                         "{} "
@@ -183,6 +185,7 @@ task report{
                             gwascatalog_pval,
                             gwascatalog_width_kb,
                             db_choice,
+                            column_names,
                             local_gwascatalog,
                             efo_array[i],
                             ignore_cmd,
@@ -249,6 +252,7 @@ workflow autoreporting{
     String primary_grouping_method
     String secondary_grouping_method
     File custom_dataresource
+    Array[String] column_names
 
     call preprocess_serial{
         input: input_array = input_array_file, phenos_per_worker = phenos_per_worker, docker=docker
@@ -297,7 +301,8 @@ workflow autoreporting{
             efo_map=efo_code_file,
             primary_grouping_method=primary_grouping_method,
             secondary_grouping_method=secondary_grouping_method,
-            custom_dataresource=custom_dataresource
+            custom_dataresource=custom_dataresource,
+            column_names=column_names
         }
     }
 }
