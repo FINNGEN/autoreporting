@@ -1,6 +1,6 @@
 import unittest
 import unittest.mock as mock
-import sys,os,json, requests
+import sys,os,json, requests, io
 import pandas as pd
 sys.path.append("../")
 sys.path.append("./")
@@ -205,6 +205,52 @@ class TestGwcat(unittest.TestCase):
         data2=gwcatalog_api.split_traits(data)
         self.assertEqual(type(data2),type(None))
 
+def create_local_data_buffer()->io.StringIO:
+    chrs = ["1"]*10
+    pos = list(range(1,11))
+    ref = ["A"]*10
+    alt = ["C"]*10
+    pvals = [a/100 for a in list(range(1,11))]
+    pval_mlog = [4]*10
+    data={
+        "CHR_ID":chrs,
+        "CHR_POS":pos,
+        "ref":ref,
+        "alt":alt,
+        "P-VALUE":pvals,
+        "PVALUE_MLOG":pval_mlog,
+        "rsids":["rs000000"]*10
+    }
+    data=pd.DataFrame(data)
+    data_s = io.StringIO()
+    data.to_csv(data_s,sep="\t",index=False)
+    data_s.seek(0)
+    return data_s
+
+class TestLocalDB(unittest.TestCase):
+    def test_assocs(self):
+        databuf = create_local_data_buffer()
+        db = gwcatalog_api.LocalDB(databuf,1.0,0)
+        regions = [{"chrom":"1","min":1,"max":20}]
+        try:
+            #case get assocs returns None
+            with mock.patch("Scripts.data_access.gwcatalog_api.LocalDB._LocalDB__get_associations",None):
+                retval = db.associations_for_regions(regions)
+            #case returns empty list
+            with mock.patch("Scripts.data_access.gwcatalog_api.LocalDB._LocalDB__get_associations",[]):
+                retval = db.associations_for_regions(regions)
+        except:
+            self.fail("Exception raised during invalid output check!")
+
+class TestGwasDB(unittest.TestCase):
+    def test_assocs(self):
+        db = gwcatalog_api.GwasApi(1.0,0,1)
+        regions = [{"chrom":"1","min":1,"max":20}]
+        try:
+            retval = db.associations_for_regions(regions)
+        except:
+            raise
+            self.fail("Exception raised during invalid output check!")
 
 if __name__=="__main__":
     unittest.main()
