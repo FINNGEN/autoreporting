@@ -297,4 +297,4 @@ if __name__=="__main__":
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
-    fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
+    fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")

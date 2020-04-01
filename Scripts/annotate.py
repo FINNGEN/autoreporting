@@ -208,4 +208,4 @@ if __name__=="__main__":
         input_df = pd.read_csv(args.annotate_fpath,sep="\t")
         df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,fg_ann_version=args.fg_ann_version,
         functional_path=args.functional_path, prefix=args.prefix, columns=columns)
-        df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
+        df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
