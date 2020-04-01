@@ -100,10 +100,9 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "found_associations_relaxed",
                         "credible_set_variants",
                         "functional_variants_strict",
-                        "functional_variants_relaxed"]
-    if efo_traits:
-        top_level_columns.append("specific_efo_trait_associations_strict")
-        top_level_columns.append("specific_efo_trait_associations_relaxed")
+                        "functional_variants_relaxed",
+                        "specific_efo_trait_associations_strict",
+                        "specific_efo_trait_associations_relaxed"]
     
     df=report_df.copy()
     top_level_df=pd.DataFrame(columns=top_level_columns)
@@ -189,11 +188,10 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["found_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in other_traits_relaxed.itertuples() )
         row["found_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in other_traits_strict.itertuples() )
         
-        if efo_traits:
-            matching_traits_relaxed= all_traits[ all_traits["trait"].isin(efo_traits) ].copy()
-            matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
-            row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
-            row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
+        matching_traits_relaxed= all_traits[ all_traits["trait"].isin(efo_traits) ].copy()
+        matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
+        row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
+        row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df

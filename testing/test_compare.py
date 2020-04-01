@@ -57,7 +57,7 @@ class TestCompare(unittest.TestCase):
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
         cols=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls","#variant","locus_id"]
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
-        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval","lead_beta","lead_AF","lead_AF_cases","lead_AF_controls", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed"]
+        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval","lead_beta","lead_AF","lead_AF_cases","lead_AF_controls", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed","specific_efo_trait_associations_strict","specific_efo_trait_associations_relaxed"]
         traits=[]
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
         df=pd.DataFrame(columns=cols)
