@@ -46,7 +46,7 @@ def main(args):
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
     
     #write fetch_df as a file, so that other parts of the script work
-    fetch_df.to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
+    fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
     ###########################
     ##########Finemap##########
     ###########################
@@ -63,7 +63,7 @@ def main(args):
         #annotate_df = annotate.annotate(fetch_df,args)
         annotate_df = annotate.annotate(df=fetch_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path, fg_ann_version = args.fg_ann_version,
             functional_path=args.functional_path, prefix=args.prefix, columns=columns)
-    annotate_df.to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
+    annotate_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
     ###########################
     ######Compare results######
     ###########################
@@ -73,11 +73,11 @@ def main(args):
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
                                     association_db=assoc_db)
     if type(report_df) != type(None):
-        report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
+        report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report
         #top level df 
         top_df=compare.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
-        top_df.to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
+        top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
 

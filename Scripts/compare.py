@@ -333,7 +333,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         report_out_df["trait_name"]=np.nan
         report_out_df["study_link"]=np.nan
     else:
-        summary_df.to_csv("{}summary_df.tsv".format(prefix),sep="\t",index=False)
+        summary_df.fillna("NA").replace("","NA").to_csv("{}summary_df.tsv".format(prefix),sep="\t",index=False)
         summary_df=map_column(summary_df,"map_variant",columns)
         df=map_column(df,"map_variant",columns)
         necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name","study_link"]
@@ -426,10 +426,10 @@ if __name__ == "__main__":
                                     ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
                                     association_db=assoc_db)
     if type(report_df) != type(None):
-        report_df.to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
+        report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
         columns=columns_from_arguments(args.column_labels)
         top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
-        top_df.to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
+        top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
-        ld_out_df.to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
+        ld_out_df.fillna("NA").replace("","NA").to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
