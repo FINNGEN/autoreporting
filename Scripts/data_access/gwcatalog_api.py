@@ -1,6 +1,7 @@
 import json, requests
 import time
 import abc
+import re
 from typing import List, Text, Dict,Any
 from io import StringIO
 import pandas as pd, numpy as np
@@ -107,6 +108,17 @@ class SummaryApi(ExtDB):
         results=[i for sublist in results for i in sublist]
         return results
 
+def is_rsid_risk_allele(maybe_rsid: str) -> bool:
+    """Check whether the value is a combination of a rsid and effect allele
+    Args:
+        maybe_rsid (str): String value
+    Returns:
+        bool: Whether the value is or isn't of correct form
+    """
+    if re.match("^rs[0-9]*\-[ACTGactg\?]+$",maybe_rsid):
+        return True
+    return False
+
 class LocalDB(ExtDB):
 
     def __init__(self, db_path: str, pval_threshold: float, padding: int):
@@ -133,18 +145,14 @@ class LocalDB(ExtDB):
         #filter based on chromosome, start, end, pval
         df=self.df.loc[self.df["CHR_ID"]==str(chromosome),:].copy()
         df=df.loc[ (df["CHR_POS"] >=start)& (df["CHR_POS"] <=end ) ,:]
-        rsids=list(df["SNPS"])
-        rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
-        rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
-        out = get_rsid_alleles_ensembl(rsids)
-        rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
-        if rsid_df.empty:
-            return []
-        df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
+        df["is_simple_variant"] = df["STRONGEST SNP-RISK ALLELE"].apply(lambda x: is_rsid_risk_allele(x))
+        df=df[df["is_simple_variant"]==True]
+        df["alt"] = df["STRONGEST SNP-RISK ALLELE"].apply(lambda x: x.split("-")[1])
+        df["ref"] = "?"
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
-        tmpdf=df_out.loc[:,cols].copy()
+        df=df.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
-        retval = split_traits(tmpdf)
+        retval = split_traits(df)
         if retval.empty:
             return []
         retval=retval.reset_index()
@@ -200,15 +208,12 @@ class GwasApi(ExtDB):
         df=pd.read_csv(s_io,sep="\t")
         if df.empty:
             return []
-        rsids=list(df["SNPS"])
-        rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
-        rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
-        out = get_rsid_alleles_ensembl(rsids)
-        rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
-        df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
+        df["is_simple_variant"] = df["STRONGEST SNP-RISK ALLELE"].apply(lambda x: is_rsid_risk_allele(x))
+        df=df[df["is_simple_variant"]==True]
+        df["alt"] = df["STRONGEST SNP-RISK ALLELE"].apply(lambda x: x.split("-")[1])
+        df["ref"] = "?"
         cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
-        tmpdf=df_out.loc[:,cols].copy()
-        #deal with multiple efo codes in retval trait uri column
+        tmpdf=df.loc[:,cols].copy()
         retval = split_traits(tmpdf)
         if retval.empty:
             return []

@@ -270,19 +270,46 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
     Popen(shlex.split(rmcmd)+corr_files,stderr=subprocess.DEVNULL,stdout=subprocess.DEVNULL)
     return ld
 
-def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataFrame :
+def filter_invalid_alleles(df: pd.DataFrame) -> pd.DataFrame :
     """Filter alleles that do not have ACGT in them out
     Args:
         df (pd.DataFrame): Input dataframe
-        columns (Dict[str,str]): column names
     Returns:
         pd.DataFrame: dataframe with invalid variants removed 
     """
     mset='^[acgtACGT-]+$'
-    matchset1=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
-    matchset2=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
+    matchset1=df["ref"].apply(lambda x:bool(re.match(mset,x)))
+    matchset2=df["alt"].apply(lambda x:bool(re.match(mset,x)))
     retval = df[matchset1 & matchset2].copy()
     return retval
+
+def match_gwascatalog_variants(gwas_df: pd.DataFrame, df: pd.DataFrame, columns: Dict[str, str]) -> pd.DataFrame:
+    """Match variants from gwascatalog to dataframe. Variants have one or no known alleles.
+    Args:
+        gwas_df (pd.DataFrame): GWAS variant dataframe
+        df (pd.DataFrame): Filtered and annotated variant dataframe
+        columns (Dict[str, str]): Column names for df
+    """
+    #TODO: Decide on a good way to resolve the variants
+    #workflow: separate matches with risk allele and without risk allele
+    #with_alt = gwas_df[gwas_df["alt"] != "?"].copy()
+    #without_alt= gwas_df[gwas_df["alt"] == "?"].copy()
+    #option 1: match using only chr:pos,skipping alleles for now. Take alleles from variants.
+    out_df = gwas_df \
+        .drop(columns=["ref","alt"]) \
+        .merge( df[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ] ],
+            how="inner",
+            left_on=["chrom","pos"],
+            right_on=[columns["chrom"],
+            columns["pos"]],
+            sort=False)
+    gwasdf_cols = gwas_df.columns
+    out_df=out_df \
+        .rename(columns={columns["ref"]:"ref",columns["alt"]:"alt"}) \
+        .sort_values(by=["chrom","pos","ref","alt","trait","pval"]) \
+        .drop_duplicates(subset=["chrom","pos","ref","alt","trait","trait_name"],keep="first")
+    #raise NotImplementedError("This is not implemented yet!!")
+    return out_df.loc[:,gwasdf_cols].copy()
 
 def compare(df, ld_check, plink_mem, ld_panel_path,
             prefix, ldstore_threads, ld_treshold,  cache_gwas, columns, 
@@ -312,7 +339,11 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         assoc_records = association_db.associations_for_regions(regions)
         assoc_df = pd.DataFrame(assoc_records)
         if not assoc_df.empty:
-            assoc_df=filter_invalid_alleles(assoc_df, columns)
+            gwcat_variants = assoc_df.loc[assoc_df["ref"] == "?"].copy()
+            assoc_df = assoc_df.loc[~(assoc_df["ref"] == "?")]
+            gwas_df = match_gwascatalog_variants(gwcat_variants,df,columns)
+            assoc_df = pd.concat([assoc_df,gwas_df],sort=False)
+            assoc_df=filter_invalid_alleles(assoc_df)
             indel_idx=(assoc_df["ref"]=="-")|(assoc_df["alt"]=="-")
             indels=solve_indels(assoc_df.loc[indel_idx,:],df,columns)
             assoc_df=assoc_df.loc[~indel_idx,:]
