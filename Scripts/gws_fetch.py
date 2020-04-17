@@ -182,7 +182,7 @@ def merge_credset(gws_df,cs_df,fname,columns):
     # fetch rows using tabix
     cred_row_df = load_tb_df(cs_df,fname,columns=columns)
     cols = list(columns.values())
-    cred_row_df = cred_row_df[ cols ]
+    cred_row_df = cred_row_df[ cols ].drop_duplicates(keep="first")
     cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     # ensure only the credible sets were included
