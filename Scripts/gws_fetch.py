@@ -5,8 +5,10 @@ from subprocess import Popen, PIPE
 import sys,os,io
 import pandas as pd, numpy as np
 import tabix
+from typing import Dict, List
 from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD
+from data_access.db import LDAccess
 
 def parse_region(region):
     chrom=region.split(":")[0]
@@ -101,11 +103,18 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
             all_variants=all_variants[~all_variants["#variant"].isin( group["#variant"].unique() )]
     return out_df
 
-def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overlap,ld_api,columns,prefix=""):
-    """
+def credible_set_grouping(data: pd.DataFrame, ld_treshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]):
+    """Group variants using credible sets
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
-    In: df(containing the credible set information), alternate significance threshold, ld panel path, columns
-    Out: grouped df
+    Args:
+        data (pd.DataFrame): Input data
+        ld_threshold (float): LD threshold for including a variant in the group
+        locus_range (int): Range around the locus on which LD is calculated, in kb
+        overlap (bool): Whether groups can overlap or not
+        ld_api (LDAccess): ld api object
+        columns (Dict[str,str]): column dictionary
+    Returns:
+        (pd.DataFrame): Grouped variants in a pandas dataframe
     """
     df=data.copy()
     lead_vars=[]
@@ -123,13 +132,12 @@ def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overla
     ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     #filter by p-value
-    ld_df = ld_df[ld_df[columns["pval"]] <= alt_sign_treshold ]
     out_df = pd.DataFrame(columns=list(data.columns)+["r2_to_lead"])
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
         #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
-        lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"]
+        lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"] #choose the lead variant with smallest p-value
         ld_data = ld_df.loc[ld_df["variant_1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         group = df[df["#variant"].isin(ld_data["#variant"] )].copy()
         group = pd.merge(group,ld_data,on="#variant",how="left")
@@ -142,7 +150,7 @@ def credible_set_grouping(data,alt_sign_treshold,ld_treshold, locus_range,overla
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
-        #convergence: remove lead_variant, remove group from df in case overlap is not done
+        #convergence: remove lead_variant, remove group from df if overlap is not true
         leads=leads[~ (leads["#variant"] == lead_variant) ] 
         if not overlap:
             df=df[~df["#variant"].isin(ld_data["#variant"])]
@@ -245,8 +253,8 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
             overlap=overlap,
             prefix=prefix,ld_api=ld_api,columns=columns)
         elif grouping_method=="cred":
-            new_df = credible_set_grouping(data=df_p2,alt_sign_treshold=sig_tresh_2,ld_treshold=ld_r2,locus_range=locus_width,
-            overlap=overlap,ld_api=ld_api,columns=columns,prefix=prefix)
+            new_df = credible_set_grouping(data=df_p2,ld_treshold=ld_r2,locus_range=locus_width,
+            overlap=overlap,ld_api=ld_api,columns=columns)
         else :
             new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
             new_df["r2_to_lead"]=np.nan

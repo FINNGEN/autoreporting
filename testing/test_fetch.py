@@ -161,7 +161,7 @@ class TestGws(unittest.TestCase):
             def get_ranges(*args):
                 return r2_out
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
-                retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_treshold,loc_width,overlap,ld_api,columns)
+                retval = gws_fetch.credible_set_grouping(data ,ld_treshold ,loc_width,overlap,ld_api,columns)
         #return value should be empty, have same columns as data 
         self.assertTrue(retval.empty)
         self.assertEqual(data.columns.all(), retval.columns.all())
@@ -175,7 +175,7 @@ class TestGws(unittest.TestCase):
             def get_ranges(*args):
                 return r2_out
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
-            retval = gws_fetch.credible_set_grouping(data,sig_tresh_2,ld_treshold,loc_width,overlap,ld_api,columns)
+            retval = gws_fetch.credible_set_grouping(data,ld_treshold,loc_width,overlap,ld_api,columns)
         #validate
         validate=pd.read_csv("testing/fetch_resources/validate_cred.csv",sep="\t").fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
         retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
