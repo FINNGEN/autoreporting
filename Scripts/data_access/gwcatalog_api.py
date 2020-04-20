@@ -133,16 +133,10 @@ class LocalDB(ExtDB):
         #filter based on chromosome, start, end, pval
         df=self.df.loc[self.df["CHR_ID"]==str(chromosome),:].copy()
         df=df.loc[ (df["CHR_POS"] >=start)& (df["CHR_POS"] <=end ) ,:]
-        rsids=list(df["SNPS"])
-        rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
-        rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
-        out = get_rsid_alleles_ensembl(rsids)
-        rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
-        if rsid_df.empty:
+        if df.empty:
             return []
-        df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
-        cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
-        tmpdf=df_out.loc[:,cols].copy()
+        cols=["SNPS","CHR_ID","CHR_POS","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
+        tmpdf=df.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
         if retval.empty:
@@ -151,8 +145,8 @@ class LocalDB(ExtDB):
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
         retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str})
-        retcols=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","study","study_link"]
+        retval=retval.astype(dtype={"chrom":str,"pos":int,"pval":float,"trait":str})
+        retcols=["chrom","pos","SNPS","pval","pval_mlog","trait","trait_name","study","study_link"]
         return retval.loc[:,retcols].to_dict("records")
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -168,7 +162,16 @@ class LocalDB(ExtDB):
                 out.extend(self.__get_associations(region["chrom"],region["min"],region["max"]))
             except:
                 pass
-        return out
+        #TODO: get rid of this ugly format switching
+        result_df = pd.DataFrame(out)
+        #TODO: add ensembl data
+        #filter rsids
+        rsids = [a["SNPS"] for a in out if '  x  ' not in a["SNPS"]]
+        rsids=[a.split(";")[0].strip() for a in rsids]
+        rsid_out = get_rsid_alleles_ensembl(rsids)
+        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt"])
+        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(column=["rsid"])
+        return df_out.to_dict("records")
 
 class GwasApi(ExtDB):
     """ 
@@ -200,14 +203,8 @@ class GwasApi(ExtDB):
         df=pd.read_csv(s_io,sep="\t")
         if df.empty:
             return []
-        rsids=list(df["SNPS"])
-        rsids=[a for a in rsids if ' x ' not in a] #filter out variant*variant-interaction associations
-        rsids=[a.split(";")[0].strip() for a in rsids]#some have multiple rsid codes.
-        out = get_rsid_alleles_ensembl(rsids)
-        rsid_df=pd.DataFrame(out,columns=["rsid","ref","alt"])
-        df_out=df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid")
-        cols=["SNPS","CHR_ID","CHR_POS","ref","alt","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
-        tmpdf=df_out.loc[:,cols].copy()
+        cols=["SNPS","CHR_ID","CHR_POS","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
+        tmpdf=df.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
         if retval.empty:
@@ -216,8 +213,8 @@ class GwasApi(ExtDB):
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
         retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":str,"pos":int,"ref":str,"alt":str,"pval":float,"trait":str})
-        retcols=["chrom","pos","ref","alt","pval","pval_mlog","trait","trait_name","study","study_link"]
+        retval=retval.astype(dtype={"chrom":str,"pos":int,"pval":float,"trait":str})
+        retcols=["chrom","pos","SNPS","pval","pval_mlog","trait","trait_name","study","study_link"]
         return retval.loc[:,retcols].to_dict("records")
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -229,7 +226,16 @@ class GwasApi(ExtDB):
             results=pool.starmap(self.__get_associations,data_lst)
         results=[r for r in results if r != None]
         results=[i for sublist in results for i in sublist]
-        return results
+        #TODO: get rid of this ugly format switching
+        result_df = pd.DataFrame(results)
+        #TODO: add ensembl data
+        #filter rsids
+        rsids = [a["SNPS"] for a in results if '  x  ' not in a["SNPS"]]
+        rsids=[a.split(";")[0].strip() for a in rsids]
+        rsid_out = get_rsid_alleles_ensembl(rsids)
+        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt"])
+        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(column=["rsid"])
+        return df_out.to_dict("records")
 
 def parse_output(dumplst):
     rows=[]
