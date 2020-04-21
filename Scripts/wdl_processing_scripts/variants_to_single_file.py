@@ -4,7 +4,16 @@ import argparse
 
 
 def concat_files(folderpath: str, output_fname: str, release: str, header: bool, file_separator: str) -> str:
-    """Concatenate a list of files to 
+    """Concatenate a list of autoreporting reports into one file for mySQL import
+    The files are appended into one file. It is important that all of the files have the same columns.
+    Args:
+        folderpath (str): Input folder path
+        output_fname (str): output file name
+        release (str): release name. Added as one of the columns in the resulting file.
+        header (bool): To include header in output file or not.
+        file_separator (str). File separator for output file.
+    Returns:
+        (str): Comma-separated columns. can be used for the --columns arg for gcloud sql import 
     """
     pass
     inputdata = glob.glob("{}/*".format(folderpath))
