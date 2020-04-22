@@ -15,25 +15,27 @@ def concat_files(folderpath: str, output_fname: str, release: str, header: bool,
     Returns:
         (str): Comma-separated columns. can be used for the --columns arg for gcloud sql import 
     """
-    pass
     inputdata = glob.glob("{}/*".format(folderpath))
-    i=0
     length=len(inputdata)
-    for fname in inputdata:
-        print("\rProgress: {:>6.3g}%, file {:>6d} of {:>6d}".format(100*i/length,i,length),end="")
+    for idx, fname in enumerate(inputdata):
+        #print progress
+        print("\rProgress: {:>6.3g}%, file {:>6d} of {:>6d}".format(100*idx/length,idx,length),end="")
+        #read in report
         temp_df=pd.read_csv(fname,sep="\t")
+        #add phenotype column as well as the release data
         temp_df["phenotype"]=fname.split("/")[-1].split(".")[0]
         temp_df["rel"]=release
+        #remove invalid characters ('.', '#') from column names
         rename_dict={}
         for c in temp_df.columns:
             if ("#" in c) or ("." in c):
                 rename_dict[c] = c.replace("#", "" ).replace(".","")
         temp_df=temp_df.rename(columns=rename_dict)
-        if i == 0:
+        #write the report df to a single file. In case it is not the first file, it is appended after the existing file.
+        if idx == 0:
             temp_df.to_csv(output_fname,sep=file_separator,mode="w",na_rep="NA", header=header,index=False,quoting=csv.QUOTE_NONNUMERIC)
         else:
             temp_df.to_csv(output_fname,sep=file_separator,mode="a",na_rep="NA", header=False,index=False,quoting=csv.QUOTE_NONNUMERIC)
-        i=i+1
     print()
     return ",".join([a for a in temp_df.columns])
 
