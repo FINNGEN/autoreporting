@@ -1,6 +1,6 @@
 import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np #typing: ignore
 import tabix
 
 """
@@ -65,6 +65,17 @@ def load_tb_df(df,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"})
     tbxlst=[]
     for _,row in df.iterrows():
         tbxlst=tbxlst+pytabix( tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) )
+    header=get_gzip_header(fpath)
+    out_df=pd.DataFrame(tbxlst,columns=header )
+    out_df=out_df.replace(na_value,np.nan)
+    out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
+    return out_df
+
+def load_tb_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_value: str = ".") -> pd.DataFrame:
+    tb=tabix.open(fpath)
+    tbxlst=[]
+    for _,row in df.iterrows():
+        tbxlst=tbxlst+pytabix( tb,"{}{}".format(chrom_prefix,row["chrom"]),int(row["min"]),int(row["max"]) )
     header=get_gzip_header(fpath)
     out_df=pd.DataFrame(tbxlst,columns=header )
     out_df=out_df.replace(na_value,np.nan)
