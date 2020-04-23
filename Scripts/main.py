@@ -76,7 +76,7 @@ def main(args):
         report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #create top report
         #top level df 
-        top_df=compare.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
+        top_df=compare.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, grouping_r2_threshold=args.ld_r2)
         top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t",float_format="%.3g")

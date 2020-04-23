@@ -78,7 +78,7 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold):
+def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold,grouping_r2_threshold):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
@@ -102,7 +102,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "functional_variants_strict",
                         "functional_variants_relaxed",
                         "specific_efo_trait_associations_strict",
-                        "specific_efo_trait_associations_relaxed"]
+                        "specific_efo_trait_associations_relaxed",
+                        "grouping_min_r2_value"]
     
     df=report_df.copy()
     top_level_df=pd.DataFrame(columns=top_level_columns)
@@ -192,6 +193,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
         row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
         row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
+        row["grouping_min_r2_value"] = grouping_r2_threshold
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
@@ -389,6 +391,7 @@ if __name__ == "__main__":
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     #parser.add_argument("--ld-chromosome-panel-path",dest="ld_chromosome_panel",help="Path to ld panel, where each chromosome is separated. If path is 'path/panel_#chrom.bed', input 'path/panel' ")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
+    parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Report output path")
     parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.tsv",help="LD check report output path")
@@ -429,7 +432,7 @@ if __name__ == "__main__":
         report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
         columns=columns_from_arguments(args.column_labels)
-        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
+        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, grouping_r2_threshold=args.ld_r2)
         top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
         ld_out_df.fillna("NA").replace("","NA").to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
