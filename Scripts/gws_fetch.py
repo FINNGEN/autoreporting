@@ -103,7 +103,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
             all_variants=all_variants[~all_variants["#variant"].isin( group["#variant"].unique() )]
     return out_df
 
-def credible_set_grouping(data: pd.DataFrame, ld_treshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]):
+def credible_set_grouping(data: pd.DataFrame, ld_treshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
     """Group variants using credible sets
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
     Args:
