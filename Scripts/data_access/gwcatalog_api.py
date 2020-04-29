@@ -169,7 +169,7 @@ class LocalDB(ExtDB):
         rsids = [a["SNPS"] for a in out if '  x  ' not in a["SNPS"]]
         rsids=[a.split(";")[0].strip() for a in rsids]
         rsid_out = get_rsid_alleles_ensembl(rsids)
-        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt"])
+        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt","biallelic"])
         df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid"])
         return df_out.to_dict("records")
 
@@ -317,14 +317,19 @@ def parse_efo(code):
 def in_chunks(lst, chunk_size):
     return (lst[pos:pos + chunk_size] for pos in range(0, len(lst), chunk_size))
 
-def parse_ensembl(json_data):
+def parse_ensembl(json_data: Dict[str,Any]):
     out=[]
     for key in json_data.keys():
         alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
-        other_allele=alleles[0]
-        minor_allele=alleles[1]
-        rsid=key
-        out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele})
+        if len(alleles) == 2:
+            other_allele=alleles[0]
+            minor_allele=alleles[1]
+            rsid=key
+            out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele,"biallelic":True})
+        else:
+            first = alleles[0]
+            others = ";".join(alleles[1:])
+            out.append({"rsid":rsid,"ref":first,"alt":others,"biallelic":False})
     return out
 
 def get_rsid_alleles_ensembl(rsids):
