@@ -272,7 +272,7 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
     """
     mset='^[acgtACGT-]+$'
     matchset1=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
-    matchset2=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
+    matchset2=df[columns["alt"]].apply(lambda x:bool(re.match(mset,x)))
     retval = df[matchset1 & matchset2].copy()
     return retval
 
@@ -304,7 +304,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         assoc_records = association_db.associations_for_regions(regions)
         assoc_df = pd.DataFrame(assoc_records)
         if not assoc_df.empty:
-            assoc_df=filter_invalid_alleles(assoc_df, columns)
+            assoc_df=filter_invalid_alleles(assoc_df, {"ref":"ref","alt":"alt"})
             indel_idx=(assoc_df["ref"]=="-")|(assoc_df["alt"]=="-")
             indels=solve_indels(assoc_df.loc[indel_idx,:],df,columns)
             assoc_df=assoc_df.loc[~indel_idx,:]
