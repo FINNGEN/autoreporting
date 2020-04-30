@@ -83,11 +83,14 @@ class PlinkLD(LDAccess):
             pr.wait()
             plink_log = pr.stdout.readlines()
             if pr.returncode != 0:
+                if any([ True for a in plink_log if "Error: No valid variants specified by --ld-snp/--ld-snps/--ld-snp-list." in a]):
+                    print("PLINK FAILURE. Variants not found in LD panel for chromosome {}".format(chrom))     
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
-                [print(l) for l in plink_log]
-                raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
-            ld_data_=pd.read_csv("{}.ld".format(plink_prefix),sep="\s+")
-            ld_data=pd.concat([ld_data,ld_data_],axis="index",sort=False,ignore_index=True)
+                print(*plink_log, sep="\n")
+                #raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
+            else:
+                ld_data_=pd.read_csv("{}.ld".format(plink_prefix),sep="\s+")
+                ld_data=pd.concat([ld_data,ld_data_],axis="index",sort=False,ignore_index=True)
             cleanup_cmd= "rm {}".format(plink_name)
             plink_files = glob.glob( "{}.*".format(plink_prefix) )
             subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
