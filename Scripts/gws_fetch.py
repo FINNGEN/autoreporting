@@ -166,7 +166,14 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={},extra_cols=
     for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
         retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True,sort=False )
     extracted_cols=list(columns.values())+extra_cols
-    retval=retval[ extracted_cols ]
+    try:
+        retval=retval[ extracted_cols ]
+    except KeyError:
+        raise KeyError("GWS variant file {} did not contain all columns. Missing columns:{} Supplied columns:{}  ".format(fname,
+                        [a for a in extracted_cols if a not in retval.columns],
+                        extracted_cols))
+    except:
+        raise
     return retval
 
 def merge_credset(gws_df,cs_df,fname,columns):
