@@ -120,8 +120,8 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--gwascatalog-threads GWASCATALOG_THREADS]
                [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
-               [--cache-gwas]
-               [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
+               [--cache-gwas] [--column-labels CHROM POS REF ALT PVAL]
+               [--extra-cols [EXTRA_COLS [EXTRA_COLS ...]]]
                [--top-report-out TOP_REPORT_OUT]
                [--strict-group-r2 STRICT_GROUP_R2]
                [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
@@ -166,7 +166,8 @@ Argument   |  Meaning   |   Example | Original script
 --ldstore-threads | Number of threads to use with LDstore. At most the number of logical cores your processor has. Default 4.| --ldstore-threads 2 | compare<span></span>.py
 --ld-treshold | LD threshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
 --cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
---column-labels | One can supply custom input file column names with this (chrom, pos, ref, alt, pval, beta, MAF, MAF_cases, MAF_controls) . Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'. | --column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL | all scripts
+--column-labels | Specify summary file column names. Columns specified are: (chrom, pos, ref, alt, pval) . Default is '#chrom pos ref alt pval'. | --column-labels CHROM POS REF ALT PVAL | all scripts
+--extra-cols | Include additional columns from the summary file in the analysis, for example effect size, rsid or allele frequencies. Values are added both to variant reports and group reports, with names like lead_COLNAME in group report. | --extra-cols beta sebeta rsid maf_cases maf_controls | gws_fetch.py
 --top-report-out | Name of per-group aggregated report output | --top-report-out top_report.csv | compare<span></span>.py
 --efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Ontology codes. | --efo-traits EFO_1 EFO_2 EFO_3 EFO_4 | compare<span></span>.py
 --local-gwascatalog | File path to gwas catalog downloadable associations with mapped ontologies. | --local-gwascatalog gwascatalog-associations-with-ontologies.tsv | compare<span></span>.py
@@ -206,6 +207,7 @@ functional_ann=path_to_annotation/functional_annotations.gz # annotation file wi
 finngen_ann_version=r4                                      # finngen annotation version, r3 for <=r3_0, r4 for >=r3_1
 use_gwascatalog="--use-gwascatalog"                         # Compare against GWAS Catalog
 db=gwas                                                     # GWAS Catalog database: local copy (local), normal (gwas), or summary statistic API (summ_stats)
+extracols='rsid beta sebeta maf maf_cases maf_controls'     # Add additional columns to reports
 
 
 python3 Scripts/main.py $file --sign-treshold $sig_p  \
@@ -220,7 +222,7 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --finngen-path $finngen_ann \
         --finngen-annotation-version $finngen_ann_version \
         --functional-path $functional_ann \
-        $use_gwascatalog --db $db
+        $use_gwascatalog --db $db --extra-cols $extracols
 ```
 
 ## 4.2 <a name='Subroutines'></a>Tool subroutines
@@ -237,7 +239,8 @@ usage: gws_fetch.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                     [--alt-sign-treshold SIG_TRESHOLD_2]
                     [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
                     [--plink-memory PLINK_MEM] [--overlap]
-                    [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
+                    [--column-labels CHROM POS REF ALT PVAL]
+                    [--extra-cols [EXTRA_COLS [EXTRA_COLS ...]]]
                     [--ignore-region IGNORE_REGION]
                     [--credible-set-file CRED_SET_FILE]
                     [--ld-api LD_API_CHOICE]
