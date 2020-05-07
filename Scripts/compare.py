@@ -78,7 +78,7 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold,grouping_r2_threshold):
+def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
@@ -103,7 +103,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "functional_variants_relaxed",
                         "specific_efo_trait_associations_strict",
                         "specific_efo_trait_associations_relaxed",
-                        "grouping_min_r2_value"]
+                        "credible_set_min_r2_value"]
     
     df=report_df.copy()
     top_level_df=pd.DataFrame(columns=top_level_columns)
@@ -193,7 +193,10 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
         row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
         row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
-        row["grouping_min_r2_value"] = grouping_r2_threshold
+        try:
+            row["credible_set_min_r2_value"] = np.nanmin(loc_variants.loc[~loc_variants["cs_id"].isna(), "r2_to_lead" ].values)
+        except:
+            row["credible_set_min_r2_value"] = np.nan
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
@@ -432,7 +435,7 @@ if __name__ == "__main__":
         report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
         columns=columns_from_arguments(args.column_labels)
-        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, grouping_r2_threshold=args.ld_r2)
+        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
         top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
         ld_out_df.fillna("NA").replace("","NA").to_csv(args.ld_report_out,sep="\t",float_format="%.3g")

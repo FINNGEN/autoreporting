@@ -57,13 +57,13 @@ class TestCompare(unittest.TestCase):
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
         cols=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls","#variant","locus_id"]
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
-        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval","lead_beta","lead_AF","lead_AF_cases","lead_AF_controls", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed","specific_efo_trait_associations_strict","specific_efo_trait_associations_relaxed","grouping_min_r2_value"]
+        end_result_cols=["locus_id", "chr", "start", "end", "enrichment", "most_severe_gene", "most_severe_consequence", "lead_pval","lead_beta","lead_AF","lead_AF_cases","lead_AF_controls", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed","specific_efo_trait_associations_strict","specific_efo_trait_associations_relaxed","credible_set_min_r2_value"]
         traits=[]
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
         df=pd.DataFrame(columns=cols)
         summary_df=pd.DataFrame(columns=summary_cols)
         raport_df = top_merge(df,summary_df,columns)
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3,0.2)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.DataFrame(columns=end_result_cols)
         self.assertTrue(res.equals(validate) )
         # test two: populated dataframe, empty summary variant dataframe
@@ -71,7 +71,7 @@ class TestCompare(unittest.TestCase):
         df["cs_id"]=np.nan
         df["cs_prob"]=np.nan
         raport_df = top_merge(df,summary_df,columns)
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3,0.2)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.read_csv("testing/compare_resources/top_result_empty_summary.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
@@ -79,14 +79,14 @@ class TestCompare(unittest.TestCase):
         # test 3: populated dataframe, populated summary variant df, no traits
         summary_df=pd.read_csv("testing/compare_resources/summary_df.csv",sep="\t")
         raport_df = top_merge(df,summary_df,columns)
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3,0.2)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.read_csv("testing/compare_resources/top_result_traits_1.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
             self.assertTrue(res[col].astype(object).equals(validate[col].astype(object)) )
         # test 4: populated dataframes, common traits
         traits=["TRAIT_1","TRAIT_4"]
-        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3,0.2)
+        res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3)
         validate=pd.read_csv("testing/compare_resources/top_result_traits_2.csv",sep="\t")
         validate=validate.fillna("")
         for col in validate.columns:
