@@ -229,10 +229,11 @@ def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,si
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     if cred_set_file != "":
         cs_df=load_credsets(cred_set_file,columns)
+        temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
     else:
-        cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
+        temp_df["cs_prob"]=np.nan
+        temp_df["cs_id"]=np.nan
     #merge with gws_df, by using chrom,pos,ref,alt
-    temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
     #create necessary columns for the data
     temp_df=temp_df.reset_index(drop=True)
     temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
