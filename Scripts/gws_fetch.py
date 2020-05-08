@@ -124,12 +124,11 @@ def credible_set_grouping(data: pd.DataFrame, ld_treshold: float, locus_range: i
         lead_vars.append(group_lead["#variant"])
     if len(lead_vars) == 0:
         return pd.DataFrame(columns=df.columns)
-    ld_data = pd.DataFrame()
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
     ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
-    ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,ld_treshold)
+    all_lead_ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,ld_treshold)
     #join
-    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
+    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     #filter by p-value
     out_df = pd.DataFrame(columns=list(data.columns)+["r2_to_lead"])
