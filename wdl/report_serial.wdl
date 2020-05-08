@@ -117,7 +117,7 @@ task report{
         phenotypes="${sep=";" pheno_ids}".split(";")
         custom_dataresource="${custom_dataresource}"
         column_names = "${sep=" " column_names}"
-        extra_columns = ${extra_columns}
+        extra_columns = "${extra_columns}"
         credset_calls = []
         credset_cmds=["--credible-set-file {}".format(a) for a in "${sep=";" selected_credsets}".split(";")] if "true" == "${use_credsets}" else [""] * ${len}
         #efo codes

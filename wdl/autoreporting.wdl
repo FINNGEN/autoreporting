@@ -90,7 +90,7 @@ task report {
         annotation_version = "${annotation_version}"
         custom_dataresource="${custom_dataresource}"
         column_names = "${sep=" " column_names}"
-        extra_columns = ${extra_columns}
+        extra_columns = "${extra_columns}"
 
         #changing variables
         #summ stat
