@@ -78,24 +78,21 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
-def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold):
+def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold, extra_cols):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
+    extra_colnames = ["lead_{}".format(c) for c in extra_cols]
     top_level_columns=["locus_id",
                         "chr",
                         "start",
                         "end",
                         "enrichment",
-                        "most_severe_gene",
+                        "lead_pval"]+extra_colnames+\
+                        ["most_severe_gene",
                         "most_severe_consequence",
-                        "lead_pval",
-                        "lead_beta",
-                        "lead_AF",
-                        "lead_AF_cases",
-                        "lead_AF_controls",
                         "found_associations_strict",
                         "found_associations_relaxed",
                         "credible_set_variants",
@@ -144,15 +141,10 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["most_severe_consequence"]=most_severe_consequence
         row["most_severe_gene"]=most_severe_gene
         pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["pval"]].values[0]
-        beta=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["beta"]].values[0]
-        af=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["af"]].values[0]
-        af_case=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["af_cases"]].values[0]
-        af_control=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["af_controls"]].values[0]
         row["lead_pval"]=pvalue
-        row["lead_beta"]=beta
-        row["lead_AF"]=af
-        row["lead_AF_cases"]=af_case
-        row["lead_AF_controls"]=af_control
+        ex_col_d = {}
+        for idx,col in enumerate(extra_cols):
+            row[extra_colnames[idx]] = loc_variants.loc[loc_variants["#variant"]==locus_id, col ].values[0]
         # Get credible set variants in relazed & strict group, as well as functional variants. 
         # Try because it is possible that functional data was skipped.
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob"] ].drop_duplicates()
@@ -280,7 +272,7 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
     """
     mset='^[acgtACGT-]+$'
     matchset1=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
-    matchset2=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
+    matchset2=df[columns["alt"]].apply(lambda x:bool(re.match(mset,x)))
     retval = df[matchset1 & matchset2].copy()
     return retval
 
@@ -312,7 +304,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         assoc_records = association_db.associations_for_regions(regions)
         assoc_df = pd.DataFrame(assoc_records)
         if not assoc_df.empty:
-            assoc_df=filter_invalid_alleles(assoc_df, columns)
+            assoc_df=filter_invalid_alleles(assoc_df, {"ref":"ref","alt":"alt"})
             indel_idx=(assoc_df["ref"]=="-")|(assoc_df["alt"]=="-")
             indels=solve_indels(assoc_df.loc[indel_idx,:],df,columns)
             assoc_df=assoc_df.loc[~indel_idx,:]
@@ -398,7 +390,8 @@ if __name__ == "__main__":
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
     parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
-    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
+    parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
@@ -429,7 +422,7 @@ if __name__ == "__main__":
         report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
         columns=columns_from_arguments(args.column_labels)
-        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2)
+        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols)
         top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
         ld_out_df.fillna("NA").replace("","NA").to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
