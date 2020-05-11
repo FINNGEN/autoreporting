@@ -189,14 +189,15 @@ def merge_credset(gws_df,cs_df,fname,columns):
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     # fetch rows using tabix
     cred_row_df = load_tb_df(cs_df,fname,columns=columns)
-    cols = list(columns.values())
+    cols = list(gws_df.columns)
     cred_row_df = cred_row_df[ cols ].drop_duplicates(keep="first")
     cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     # ensure only the credible sets were included
     cred_row_df = pd.merge(cred_row_df,cs_df[join_cols],how="right",on=join_cols)
-    df=gws_df.copy()
-    df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False).drop_duplicates(subset=list( join_cols ) )
+    df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False)\
+        .astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})\
+        .drop_duplicates(subset=list( join_cols ) )
     # merge the credible set
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
@@ -237,7 +238,8 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
         #load summary stats around credsets, add columns for data
         summ_stat_variants = load_tb_ranges(cs_ranges,gws_fpath,"",".")
-        not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)
+        not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)\
+            .sort_values(axis="index",by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"],na_position="last")
         not_grouped_data=not_grouped_data.reset_index(drop=True)
         not_grouped_data.loc[:,"#variant"]=create_variant_column(not_grouped_data,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         not_grouped_data.loc[:,"locus_id"]=not_grouped_data.loc[:,"#variant"]
