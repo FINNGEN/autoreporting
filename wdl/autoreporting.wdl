@@ -271,7 +271,7 @@ workflow autoreporting{
             overlap=overlap, 
             check_for_ld=check_for_ld,
             custom_dataresource=custom_dataresource,
-            column_names=column_names
+            column_names=column_names,
             extra_columns=extra_columns
         }
     }
