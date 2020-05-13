@@ -15,10 +15,12 @@ class OnlineLD(LDAccess):
         parsed_variant="chr{}".format( variant.replace(":","_"))
         return parsed_variant
 
-    def __get_range(self, chrom,pos,ref,alt,window,ld_threshold):
+    def __get_range(self, chrom,pos,ref,alt,window,ld_threshold = None):
         window = max(min(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
-        params={"variant":variant,"panel":"sisu3","variant":variant,"window":window,"r2_thresh":ld_threshold}
+        params={"variant":variant,"panel":"sisu3","variant":variant,"window":window}
+        if ld_threshold:
+            params["r2_thresh"]=ld_threshold
         try:
             data=try_request("GET",url=self.url,params=params)
         except ResourceNotFound as e:
@@ -38,8 +40,6 @@ class OnlineLD(LDAccess):
         return ld_data
 
     def get_ranges(self, variants, window,ld_threshold = None):
-        if not ld_threshold:
-            ld_threshold = 0.0001
         data=variants[ [ "chr", "pos", "ref", "alt" ] ]
         ld_data=pd.DataFrame()
         for idx, row in variants.iterrows():
@@ -64,7 +64,7 @@ class PlinkLD(LDAccess):
 
     def get_ranges(self, variants, window, ld_threshold = None):
         if not ld_threshold:
-            ld_threshold = 0.0001
+            ld_threshold = 0.0
         #assume columns are: [chrom, pos, ref, alt,#variant], and window is int
         ld_data=pd.DataFrame()
         chromosomes = variants["chr"].unique()
