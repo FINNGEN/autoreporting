@@ -37,7 +37,9 @@ class OnlineLD(LDAccess):
         ld_data=ld_data.append({"variation1":variant,"variation2":variant,"r2":1.00},ignore_index=True)
         return ld_data
 
-    def get_ranges(self, variants, window,ld_threshold):
+    def get_ranges(self, variants, window,ld_threshold = None):
+        if not ld_threshold:
+            ld_threshold = 0.0001
         data=variants[ [ "chr", "pos", "ref", "alt" ] ]
         ld_data=pd.DataFrame()
         for idx, row in variants.iterrows():
@@ -60,7 +62,9 @@ class PlinkLD(LDAccess):
         self.path=path
         self.memory=memory
 
-    def get_ranges(self, variants, window, ld_threshold):
+    def get_ranges(self, variants, window, ld_threshold = None):
+        if not ld_threshold:
+            ld_threshold = 0.0001
         #assume columns are: [chrom, pos, ref, alt,#variant], and window is int
         ld_data=pd.DataFrame()
         chromosomes = variants["chr"].unique()

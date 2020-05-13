@@ -127,7 +127,7 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     ld_data = pd.DataFrame()
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
     ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
-    ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,0.0001)
+    ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000)
     #join
     ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
