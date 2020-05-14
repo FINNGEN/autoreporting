@@ -102,7 +102,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "functional_variants_strict",
                         "functional_variants_relaxed",
                         "specific_efo_trait_associations_strict",
-                        "specific_efo_trait_associations_relaxed"]
+                        "specific_efo_trait_associations_relaxed",
+                        "credible_set_min_r2_value"]
     
     df=report_df.copy()
     top_level_df=pd.DataFrame(columns=top_level_columns)
@@ -192,6 +193,10 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
         row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
         row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
+        try:
+            row["credible_set_min_r2_value"] = np.nanmin(loc_variants.loc[~loc_variants["cs_id"].isna(), "r2_to_lead" ].values)
+        except:
+            row["credible_set_min_r2_value"] = np.nan
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     return top_level_df
