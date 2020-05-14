@@ -103,7 +103,9 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
             all_variants=all_variants[~all_variants["#variant"].isin( group["#variant"].unique() )]
     return out_df
 
-def credible_set_grouping(data: pd.DataFrame, ld_treshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
+
+def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
+
     """Group variants using credible sets
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
     Args:
@@ -127,7 +129,7 @@ def credible_set_grouping(data: pd.DataFrame, ld_treshold: float, locus_range: i
     ld_data = pd.DataFrame()
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
     ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
-    ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000,ld_treshold)
+    ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000)
     #join
     ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
@@ -136,24 +138,31 @@ def credible_set_grouping(data: pd.DataFrame, ld_treshold: float, locus_range: i
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
-        #all of the variants are in sufficient LD with the lead variants if there is a row where SNP_A is variant, and SNP_B (or #variant) is the variant in LD with the lead variant.
+        #get lead variant and ld data
         lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"] #choose the lead variant with smallest p-value
         ld_data = ld_df.loc[ld_df["variant_1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
-        group = df[df["#variant"].isin(ld_data["#variant"] )].copy()
-        group = pd.merge(group,ld_data,on="#variant",how="left")
-        #also add the variants that are in the credible set. Just in case they might not be included in the ld neighbours. Note that this makes it possible for them to not have LD information
+        
+        #create credible set group and ld partner group
         credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
         credible_set= data.loc[data["cs_id"] == credible_id,:].copy()
-        #concat the two, remove duplicate entries
-        group=pd.concat([group,credible_set],ignore_index=True,sort=False).sort_values(by=["#variant","cs_id","r2_to_lead"]).drop_duplicates(subset=["#variant","cs_id"],keep="first")
+        cred_group = credible_set.merge(ld_data,on="#variant",how="left")#contains all variants of this CS, even though LD might be smaller than ld threshold
+        ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=ld_threshold].copy() #filter ld
+        group = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
+        group = pd.merge(group,ld_data_filtered,on="#variant",how="left")
+        #concat the two, remove duplicate entries. Entries with cs_id are preferred over entries without cs_id.
+        #Though it shouldn't be possible for there to be variants that are both in the credible set and out of it. 
+        group=pd.concat([group,cred_group],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
+        
+        #add the group to output
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
+        
         #convergence: remove lead_variant, remove group from df if overlap is not true
-        leads=leads[~ (leads["#variant"] == lead_variant) ] 
+        leads=leads[~ (leads["#variant"] == lead_variant) ]
         if not overlap:
-            df=df[~df["#variant"].isin(ld_data["#variant"])]
+            df=df[~df["#variant"].isin(ld_data_filtered["#variant"])]
             df=df[~(df["cs_id"]==credible_id)]
     return out_df
 
@@ -189,82 +198,122 @@ def merge_credset(gws_df,cs_df,fname,columns):
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     # fetch rows using tabix
     cred_row_df = load_tb_df(cs_df,fname,columns=columns)
-    cols = list(columns.values())
+    cols = list(gws_df.columns)
     cred_row_df = cred_row_df[ cols ].drop_duplicates(keep="first")
     cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     # ensure only the credible sets were included
     cred_row_df = pd.merge(cred_row_df,cs_df[join_cols],how="right",on=join_cols)
-    df=gws_df.copy()
-    df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False).drop_duplicates(subset=list( join_cols ) )
+    df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False)\
+        .astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})\
+        .drop_duplicates(subset=list( join_cols ) )
     # merge the credible set
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
-def fetch_gws(gws_fpath, sig_tresh_1,prefix,group,grouping_method,locus_width,sig_tresh_2,ld_r2,overlap,columns,ignore_region,cred_set_file, ld_api):
+def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grouping_method: str, locus_width: int, sig_tresh_2: float,
+                ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess):
+    """Filter and group variants.
+    Args:
+        gws_fpath (str): summary statistic filename
+        sig_tresh_1 (float): primary significance threshold (used in simple and ld grouping)
+        prefix (str): prefix for all of the files
+        group (bool): whether to group the variants or not
+        grouping_method (str): grouping method
+        locus_width (int): grouping width in kb
+        sig_tresh_2 (float): alternate significance threshold
+        ld_r2 (float): LD correlation threshold for including variants in groups (for cred and ld grouping only)
+        overlap (bool): Whether groups are allowed to overlap, i.e. same variant can be in multiple groups or not
+        columns (Dict[str,str]): column name dictionary
+        ignore_region (str): Region to be ignored in the analysis
+        cred_set_file (str): Credible set filename
+        ld_api (LDAccess): ld api object 
+    Returns:
+        (pd.DataFrame): Filtered and grouped variants
     """
-    Filter and group variants.
-    In: arguments
-    Out: Dataframe of filtered (and optionally grouped) variants.
-    """
-    sig_tresh_2=max(sig_tresh_1,sig_tresh_2)
-    r=locus_width*1000#range for location width, originally in kb
-    dtype={columns["chrom"]:str,
-                columns["pos"]:np.int32,
-                columns["ref"]:str,
-                columns["alt"]:str,
-                columns["pval"]:np.float64,
-                columns["beta"]:np.float64,
-                columns["af"]:np.float64}
-
-    #data input: get genome-wide significant variants.
-    temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip")
-    #remove ignored region if there is one
     if ignore_region:
         ignore_region_=parse_region(ignore_region)
-        ign_idx=( ( temp_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region_["end"] )&( temp_df[columns["pos"]]>=ignore_region_["start"] ) )
-        temp_df=temp_df.loc[~ign_idx,:]
-    
-    if temp_df.empty:
-        print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(gws_fpath,sig_tresh_1))
-        return None
-    
-    #data input: get credible set variants
-    join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
-    if cred_set_file != "":
+    if group and grouping_method == "cred":
+        #load credsets
         cs_df=load_credsets(cred_set_file,columns)
+        #remove ignored region if there is one
+        if ignore_region:
+            ign_idx=( ( cs_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( cs_df[columns["pos"]]<=ignore_region_["end"] )&( cs_df[columns["pos"]]>=ignore_region_["start"] ) )
+            cs_df=cs_df.loc[~ign_idx,:]
+        cs_leads = cs_df.loc[cs_df[["cs_id","cs_prob"]].reset_index().groupby("cs_id").max()["index"],:]
+        cs_ranges = cs_leads[[columns["chrom"],columns["pos"]]].copy()
+        cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width*1000
+        cs_ranges["max"] = cs_ranges[columns["pos"]]+locus_width*1000
+        cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
+        #load summary stats around credsets, add columns for data
+        summ_stat_variants = load_tb_ranges(cs_ranges,gws_fpath,"",".")
+        not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)\
+            .sort_values(axis="index",by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"],na_position="last")
+        not_grouped_data=not_grouped_data.reset_index(drop=True)
+        not_grouped_data.loc[:,"#variant"]=create_variant_column(not_grouped_data,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        not_grouped_data.loc[:,"locus_id"]=not_grouped_data.loc[:,"#variant"]
+        not_grouped_data.loc[:,"pos_rmax"]=not_grouped_data.loc[:,columns["pos"]]
+        not_grouped_data.loc[:,"pos_rmin"]=not_grouped_data.loc[:,columns["pos"]]
+        #group, sort data
+        grouped_data = credible_set_grouping(data=not_grouped_data,ld_threshold=ld_r2,locus_range=locus_width,
+                overlap=overlap,ld_api=ld_api,columns=columns)
+        retval = grouped_data.sort_values(["locus_id","#variant"])
+        
     else:
-        cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
-    #merge with gws_df, by using chrom,pos,ref,alt
-    temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
-    #create necessary columns for the data
-    temp_df=temp_df.reset_index(drop=True)
-    temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-    temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
-    temp_df.loc[:,"pos_rmax"]=temp_df.loc[:,columns["pos"]]
-    temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
-    df_p1=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_1,: ].copy()
-    df_p2=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_2,: ].copy()
-    #grouping
-    if group:
-        if grouping_method=="ld":
-            new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,
-            sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,
-            overlap=overlap,
-            prefix=prefix,ld_api=ld_api,columns=columns)
-        elif grouping_method=="cred":
-            new_df = credible_set_grouping(data=df_p2,ld_treshold=ld_r2,locus_range=locus_width,
-            overlap=overlap,ld_api=ld_api,columns=columns)
-        else :
-            new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
-            new_df["r2_to_lead"]=np.nan
-        new_df=new_df.sort_values(["locus_id","#variant"])
-        retval = new_df
-    else:
-        #take only gws hits, no groups. Therefore, use df_p1
-        retval = df_p1.sort_values(["locus_id","#variant"])
-        retval["r2_to_lead"]=np.nan
-    
+        sig_tresh_2=max(sig_tresh_1,sig_tresh_2)
+        r=locus_width*1000#range for location width, originally in kb
+        dtype={columns["chrom"]:str,
+                    columns["pos"]:np.int32,
+                    columns["ref"]:str,
+                    columns["alt"]:str,
+                    columns["pval"]:np.float64,
+                    columns["beta"]:np.float64,
+                    columns["af"]:np.float64}
+
+        #data input: get genome-wide significant variants.
+        temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip")
+        #remove ignored region if there is one
+        if ignore_region:
+            ign_idx=( ( temp_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region_["end"] )&( temp_df[columns["pos"]]>=ignore_region_["start"] ) )
+            temp_df=temp_df.loc[~ign_idx,:]
+        
+        if temp_df.empty:
+            print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(gws_fpath,sig_tresh_1))
+            return None
+        
+        #data input: get credible set variants
+        join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
+        if cred_set_file != "":
+            cs_df=load_credsets(cred_set_file,columns)
+        else:
+            cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
+        #merge with gws_df, by using chrom,pos,ref,alt
+        temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
+        #create necessary columns for the data
+        temp_df=temp_df.reset_index(drop=True)
+        temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
+        temp_df.loc[:,"pos_rmax"]=temp_df.loc[:,columns["pos"]]
+        temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
+        df_p1=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_1,: ].copy()
+        df_p2=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_2,: ].copy()
+        #grouping
+        if group:
+            if grouping_method=="ld":
+                new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,
+                sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,
+                overlap=overlap,
+                prefix=prefix,ld_api=ld_api,columns=columns)
+            else :
+                new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
+                new_df["r2_to_lead"]=np.nan
+            new_df=new_df.sort_values(["locus_id","#variant"])
+            retval = new_df
+        else:
+            #take only gws hits, no groups. Therefore, use df_p1
+            retval = df_p1.sort_values(["locus_id","#variant"])
+            retval["r2_to_lead"]=np.nan
+        
     ## NOTE:Change X-chromosome to 23 in chrom, cs_id, #variant and locus_id
     retval = df_replace_value(retval,columns["chrom"],"X","23")
     retval = df_replace_value(retval,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
