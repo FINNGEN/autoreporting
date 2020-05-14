@@ -2,9 +2,9 @@
 
 ## File that contains abstract classes for different DAOs
 import abc
-from typing import List, Text, Dict,Any
+from typing import List, Text, Dict,Any, Optional
 from io import StringIO
-import pandas as pd
+import pandas as pd #type: ignore
 
 class ExtDB(object):
     """Abstract base class for association searches
@@ -23,10 +23,13 @@ class LDAccess(object):
     """
 
     @abc.abstractmethod
-    def get_ranges(self, variants: pd.DataFrame, window: int, ld_threshold: float) -> pd.DataFrame:#List[ Dict[str, Any ]]:
-        """
-        Return LD for multiple variant ranges
-        In: variant data, i.e. a dataframe with columns [chr, pos, ref, alt, #variant], a window,ld threshold
-        Out: Dataframe with LD information
+    def get_ranges(self, variants: pd.DataFrame, window: int, ld_threshold: Optional[float]) -> pd.DataFrame:
+        """Return LD for multiple variant ranges
+        Args: variant data, i.e. a dataframe with columns [chr, pos, ref, alt, #variant], a window,ld threshold
+            variants (pd.DataFrame):
+            window (int):
+            ld_threshold (Optional[float]): Optional LD R^2 threshold. Only variants that are in greater correlation than the threshold are reported. 
+        Returns: 
+            (pd.DataFrame):Dataframe with LD information.
         """
         return
