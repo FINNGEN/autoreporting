@@ -144,7 +144,7 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         #rename columns
         func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
         #remove values that are not in the coding categories
-        functional_categories = ["pLoF","LC","start_lost","stop_lost","inframe_indel","missense_variant"]
+        functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
         func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
         func_df = func_df.dropna(axis="index")
         func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])

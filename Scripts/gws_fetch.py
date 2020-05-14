@@ -165,7 +165,22 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
             df=df[~(df["cs_id"]==credible_id)]
     return out_df
 
-def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={},compression="gzip"):
+def extract_cols(df: pd.DataFrame, cols: List[str])-> pd.DataFrame:
+    """Extract columns from a dataframe
+    Args:
+    Returns:
+        (pd.DataFrame): The dataframe with only those columns
+    """
+    try:
+        df=df[ cols ]
+    except KeyError:
+        raise KeyError("DataFrame did not contain all of the required columns. Missing columns:{} Supplied columns:{}  ".format([a for a in cols if a not in df.columns],
+            cols))
+    except:
+        raise
+    return df
+
+def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={},extra_cols=[],compression="gzip"):
     """
     Get genome-wide significant variants from a summary statistic file.
     In: filename, significance threshold, dtype,columns,compression
@@ -177,13 +192,12 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={},compression
                 columns["pos"]:np.int32,
                 columns["ref"]:str,
                 columns["alt"]:str,
-                columns["pval"]:np.float64,
-                columns["beta"]:np.float64,
-                columns["af"]:np.float64}
+                columns["pval"]:np.float64}
     retval=pd.DataFrame()
     for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
         retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True,sort=False )
-    retval=retval[ list(columns.values()) ]
+    extracted_cols=list(columns.values())+extra_cols
+    retval=extract_cols(retval,extracted_cols)
     return retval
 
 def merge_credset(gws_df,cs_df,fname,columns):
@@ -211,7 +225,7 @@ def merge_credset(gws_df,cs_df,fname,columns):
     return merged
 
 def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grouping_method: str, locus_width: int, sig_tresh_2: float,
-                ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess):
+                ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess, extra_cols: List[str]):
     """Filter and group variants.
     Args:
         gws_fpath (str): summary statistic filename
@@ -227,6 +241,7 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         ignore_region (str): Region to be ignored in the analysis
         cred_set_file (str): Credible set filename
         ld_api (LDAccess): ld api object 
+        extra_cols (List[str]): Extra columns to include in 
     Returns:
         (pd.DataFrame): Filtered and grouped variants
     """
@@ -246,6 +261,7 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
         #load summary stats around credsets, add columns for data
         summ_stat_variants = load_tb_ranges(cs_ranges,gws_fpath,"",".")
+        summ_stat_variants = extract_cols(summ_stat_variants,list(columns.values())+extra_cols)
         not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)\
             .sort_values(axis="index",by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"],na_position="last")
         not_grouped_data=not_grouped_data.reset_index(drop=True)
@@ -265,12 +281,10 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
                     columns["pos"]:np.int32,
                     columns["ref"]:str,
                     columns["alt"]:str,
-                    columns["pval"]:np.float64,
-                    columns["beta"]:np.float64,
-                    columns["af"]:np.float64}
+                    columns["pval"]:np.float64}
 
         #data input: get genome-wide significant variants.
-        temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip")
+        temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip",extra_cols=extra_cols)
         #remove ignored region if there is one
         if ignore_region:
             ign_idx=( ( temp_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region_["end"] )&( temp_df[columns["pos"]]>=ignore_region_["start"] ) )
@@ -334,7 +348,8 @@ if __name__=="__main__":
     parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
-    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
+    parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
@@ -352,5 +367,5 @@ if __name__=="__main__":
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api)
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols)
     fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")

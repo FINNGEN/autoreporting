@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r5_data/autoreporting/r5_phenotype_array_2020_03_25.tsv",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:4d40b2b",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:9bd5bc5",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 8,
     "autoreporting.cpus":4,
@@ -31,5 +31,6 @@
     "autoreporting.primary_grouping_method":"cred",
     "autoreporting.secondary_grouping_method":"ld",
     "autoreporting.custom_dataresource":"gs://r4_data_west1/autoreporting/custom_dataresource_r4_2020_03_25.tsv",
-    "autoreporting.column_names":["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"]
+    "autoreporting.column_names":["#chrom","pos","ref","alt","pval"],
+    "autoreporting.extra_columns":"beta maf maf_cases maf_controls rsids"
 }

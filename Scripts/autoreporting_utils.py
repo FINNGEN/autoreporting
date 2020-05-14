@@ -60,7 +60,7 @@ def get_gzip_header(fname):
                 out.append(line.decode().strip().split("\t"))
     return out[0]
 
-def load_tb_df(df,fpath,chrom_prefix="",na_value=".",columns={"chrom":"#chrom"}):
+def load_tb_df(df,fpath,columns,chrom_prefix="",na_value="."):
     tb=tabix.open(fpath)
     tbxlst=[]
     for _,row in df.iterrows():
@@ -114,15 +114,11 @@ def columns_from_arguments(column_labels):
     """
     Return a dict of columns (used pervasively throughout the script) from the argument column_labels
     In: column labels, as a list
-    Out: Dictionary with the members 'chrom','pos','ref','alt','pval', 'beta', 'af' , 'af_case', 'af_control'
+    Out: Dictionary with the members 'chrom','pos','ref','alt','pval'
     """
     return {
         "chrom":column_labels[0],
         "pos":column_labels[1],
         "ref":column_labels[2],
         "alt":column_labels[3],
-        "pval":column_labels[4],
-        "beta":column_labels[5],
-        "af":column_labels[6],
-        "af_cases":column_labels[7],
-        "af_controls":column_labels[8]}
+        "pval":column_labels[4]}
