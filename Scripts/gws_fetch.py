@@ -147,10 +147,9 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
         ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=ld_threshold].copy() #filter ld
         group = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
         group = pd.merge(group,ld_data_filtered,on="#variant",how="left")
-        
         #concat the two, remove duplicate entries. Entries with cs_id are preferred over entries without cs_id.
         #Though it shouldn't be possible for there to be variants that are both in the credible set and out of it. 
-        group=pd.concat([group,credible_set],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
+        group=pd.concat([group,cred_group],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()

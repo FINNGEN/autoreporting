@@ -43,7 +43,7 @@ class OnlineLD(LDAccess):
         data=variants[ [ "chr", "pos", "ref", "alt" ] ]
         ld_data=pd.DataFrame()
         for idx, row in variants.iterrows():
-            variant_ld = self.__get_range(row["chr"],row["pos"],row["ref"],row["alt"],window,ld_threshold)
+            variant_ld = self.__get_range(row["chr"],row["pos"],row["ref"],row["alt"],window*2,ld_threshold)
             ld_data=pd.concat([ld_data,variant_ld],ignore_index=True,sort=False)
         ld_data["variant_1"] = ld_data["variation1"].apply(self.__parse_variant)
         ld_data["variant_2"] = ld_data["variation2"].apply(self.__parse_variant)
