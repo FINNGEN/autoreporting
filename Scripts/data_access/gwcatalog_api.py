@@ -1,7 +1,7 @@
 import json, requests
 import time
 import abc
-from typing import List, Text, Dict,Any
+from typing import List, Text, Dict, Any, Optional
 from io import StringIO
 import pandas as pd, numpy as np
 from data_access.db import ExtDB
@@ -107,6 +107,41 @@ class SummaryApi(ExtDB):
         results=[i for sublist in results for i in sublist]
         return results
 
+def gwcat_get_alleles(data: List[Dict[str,Any]], filter_nonbiallelic: Optional[bool] = True) -> pd.DataFrame:
+    """Get alleles for Gwas Catalog results, as those mostly don't have them.
+    A common step for both the LocalDB and GwasApi, which is why it's separated into its own function.
+    Can filter out nonbiallelic variants (filters by default)
+    Args:
+        data (List[Dict[str,Any]]): the data as a list of dicts. Each dict is one row.
+        filter_nonbiallelic (Optional[bool]): Whether to filter out nonbiallelic variants. True by default.
+    Returns:
+        (pd.DataFrame): pandas DataFrame with columns for rsid, allele1, other allele(s), and whether the variant is biallelic. 
+    """
+    rsids = [a["SNPS"] for a in data if '  x  ' not in a["SNPS"]] # remove cross-snp associations
+    rsids=[a.split(";")[0].strip() for a in rsids]
+    rsid_out = get_rsid_alleles_ensembl(rsids)
+    rsid_df =  pd.DataFrame(rsid_out)
+    if filter_nonbiallelic:
+        rsid_df=rsid_df[rsid_df["biallelic"] == True]
+    return rsid_df
+
+def gwcat_set_column_types(data: pd.DataFrame) -> pd.DataFrame :
+    """Helper funtion to set the types of dataframe columns.
+    Column types: {chrom:str, pos:int, pval:float, trait:str}
+    Args:
+        data (pd.DataFrame): Dataframe with gwcatalog asssociations
+    Returns:
+        (pd.DataFrame): The same dataframe with columns set correctly
+    """
+    rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
+    data=data.rename(columns=rename)
+    data=data.astype(dtype={"chrom":str,"pval":float,"trait":str})
+    data["pos"] = pd.to_numeric(data["pos"],errors="coerce")
+    data = data.dropna(subset={"pos"})
+    data=data.astype(dtype={"pos":int}) 
+    retcols=["chrom","pos","SNPS","pval","pval_mlog","trait","trait_name","study","study_link"]
+    return data.loc[:,retcols]
+
 class LocalDB(ExtDB):
 
     def __init__(self, db_path: str, pval_threshold: float, padding: int):
@@ -143,11 +178,8 @@ class LocalDB(ExtDB):
             return []
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
-        rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
-        retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":str,"pos":int,"pval":float,"trait":str})
-        retcols=["chrom","pos","SNPS","pval","pval_mlog","trait","trait_name","study","study_link"]
-        return retval.loc[:,retcols].to_dict("records")
+        retval=gwcat_set_column_types(retval)
+        return retval.to_dict("records")
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Get associations for a list of regions
@@ -166,11 +198,7 @@ class LocalDB(ExtDB):
         result_df = pd.DataFrame(out)
         #TODO: add ensembl data
         #filter rsids
-        rsids = [a["SNPS"] for a in out if '  x  ' not in a["SNPS"]]
-        rsids=[a.split(";")[0].strip() for a in rsids]
-        rsid_out = get_rsid_alleles_ensembl(rsids)
-        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt","biallelic"])
-        rsid_df = rsid_df[rsid_df["biallelic"] == True]
+        rsid_df = gwcat_get_alleles(out, filter_nonbiallelic=True)
         df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
         return df_out.to_dict("records")
 
@@ -212,11 +240,8 @@ class GwasApi(ExtDB):
             return []
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
-        rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
-        retval=retval.rename(columns=rename)
-        retval=retval.astype(dtype={"chrom":str,"pos":int,"pval":float,"trait":str})
-        retcols=["chrom","pos","SNPS","pval","pval_mlog","trait","trait_name","study","study_link"]
-        return retval.loc[:,retcols].to_dict("records")
+        retval=gwcat_set_column_types(retval)
+        return retval.to_dict("records")
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         data_lst=[]
@@ -231,11 +256,7 @@ class GwasApi(ExtDB):
         result_df = pd.DataFrame(results)
         #TODO: add ensembl data
         #filter rsids
-        rsids = [a["SNPS"] for a in results if '  x  ' not in a["SNPS"]]
-        rsids=[a.split(";")[0].strip() for a in rsids]
-        rsid_out = get_rsid_alleles_ensembl(rsids)
-        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt","biallelic"])
-        rsid_df = rsid_df[rsid_df["biallelic"] == True]
+        rsid_df = gwcat_get_alleles(results, filter_nonbiallelic=True)
         df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
         return df_out.to_dict("records")
 
@@ -335,23 +356,58 @@ def get_rsid_alleles_ensembl(rsids):
     In: list of RSIDs
     Out: list of dicts, with fields ['rsid','ref','alt']
     """
+    chunksize=10
+    time_to_wait=0.0
+    current_time = time.time()
+
     ensembl_url="https://rest.ensembl.org/variation/human"
-    out=[]
     headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
-    for rsid_chunk in in_chunks(rsids,200):
-        list_str='["{}"]'.format('", "'.join(rsid_chunk))
-        data='{{ "ids":{} }}'.format(list_str)
-        try:
-            r = try_request("POST",url=ensembl_url,headers=headers,data=data)
-        except ResourceNotFound as e:
-            print("{} Request to {} with params {} returned status code {} ".format( "POST",ensembl_url, e.parameters, e.parameters["status_code"] ))
-        except ResponseFailure:
-            print("No valid response from Ensembl API. Matches regarding the following RSIDS may not be available:{}".format(", ".join(rsid_chunk)))
-        else:
+    
+    out=[]
+    
+    for idx, rsid_chunk in enumerate(in_chunks(rsids,chunksize)):
+
+        rsid_str='["{}"]'.format('", "'.join(rsid_chunk))
+        data='{{ "ids":{} }}'.format(rsid_str)
+
+        retry=True
+        if time_to_wait > 0.0:
+            time.sleep(time_to_wait)
+        while retry: #back-off timing if necessary
             try:
-                out=out + parse_ensembl(r.json())
-            except ValueError:
-                pass
+                r = requests.request(method="POST",url=ensembl_url,headers=headers,data=data)
+                current_time = time.time()
+            except Exception as e: # exception in the calling of the API. Do not retry.
+                print(e) 
+                retry = False
+            else:
+                if r.status_code == 200:
+                    try:
+                        out=out + parse_ensembl(r.json())
+                    except:
+                        pass
+                    retry=False
+
+                elif r.status_code == 429: #rate limits hit. Wait for allotted time. The time to wait is retry_after - (time now - time when request arrived).
+                    cooldowntime = current_time + float(r.header["Retry-After"]) - time.time()
+                    time.sleep(cooldowntime)
+
+                else: #probably an error, do not retry. print request code and headers
+                    retry=False
+                    print("Unhandled response. Response code: {}. Response headers: {}".format( r.status_code, r.header ) )
+
+        try:
+            req_amount = r.header["X-RateLimit-Limit"] 
+            req_num = r.header["X-RateLimit-Remaining"]
+            rate_reset = r.header["X-RateLimit-Reset"]
+            rate_period = r.header["X-RateLimit-Period"]
+            #time to wait between requests is the max of (time if we use all requests in the time period), (time if we use all available requests until quota reset)
+            wait_limit = float(rate_period)/float(req_amount)
+            wait_reset = float(rate_reset)/float(req_num)
+            time_to_wait = max(wait_limit,wait_reset)
+        except:
+            pass
+
     return out
 
 def split_traits(df,traitname="MAPPED_TRAIT",traituriname="MAPPED_TRAIT_URI"):
