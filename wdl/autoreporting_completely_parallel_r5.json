@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r5_data/autoreporting/r5_phenotype_array_2020_03_25.tsv",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:9bd5bc5",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:5531b2c",
     "autoreporting.memory":20,
     "autoreporting.gnomad_exome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
     "autoreporting.gnomad_genome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/genomes/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",

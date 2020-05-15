@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r4_data_west1/autoreporting/r4_input_array_2020_03_17.tsv",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:9bd5bc5",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:5531b2c",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 5,
     "autoreporting.cpus":4,
