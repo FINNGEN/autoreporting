@@ -170,7 +170,7 @@ class LocalDB(ExtDB):
         rsids=[a.split(";")[0].strip() for a in rsids]
         rsid_out = get_rsid_alleles_ensembl(rsids)
         rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt"])
-        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(column=["rsid"])
+        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid"])
         return df_out.to_dict("records")
 
 class GwasApi(ExtDB):
@@ -234,7 +234,7 @@ class GwasApi(ExtDB):
         rsids=[a.split(";")[0].strip() for a in rsids]
         rsid_out = get_rsid_alleles_ensembl(rsids)
         rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt"])
-        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(column=["rsid"])
+        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid"])
         return df_out.to_dict("records")
 
 def parse_output(dumplst):
