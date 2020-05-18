@@ -170,7 +170,8 @@ class LocalDB(ExtDB):
         rsids=[a.split(";")[0].strip() for a in rsids]
         rsid_out = get_rsid_alleles_ensembl(rsids)
         rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt","biallelic"])
-        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid"])
+        rsid_df = rsid_df[rsid_df["biallelic"] == True]
+        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
         return df_out.to_dict("records")
 
 class GwasApi(ExtDB):
@@ -233,8 +234,9 @@ class GwasApi(ExtDB):
         rsids = [a["SNPS"] for a in results if '  x  ' not in a["SNPS"]]
         rsids=[a.split(";")[0].strip() for a in rsids]
         rsid_out = get_rsid_alleles_ensembl(rsids)
-        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt"])
-        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid"])
+        rsid_df =  pd.DataFrame(rsid_out,columns=["rsid","ref","alt","biallelic"])
+        rsid_df = rsid_df[rsid_df["biallelic"] == True]
+        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
         return df_out.to_dict("records")
 
 def parse_output(dumplst):
@@ -319,17 +321,12 @@ def in_chunks(lst, chunk_size):
 
 def parse_ensembl(json_data: Dict[str,Any]):
     out=[]
-    for key in json_data.keys():
-        alleles=json_data[key]["mappings"][0]["allele_string"].split("/")
-        if len(alleles) == 2:
-            other_allele=alleles[0]
-            minor_allele=alleles[1]
-            rsid=key
-            out.append({"rsid":rsid,"ref":minor_allele,"alt":other_allele,"biallelic":True})
-        else:
-            first = alleles[0]
-            others = ";".join(alleles[1:])
-            out.append({"rsid":rsid,"ref":first,"alt":others,"biallelic":False})
+    for rsid in json_data.keys():
+        alleles=json_data[rsid]["mappings"][0]["allele_string"].split("/")
+        biallelic = (len(alleles) == 2)
+        other_allele=alleles[0]
+        others = ";".join(alleles[1:])
+        out.append({"rsid":rsid,"ref":other_allele,"alt":others,"biallelic":biallelic})
     return out
 
 def get_rsid_alleles_ensembl(rsids):
