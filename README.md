@@ -2,22 +2,25 @@
 
 <!-- vscode-markdown-toc -->
 * 1. [Description](#Description)
-* 2. [Installation](#Installation)
-	* 2.1. [Dependencies](#Dependencies)
-	* 2.2. [Installation process](#Installationprocess)
-* 3. [Resources](#Resources)
-* 4. [Usage](#Usage)
-	* 4.1. [Tool](#Completescriptmainpy)
-		* 4.1.1. [Command-line arguments](#Commandlinearguments)
-		* 4.1.2. [Example](#Example)
-    * 4.2. [Tool subroutines](#Subroutines)
-	    * 4.2.1. [gws_fetch.py:](#gws_fetchpy)
-		    * 4.2.1.1. [A detailed description of gws_fetch](#detailedfetch)
-        * 4.2.2. [annotate<span></span>.py](#annotatespanspanpy)
-            * 4.2.2.1. [A detailed description of annotate](#detailedannotate)
-        * 4.2.3. [compare<span></span>.py:](#comparespanspanpy)
-            * 4.2.3.1. [A detailed description of compare](#detailedcompare)
-* 5. [WDL pipeline](#WDLpipeline)
+* 2. [Installation](#Installation)  
+    * 2.1. [Dependencies](#Dependencies)  
+    * 2.2. [Installation process](#Installationprocess)  
+* 3. [Resources](#Resources)  
+* 4. [Usage](#Usage)  
+    * 4.1. [Tool](#Completescriptmainpy)  
+        * 4.1.1. [Command-line arguments](#Commandlinearguments)  
+        * 4.1.2. [Example](#Example)  
+    * 4.2. [Tool subroutines](#Subroutines)  
+        * 4.2.1. [gws_fetch.py:](#gws_fetchpy)  
+            * 4.2.1.1. [A detailed description of gws_fetch](#detailedfetch)  
+        * 4.2.2. [annotate<span></span>.py](#annotatespanspanpy)  
+            * 4.2.2.1. [A detailed description of annotate](#detailedannotate)  
+        * 4.2.3. [compare<span></span>.py:](#comparespanspanpy)  
+            * 4.2.3.1. [A detailed description of compare](#detailedcompare)  
+* 5. [WDL pipeline](#WDLpipeline)  
+    * 5.1. [Input files](#wdlinputs)  
+    * 5.2. [Running the pipeline](#wdlrun)    
+
 
 <!-- vscode-markdown-toc-config
 	numbering=true
@@ -411,7 +414,15 @@ Optionally, genome-wide significant variants can also be tested for LD against d
 
 ##  5. <a name='WDLpipeline'></a>WDL pipeline
 
-The WDL pipeline can be used to run a set of phenotypes as a batch job on a Cromwell server. There are two pipelines to choose from: the ```autoreporting.wdl``` pipeline assigns a container for each phenotype, which creates a lot of overhead per phenotype. The ```autoreporting_partially_serialized.wdl``` pipeline groups multiple phenotypes per one container, and therefore reduces the overhead per phenotype.  
+The WDL pipeline can be used to run a set of phenotypes as a batch job on a Cromwell server. There are two pipelines to choose from: the ```autoreporting.wdl``` pipeline assigns a container for each phenotype, which creates a lot of overhead per phenotype. The ```report_serial.wdl``` pipeline groups multiple phenotypes per one container, and therefore reduces the overhead per phenotype. This is mostly useful when the amount of phenotypes to process is very large, for example when running the pipeline for a whole release.
+
+### 5.1 <a name='wdlinputs'></a> Input Files
+
+TODO
+
+### 5.2 <a name='wdlrun'></a> Running the pipeline
+
+TODO
 <!-- 
 The WDL pipeline can be used to run multiple phenotypes as a batch job on a cromwell server. This is very useful for e.g. processing all of the phenotypes in one data release. There are two different pipelines: the autoreporting.wdl is run parallel per phenotype, in that every phenotype gets its own container. This is easy to implement, but due to the large files necessary to run these pipelines (such as the LD panel), the initialization of the containers takes a substantial amount of the total processing time.  
 The autoreporting_partially_serialized.wdl pipeline divides the phenotypes into smaller groups, which are then processed one group per container. This amortizes the time taken in downloading resources between the phenotypes in a group, lowering total machine time required to process all phenotypes, but possibly increasing the total time to process all phenotypes (as the time taken to process all phenotypes is the time of the slowest container). The size of these groups is changeable. The parameters in the json resource file are similarly named as the parameters in the command line.  -->
