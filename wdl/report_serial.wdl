@@ -155,7 +155,6 @@ task report{
                         "--annotate-out {}.annotate.out "
                         "--report-out {}.report.out "
                         "--top-report-out {}.top.out "
-                        "--ld-report-out {}.ld.out "
                         ).format(summstats[i],
                             sign_treshold,
                             alt_sign_treshold,
@@ -183,7 +182,6 @@ task report{
                             efo_array[i],
                             ignore_cmd,
                             custom_dataresource,
-                            phenotype_name,
                             phenotype_name,
                             phenotype_name,
                             phenotype_name,
