@@ -46,26 +46,28 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
             group_df=group_df.loc[~t_dropidx,:]
     return new_df
 
-def load_credsets(fname,columns):
+def load_credsets(fname: str, columns: Dict[str, str]) -> pd.DataFrame:
     """
     Load SuSiE credible sets from one bgzipped file.
-    In: filename of the SuSie credible set file
-    Out: A Dataframe containing all credible sets for this phenotype.
+    Args:
+        fname (str): SUSIE snp file
+        columns (Dict[str, str]): Column name dictionary
+    Returns:
+        (pd.DataFrame): pandas dataframe containing the credible set variants with chr, pos, ref, alt, cs probability, and cs id.
     """
     input_data = pd.read_csv(fname,sep="\t",compression="gzip")
     if input_data.empty:
-        return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id"])
+        return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id","cs_number"])
     input_data = input_data[input_data["cs"]!=-1]#filter to credible sets
-    input_data["credsetid"]=input_data[["region","cs"]].apply(lambda x: "".join([str(y) for y in x]),axis=1)
-    data=input_data.rename(columns={"chromosome":columns["chrom"], "position": columns["pos"], "allele1": columns["ref"], "allele2": columns["alt"], "prob": "cs_prob"}).copy()
+    input_data["cs_id"]=input_data[["region","cs"]].apply(lambda x: "_".join([str(y) for y in x]),axis=1)
+    data = input_data.rename(columns={"chromosome":columns["chrom"],
+                                      "position": columns["pos"],
+                                      "allele1": columns["ref"],
+                                      "allele2": columns["alt"],
+                                      "prob": "cs_prob",
+                                      "cs":"cs_number"}).copy()
     data[columns["chrom"]] = data[columns["chrom"]].str.strip("chr")
-    data["cs_id"]=np.NaN
-    for i in data["credsetid"].unique():
-        cs=data[data["credsetid"]==i]
-        rsid=cs.loc[cs["cs_prob"].idxmax(),"rsid"]
-        idx=cs.loc[cs["cs_prob"].idxmax(),"cs"]
-        data.loc[data["credsetid"]==i,"cs_id"] = "{}_{}".format(rsid,idx)
-    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id" ]
+    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id", "cs_number" ]
     data=data.loc[:,cols]
     return data
 
