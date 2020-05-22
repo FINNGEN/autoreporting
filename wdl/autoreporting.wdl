@@ -56,7 +56,7 @@ task report {
 
     command <<<
         python3 <<CODE
-        import subprocess, shlex
+        import subprocess, shlex, sys
         from subprocess import PIPE
         #do everything a wrapper should do
         #unchanged variables
@@ -185,6 +185,10 @@ task report {
         print("--- phenotype {} RETURN CODE: {} ---".format(pheno_id,pr.returncode))
         print("--- phenotype {} STDOUT ---".format(pheno_id))
         print(pr.stdout)
+        if pr.returncode != 0:
+            print("The report did not run successfully. Check the logs.")
+            print(phenoname,"exit code:",pr.returncode)
+            sys.exit(1)
         CODE
     >>>
 
