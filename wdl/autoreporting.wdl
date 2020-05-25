@@ -48,7 +48,6 @@ task report {
     String ignore_region
 
     String db_choice
-    String annotation_version
     Array[String] column_names
     String extra_columns
     Float strict_group_r2
@@ -87,7 +86,6 @@ task report {
         grouping_method = "${primary_grouping_method}" if ${arr_len} >1 else "${secondary_grouping_method}" 
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
-        annotation_version = "${annotation_version}"
         custom_dataresource="${custom_dataresource}"
         column_names = "${sep=" " column_names}"
         extra_columns = "${extra_columns}"
@@ -123,7 +121,6 @@ task report {
                     "--gnomad-genome-path {} "
                     "--gnomad-exome-path {} "
                     "{} "
-                    "--finngen-annotation-version {} "
                     "--use-gwascatalog "
                     "{} "
                     "--ld-treshold {} "
@@ -159,7 +156,6 @@ task report {
                         gnomad_genome,
                         gnomad_exome,
                         credset,
-                        annotation_version,
                         check_for_ld,
                         ld_treshold,
                         cpus,
@@ -214,7 +210,6 @@ workflow autoreporting{
     String finngen_annotation
     String functional_annotation
     String local_gwcatalog
-    String annotation_version
     String db_choice
     File efo_code_file
     String ignore_region
@@ -253,7 +248,6 @@ workflow autoreporting{
             finngen_annotation=finngen_annotation, 
             functional_annotation=functional_annotation,
             local_gwcatalog=local_gwcatalog, 
-            annotation_version=annotation_version,
             db_choice=db_choice, 
             efo_map=efo_code_file,
             include_batch_freq=include_batch_freq, 
