@@ -115,7 +115,6 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                [--finngen-path FINNGEN_PATH]
                [--functional-path FUNCTIONAL_PATH]
                [--annotate-out ANNOTATE_OUT]
-               [--finngen-annotation-version FG_ANN_VERSION]
                [--use-gwascatalog] [--custom-dataresource CUSTOM_DATARESOURCE]
                [--check-for-ld] [--report-out REPORT_OUT]
                [--ld-report-out LD_REPORT_OUT]
@@ -157,7 +156,6 @@ Argument   |  Meaning   |   Example | Original script
 --finngen-path | Path to FinnGen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --functional-path | File path to functional annotation file | --functional-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
---finngen-annotation-version | Specify whether the FinnGen annotations are r3_0 or before or r3_1 or after. Values 'r3' and 'r4' allowed. use 'r4' for annotations with version r3_1 or higher. Default value 'r3'. | --finngen-annotation-version r3 \| r4 | annotate<span></span>.py
 --use-gwascatalog | Add flag to compare results against GWAS Catalog associations | --use-gwascatalog | compare<span></span>.py
 --custom-dataresource | Compare against associations defined in an additional file. | --custom-dataresource file.tsv | compare<span></span>.py
 --check-for-ld | When supplied, gws variants and summary statistics (from file or GWAS Catalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
@@ -207,7 +205,6 @@ gnomad_genome=path_to_annotation/gnomad_genomes.gz          # gnomad genome anno
 gnomad_exome=path_to_annotation/gnomad_exomes.gz            # gnomad exome annotation file
 finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
 functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
-finngen_ann_version=r4                                      # finngen annotation version, r3 for <=r3_0, r4 for >=r3_1
 use_gwascatalog="--use-gwascatalog"                         # Compare against GWAS Catalog
 db=gwas                                                     # GWAS Catalog database: local copy (local), normal (gwas), or summary statistic API (summ_stats)
 extracols='rsid beta sebeta maf maf_cases maf_controls'     # Add additional columns to reports
@@ -223,7 +220,6 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --gnomad-genome-path $gnomad_genome \
         --gnomad-exome-path $gnomad_exome \
         --finngen-path $finngen_ann \
-        --finngen-annotation-version $finngen_ann_version \
         --functional-path $functional_ann \
         $use_gwascatalog --db $db --extra-cols $extracols
 ```
@@ -314,7 +310,6 @@ usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--functional-path FUNCTIONAL_PATH] [--prefix PREFIX]
                    [--annotate-out ANNOTATE_OUT]
                    [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
-                   [--finngen-annotation-version FG_ANN_VERSION]
                    annotate_fpath
 ```
 
@@ -329,13 +324,11 @@ gnomad_genome=path_to_annotation/gnomad_genomes.gz          # gnomad genome anno
 gnomad_exome=path_to_annotation/gnomad_exomes.gz            # gnomad exome annotation file
 finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
 functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
-finngen_ann_version=r4                                      # finngen annotation version, r3 for <=r3_0, r4 for >=r3_1
 
 python3 Scripts/annotate.py $file --prefix $prefix \
         --gnomad-genome-path $gnomad_genome \
         --gnomad-exome-path $gnomad_exome \
         --finngen-path $finngen_ann \
-        --finngen-annotation-version $finngen_ann_version \
         --functional-path $functional_ann \
 ``` 
 
