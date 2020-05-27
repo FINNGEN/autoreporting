@@ -2,7 +2,7 @@ import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
 import tabix
-
+from typing import Dict, Any, Optional
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
 """
@@ -79,8 +79,81 @@ def load_tb_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_valu
     header=get_gzip_header(fpath)
     out_df=pd.DataFrame(tbxlst,columns=header )
     out_df=out_df.replace(na_value,np.nan)
-    out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
     return out_df
+
+def load_groups_from_tabix(df: pd.DataFrame, fpath: str, columns: Dict[str, str], group_column: str, data_columns: Optional[Dict[str, str]] = None, chrom_prefix: Optional[str] = "", na_value: Optional[str] = ".") -> pd.DataFrame:
+    """Load dataframe's groups from another tabixed file
+    Args:
+        df (pd.DataFrame): input dataframe
+        fpath (str): data filepath
+        column (Dict[str, str]): column name dictionary
+        group_column (str): group column name
+        data_columns (Optional[Dict[str, str]]): Optional data column names, if different from the ones in columns
+        chrom_prefix (Optional[str]): chromosome prefix, default ""
+        na_value (Optional[str]): na representation in data file, default "."
+    Returns:
+        (pd.DataFrame): Dataframe with the groups from the input dataframe. Contains extra variants.
+    """
+    if not data_columns:
+        data_columns = columns
+    groups = df[[group_column,columns["chrom"],columns["pos"]]]\
+        .rename(columns={columns["chrom"]:"chrom",
+                         columns["pos"]:"pos"})\
+        .groupby(group_column)\
+        .aggregate(chrom = pd.NamedAgg(column="chrom",aggfunc=pd.Series.mode),
+                   max = pd.NamedAgg(column="pos", aggfunc = max),
+                   min = pd.NamedAgg(column="pos", aggfunc = min))
+    groups = prune_df_regions(groups)
+    groups.to_csv("debug_ranges.tsv",sep="\t",index=False)
+    output = load_tb_ranges(df=groups, fpath=fpath,chrom_prefix=chrom_prefix, na_value=na_value)
+    output = output.rename(columns={data_columns["chrom"]:columns["chrom"],
+                            data_columns["pos"]:columns["pos"],
+                            data_columns["ref"]:columns["ref"],
+                            data_columns["alt"]:columns["alt"]})
+    if chrom_prefix != "":
+        output[columns["chrom"]] = output[columns["chrom"]].apply(lambda x: x.strip(chrom_prefix))
+    output = output.drop_duplicates()
+    join_cols = [columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
+    join_types = {columns["chrom"]:str, columns["pos"]:int, columns["ref"]:str, columns["alt"]:str}
+    output = output.astype(join_types)
+    df = df.astype(join_types)
+    output = output.merge(df[join_cols],how="right",on=join_cols)
+    return output
+
+def prune_df_regions(df: pd.DataFrame, cols: Optional[Dict[str, str]] = None) -> pd.DataFrame:
+    """Prune dataframe regions
+    Args:
+        df (pd.DataFrame): dataframe with columns for sequence, min, max
+        cols (Optional[Dict[str, str]]): Optional column names
+    Returns:
+        (pd.DataFrame): dataframe with same columns, with overlapping regions merged
+    """
+    if not cols:
+        cols = {"chrom":"chrom","min":"min","max":"max"}
+    df = df.copy()
+    df=df.rename(columns={v: k for k,v in cols.items()})#rename to chrom, min, max so tuples naming limitations do not apply
+    regions = []
+    for t in df.itertuples():
+        if regions:
+            found=False
+            for region in regions:
+                if (( int(t.max)<region[cols["min"]] ) or ( int(t.min) > region[cols["max"]] ) ) or (str(t.chrom)!=region[ cols["chrom"] ] ):
+                    continue
+                elif int(t.min)>=region[cols["min"]] and int(t.max)<=region[cols["max"]]:
+                    found=True
+                    break
+                else: 
+                    if int(t.min)<region[cols["min"]] and int(t.max)>region[cols["min"]]:
+                        region[cols["min"]]=int(t.min)
+                    if int(t.max)>region[cols["max"]] and int(t.min)<region[cols["max"]]:
+                        region["max"]=int(t.max)
+                    found=True
+                    break
+            if not found:
+                regions.append({"chrom":str(t.chrom),"min":int(t.min),"max":int(t.max)})
+        else:
+            regions.append({"chrom":str(t.chrom),"min":int(t.min),"max":int(t.max)})
+    return pd.DataFrame(regions).rename(columns=cols) #rename back
 
 def prune_regions(df):
     """Prune overlapping tabix regions so that no duplicate calls are made

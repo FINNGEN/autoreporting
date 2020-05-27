@@ -66,16 +66,24 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     #load gnomad_genomes
     if not os.path.exists("{}.tbi".format(gnomad_genome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_genome_path))
-    gnomad_genomes=load_tb_df(call_df_x,gnomad_genome_path,columns=columns)
 
+    gnomad_columns = {"chrom":"#CHROM","pos":"POS","ref":"REF","alt":"ALT"}
+    gnomad_genomes = load_groups_from_tabix(call_df_x,gnomad_genome_path,columns,"locus_id",gnomad_columns,chrom_prefix="",na_value=".")
     #load gnomad_exomes
     if not os.path.exists("{}.tbi".format(gnomad_exome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_exome_path))
-    gnomad_exomes=load_tb_df(call_df_x,gnomad_exome_path,columns=columns)
+
+    gnomad_exomes = load_groups_from_tabix(call_df_x,gnomad_exome_path,columns,"locus_id",gnomad_columns,chrom_prefix="",na_value=".")
     #replace X with 23
-    gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
-    gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
-     
+
+    cpra_types = {columns["chrom"]:str, columns["pos"]:int, columns["ref"]:str, columns["alt"]:str}
+
+    gnomad_genomes = df_replace_value(gnomad_genomes,columns["chrom"],"X","23")
+    gnomad_genomes[gnomad_genomes.columns]=gnomad_genomes[gnomad_genomes.columns].apply(pd.to_numeric,errors="ignore")
+    gnomad_genomes=gnomad_genomes.astype(cpra_types)
+    gnomad_exomes = df_replace_value(gnomad_exomes,columns["chrom"],"X","23")
+    gnomad_exomes[gnomad_exomes.columns]=gnomad_exomes[gnomad_exomes.columns].apply(pd.to_numeric,errors="ignore")
+    gnomad_exomes=gnomad_exomes.astype(cpra_types)
     #load finngen annotations
     if not os.path.exists("{}.tbi".format(finngen_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
@@ -87,24 +95,26 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
         
     else:
-        fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+        fg_columns= {"chrom":"chr","pos":"pos","ref":"ref","alt":"alt"}
+        fg_df = load_groups_from_tabix(call_df_x,finngen_path,columns,"locus_id",fg_columns,chrom_prefix="",na_value="NA")
         fg_df=fg_df.drop(labels="#variant",axis="columns")
-        fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
-    fg_df = fg_df.drop_duplicates(subset=["#variant"]).rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"]})
+        fg_df["#variant"]=create_variant_column(fg_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    fg_df = fg_df.drop_duplicates(subset=["#variant"])#.rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"]})
     #load functional annotations. 
     if functional_path == "":
         func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
     else:
         if not os.path.exists("{}.tbi".format(functional_path)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
-        func_df = load_tb_df(call_df_x,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
-        func_df["chrom"] = func_df["chrom"].apply(lambda x:x.strip("chr"))
-        func_df=df_replace_value(func_df,"chrom","X","23")
-        func_cols=["chrom","pos","ref","alt","consequence"]
+        func_columns = {"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt"}
+        func_df = load_groups_from_tabix(call_df_x,functional_path,columns,"locus_id",func_columns,chrom_prefix="chr",na_value="NaN")
+
+        func_df=df_replace_value(func_df,columns["chrom"],"X","23")
+        func_cols=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"consequence"]
         func_df = func_df[func_cols]
 
     if not gnomad_genomes.empty:
-        gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+        gnomad_genomes=gnomad_genomes.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])#.rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
         gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomad genomes, nfe, nfe without est
         gn_gen_nfe_counts=["AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
@@ -120,7 +130,7 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
             gnomad_genomes[val]=None
     
     if not gnomad_exomes.empty:
-        gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+        gnomad_exomes=gnomad_exomes.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])#.rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
         gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
         gn_exo_nfe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
@@ -142,7 +152,7 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     
     if not func_df.empty:
         #rename columns
-        func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
+        func_df = func_df.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]).rename(columns={"consequence":"functional_category"})
         #remove values that are not in the coding categories
         functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
         func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
