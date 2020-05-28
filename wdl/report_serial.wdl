@@ -60,7 +60,6 @@ task report{
     Int plink_memory
     Float gwascatalog_pval
     Int gwascatalog_width_kb
-    Float ld_treshold
     Int cpus
     Int gwascatalog_threads
     Float strict_group_r2
@@ -68,7 +67,6 @@ task report{
     Boolean group
     Boolean overlap
     Boolean include_batch_freq
-    Boolean check_for_ld
 
     String primary_grouping_method
     String secondary_grouping_method
@@ -79,7 +77,7 @@ task report{
 
     command <<<
         python3 <<CODE
-        import subprocess, shlex, json
+        import subprocess, shlex, json, sys, itertools
         from subprocess import PIPE
         #do everything a wrapper should do
         #unchanged variables
@@ -98,15 +96,12 @@ task report{
         plink_memory=${plink_memory}
         gwascatalog_pval=${gwascatalog_pval}
         gwascatalog_width_kb=${gwascatalog_width_kb}
-        ld_treshold=${ld_treshold}
-        cpus=${cpus}
         gwascatalog_threads=${gwascatalog_threads}
         strict_group_r2=${strict_group_r2}
 
         group="--group" if "${group}"=="true" else ""
         overlap="--overlap" if "${overlap}"=="true" else ""
         include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
-        check_for_ld="--check-for-ld" if "${check_for_ld}"=="true" else ""
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
         grouping_method = "${primary_grouping_method}" if "true" == "${use_credsets}" else "${secondary_grouping_method}"
@@ -123,7 +118,7 @@ task report{
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
         efo_array=["--efo-codes {}".format(efos[a]) if a in efos.keys() else "" for a in phenotypes ]
         
-
+        exit_codes = []
         for i in range(num_phenos):
             phenotype_name=phenotypes[i]
             call_command=("main.py {} "
@@ -142,9 +137,6 @@ task report{
                         "--gnomad-exome-path {} "
                         "{} "
                         "--use-gwascatalog "
-                        "{} "
-                        "--ld-treshold {} "
-                        "--ldstore-threads {} "
                         "--gwascatalog-threads {} "
                         "--strict-group-r2 {} "
                         "--gwascatalog-pval {} "
@@ -160,7 +152,6 @@ task report{
                         "--annotate-out {}.annotate.out "
                         "--report-out {}.report.out "
                         "--top-report-out {}.top.out "
-                        "--ld-report-out {}.ld.out "
                         ).format(summstats[i],
                             sign_treshold,
                             alt_sign_treshold,
@@ -176,9 +167,6 @@ task report{
                             gnomad_genome,
                             gnomad_exome,
                             credset_cmds[i],
-                            check_for_ld,
-                            ld_treshold,
-                            cpus,
                             gwascatalog_threads,
                             strict_group_r2,
                             gwascatalog_pval,
@@ -193,7 +181,6 @@ task report{
                             phenotype_name,
                             phenotype_name,
                             phenotype_name,
-                            phenotype_name,
                             phenotype_name)
             print("--- phenotype {} COMMAND ---".format(phenotype_name))
             print(call_command)
@@ -201,6 +188,12 @@ task report{
             print("--- phenotype {} RETURN CODE: {} ---".format(phenotype_name,pr.returncode))
             print("--- phenotype {} STDOUT ---".format(phenotype_name))
             print(pr.stdout)
+            exit_codes.append(pr.returncode)
+        if any([a for a in exit_codes if a != 0]):
+            print("One or more of the reports did not run successfully. Check the logs.")
+            print("Exit codes:")
+            print(list(itertools.zip_longest(phenotypes, exit_codes) ) )
+            sys.exit(1)
         CODE
     >>>
     #output
@@ -235,7 +228,6 @@ workflow autoreporting{
     File efo_code_file
     String ignore_region
     Boolean include_batch_freq
-    Float ld_treshold
     Float sign_treshold
     Float alt_sign_treshold
     Int grouping_locus_width
@@ -247,7 +239,6 @@ workflow autoreporting{
     Float strict_group_r2
     Boolean group
     Boolean overlap
-    Boolean check_for_ld
     String primary_grouping_method
     String secondary_grouping_method
     File custom_dataresource
@@ -284,7 +275,6 @@ workflow autoreporting{
             db_choice=db_choice, 
             include_batch_freq=include_batch_freq, 
             ignore_region=ignore_region, 
-            ld_treshold=ld_treshold, 
             sign_treshold=sign_treshold, 
             alt_sign_treshold=alt_sign_treshold, 
             grouping_locus_width=grouping_locus_width, 
@@ -296,7 +286,6 @@ workflow autoreporting{
             gwascatalog_threads=gwascatalog_threads, 
             group=group, 
             overlap=overlap, 
-            check_for_ld=check_for_ld,
             efo_map=efo_code_file,
             primary_grouping_method=primary_grouping_method,
             secondary_grouping_method=secondary_grouping_method,
