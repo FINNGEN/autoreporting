@@ -78,7 +78,7 @@ task report{
 
     command <<<
         python3 <<CODE
-        import subprocess, shlex, json
+        import subprocess, shlex, json, sys, itertools
         from subprocess import PIPE
         #do everything a wrapper should do
         #unchanged variables
@@ -120,7 +120,7 @@ task report{
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
         efo_array=["--efo-codes {}".format(efos[a]) if a in efos.keys() else "" for a in phenotypes ]
         
-
+        exit_codes = []
         for i in range(num_phenos):
             phenotype_name=phenotypes[i]
             call_command=("main.py {} "
@@ -192,6 +192,12 @@ task report{
             print("--- phenotype {} RETURN CODE: {} ---".format(phenotype_name,pr.returncode))
             print("--- phenotype {} STDOUT ---".format(phenotype_name))
             print(pr.stdout)
+            exit_codes.append(pr.returncode)
+        if any([a for a in exit_codes if a != 0]):
+            print("One or more of the reports did not run successfully. Check the logs.")
+            print("Exit codes:")
+            print(list(itertools.zip_longest(phenotypes, exit_codes) ) )
+            sys.exit(1)
         CODE
     >>>
     #output
