@@ -62,7 +62,7 @@ def main(args):
         print("Annotate SNPs")
         #annotate_df = annotate.annotate(fetch_df,args)
         annotate_df = annotate.annotate(df=fetch_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path,
-            batch_freq=args.batch_freq, finngen_path=args.finngen_path, fg_ann_version = args.fg_ann_version,
+            batch_freq=args.batch_freq, finngen_path=args.finngen_path,
             functional_path=args.functional_path, prefix=args.prefix, columns=columns)
     annotate_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
     ###########################
@@ -111,7 +111,6 @@ if __name__=="__main__":
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Annotation output filename, default is annotate_out.tsv")
-    parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     
     #compare results
     parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")

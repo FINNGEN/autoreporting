@@ -72,7 +72,6 @@ task report{
     String secondary_grouping_method
     String ignore_region
     String db_choice
-    String annotation_version
     Array[String] column_names
     String extra_columns
 
@@ -105,7 +104,6 @@ task report{
         include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
-        annotation_version = "${annotation_version}"
         grouping_method = "${primary_grouping_method}" if "true" == "${use_credsets}" else "${secondary_grouping_method}"
         #process the summstats and credsets etc
         summstats="${sep=";" summ_stat}".split(";")
@@ -138,7 +136,6 @@ task report{
                         "--gnomad-genome-path {} "
                         "--gnomad-exome-path {} "
                         "{} "
-                        "--finngen-annotation-version {} "
                         "--use-gwascatalog "
                         "--gwascatalog-threads {} "
                         "--strict-group-r2 {} "
@@ -170,7 +167,6 @@ task report{
                             gnomad_genome,
                             gnomad_exome,
                             credset_cmds[i],
-                            annotation_version,
                             gwascatalog_threads,
                             strict_group_r2,
                             gwascatalog_pval,
@@ -228,7 +224,6 @@ workflow autoreporting{
     String finngen_annotation
     String functional_annotation
     String local_gwcatalog
-    String annotation_version
     String db_choice
     File efo_code_file
     String ignore_region
@@ -277,7 +272,6 @@ workflow autoreporting{
             finngen_annotation=finngen_annotation, 
             functional_annotation=functional_annotation, 
             local_gwcatalog=local_gwcatalog, 
-            annotation_version=annotation_version, 
             db_choice=db_choice, 
             include_batch_freq=include_batch_freq, 
             ignore_region=ignore_region, 

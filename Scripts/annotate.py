@@ -2,9 +2,10 @@
 
 import argparse,shlex,subprocess,os
 from subprocess import Popen, PIPE
-import pandas as pd 
+import pandas as pd
 import numpy as np
 import tabix
+from typing import Dict
 from autoreporting_utils import *
 #TODO: make a system for making sure we can calculate all necessary fields,
 #e.g by checking that the columns exist
@@ -38,13 +39,21 @@ def create_rename_dict(list_of_names, prefix):
         d[value]="{}{}".format(prefix,value)
     return d
 
-def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,fg_ann_version, functional_path, prefix, columns):
+def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, batch_freq: bool, finngen_path: str, functional_path: str, prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
     """
-    Annotates variants with allele frequencies, 
-    enrichment numbers, and most severe gene/consequence data
-    Annotations from gnomad exome data, gnomad genome data,
-    finngen annotation file, functional annotation file.
-    In: dataframe, gnomad genome path, gnomad exome path, bool of include batch freqs, finngen path, functional category file path, prefix, column labels
+    Annotates variants with allele frequencies, enrichment numbers, and most severe gene/consequence data
+    Annotations from gnomad exome data, gnomad genome data, finngen annotation file, functional annotation file.
+    Args:
+        df (pd.DataFrame): Variant dataframe
+        gnomad_genome_path (str): gnomad genome annotation file path
+        gnomad_exome_path (str): gnomad exome annotation file path
+        batch_freq (bool): flag for whether to include batch-specific frequencies from finngen annotation
+        finngen_path (str): finngen annotation file path
+        functional_path (str): functional annotation file path
+        prefix (str): prefix for analysis files
+        columns (Dict[str, str]): column dictionary
+    Returns:
+        (pd.DataFrame): Annotated dataframe
     Out: Annotated dataframe
     """
     #columns that we want to take from gnomad and finngen annotations
@@ -53,8 +62,6 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         "AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe"]
     finngen_cols=["most_severe_gene","most_severe_consequence"]
 
-    #load main file
-    #df=pd.read_csv(args.annotate_fpath,sep="\t")
     if df.empty:
         return df
 
@@ -79,18 +86,15 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     #load finngen annotations
     if not os.path.exists("{}.tbi".format(finngen_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
-    if fg_ann_version=="r3":
-        fg_df=load_tb_df(call_df_x,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
-        fg_df=fg_df.drop(labels="#variant",axis="columns")
-        fg_df["chr"]=fg_df["chr"].apply(lambda x: x.strip("chr")) #change chrom column from chrCHROM to CHROM
-        fg_df=df_replace_value(fg_df,"chr","X","23")
-        fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
-        
-    else:
-        fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
-        fg_df=fg_df.drop(labels="#variant",axis="columns")
-        fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
+
+    fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+    fg_df=fg_df.drop(labels="#variant",axis="columns")
+    fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
     fg_df = fg_df.drop_duplicates(subset=["#variant"]).rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"]})
+    #sanity check: if number of variants is >0 and FG annotations are smaller, emit a warning message.
+    if df.shape[0]>0 and all(fg_df["INFO"].isna()):
+        print("Warning: FG annotation does not have any hits but the input data has. Check that you are using a recent version of the finngen annotation file (R3_v1 or above)")
+
     #load functional annotations. 
     if functional_path == "":
         func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
@@ -196,7 +200,6 @@ if __name__=="__main__":
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Output filename, default is out.tsv")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
-    parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     args=parser.parse_args()
     columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
@@ -206,6 +209,6 @@ if __name__=="__main__":
         print("Annotation files missing, aborting...")
     else:    
         input_df = pd.read_csv(args.annotate_fpath,sep="\t")
-        df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,fg_ann_version=args.fg_ann_version,
+        df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,
         functional_path=args.functional_path, prefix=args.prefix, columns=columns)
         df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")

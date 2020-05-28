@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r4_data_west1/autoreporting/r4_input_array_2020_03_17.tsv",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:5531b2c",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:984100b",
     "autoreporting.memory":20,
     "autoreporting.phenos_per_worker": 5,
     "autoreporting.cpus":4,
@@ -10,7 +10,6 @@
     "autoreporting.finngen_annotation":"gs://r4_data_west1/annotations/R4_annotated_variants_v1.gz",
     "autoreporting.functional_annotation":"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz",
     "autoreporting.local_gwcatalog":"gs://r4_data_west1/autoreporting/gwas-catalog-associations_ontology-annotated-191216.tsv",
-    "autoreporting.annotation_version":"r4",
     "autoreporting.db_choice":"local",
     "autoreporting.efo_code_file":"gs://r4_data_west1/autoreporting/efo_map_na.tsv",
     "autoreporting.ignore_region":"6:23000000-38000000",
