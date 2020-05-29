@@ -67,6 +67,8 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     if not os.path.exists("{}.tbi".format(gnomad_genome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_genome_path))
 
+    print("load gnomad data...")
+
     gnomad_columns = {"chrom":"#CHROM","pos":"POS","ref":"REF","alt":"ALT"}
     gnomad_genomes = load_groups_from_tabix(call_df_x,gnomad_genome_path,columns,"locus_id",gnomad_columns,chrom_prefix="",na_value=".")
     #load gnomad_exomes
@@ -84,34 +86,6 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     gnomad_exomes = df_replace_value(gnomad_exomes,columns["chrom"],"X","23")
     gnomad_exomes[gnomad_exomes.columns]=gnomad_exomes[gnomad_exomes.columns].apply(pd.to_numeric,errors="ignore")
     gnomad_exomes=gnomad_exomes.astype(cpra_types)
-    #load finngen annotations
-    if not os.path.exists("{}.tbi".format(finngen_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
-    if fg_ann_version=="r3":
-        fg_df=load_tb_df(call_df_x,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
-        fg_df=fg_df.drop(labels="#variant",axis="columns")
-        fg_df["chr"]=fg_df["chr"].apply(lambda x: x.strip("chr")) #change chrom column from chrCHROM to CHROM
-        fg_df=df_replace_value(fg_df,"chr","X","23")
-        fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
-        
-    else:
-        fg_columns= {"chrom":"chr","pos":"pos","ref":"ref","alt":"alt"}
-        fg_df = load_groups_from_tabix(call_df_x,finngen_path,columns,"locus_id",fg_columns,chrom_prefix="",na_value="NA")
-        fg_df=fg_df.drop(labels="#variant",axis="columns")
-        fg_df["#variant"]=create_variant_column(fg_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-    fg_df = fg_df.drop_duplicates(subset=["#variant"])#.rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"]})
-    #load functional annotations. 
-    if functional_path == "":
-        func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
-    else:
-        if not os.path.exists("{}.tbi".format(functional_path)):
-            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
-        func_columns = {"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt"}
-        func_df = load_groups_from_tabix(call_df_x,functional_path,columns,"locus_id",func_columns,chrom_prefix="chr",na_value="NaN")
-
-        func_df=df_replace_value(func_df,columns["chrom"],"X","23")
-        func_cols=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"consequence"]
-        func_df = func_df[func_cols]
 
     if not gnomad_genomes.empty:
         gnomad_genomes=gnomad_genomes.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])#.rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
@@ -149,20 +123,6 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     else:
         for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe","#variant"]:
             gnomad_exomes[val]=None
-    
-    if not func_df.empty:
-        #rename columns
-        func_df = func_df.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]).rename(columns={"consequence":"functional_category"})
-        #remove values that are not in the coding categories
-        functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
-        func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
-        func_df = func_df.dropna(axis="index")
-        func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        func_df = func_df[["#variant","functional_category"]]
-    else:
-        for val in ["#variant","functional_category"]:
-            func_df[val]=None
-        func_df = func_df[["#variant","functional_category"]]
 
     #rename gnomad_exomes and gnomad_genomes
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
@@ -172,6 +132,33 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     gnomad_exomes=gnomad_exomes.loc[:,["#variant"]+gnomad_exo_cols]
     gn_exo_rename_d=create_rename_dict(gnomad_exo_cols,"EXOME_")
     gnomad_exomes=gnomad_exomes.rename(columns=gn_exo_rename_d)
+
+    df=df.merge(gnomad_genomes,how="left",on="#variant")
+    df=df.merge(gnomad_exomes,how="left",on="#variant")
+
+    #test: delete gnomad data to save memory
+    del(gnomad_genomes)
+    del(gnomad_exomes) 
+
+    print("load finngen annotation data...")
+
+    #load finngen annotations
+    if not os.path.exists("{}.tbi".format(finngen_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
+    if fg_ann_version=="r3":
+        fg_df=load_tb_df(call_df_x,finngen_path,chrom_prefix="chr",na_value="NA",columns=columns)
+        fg_df=fg_df.drop(labels="#variant",axis="columns")
+        fg_df["chr"]=fg_df["chr"].apply(lambda x: x.strip("chr")) #change chrom column from chrCHROM to CHROM
+        fg_df=df_replace_value(fg_df,"chr","X","23")
+        fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
+        
+    else:
+        fg_columns= {"chrom":"chr","pos":"pos","ref":"ref","alt":"alt"}
+        fg_df = load_groups_from_tabix(call_df_x,finngen_path,columns,"locus_id",fg_columns,chrom_prefix="",na_value="NA")
+        fg_df=fg_df.drop(labels="#variant",axis="columns")
+        fg_df["#variant"]=create_variant_column(fg_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    fg_df = fg_df.drop_duplicates(subset=["#variant"])#.rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"]})
+    
     
     fg_df=fg_df.rename(columns={"gene":"most_severe_gene","most_severe":"most_severe_consequence"})
     fg_cols=fg_df.columns.values.tolist()
@@ -187,11 +174,44 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         finngen_cols=finngen_cols+fg_batch_lst
     fg_df=fg_df.loc[:,["#variant"]+finngen_cols]
 
-    #merge the wanted columns into df
-    df=df.merge(gnomad_genomes,how="left",on="#variant")
-    df=df.merge(gnomad_exomes,how="left",on="#variant")
-    df=df.merge(func_df,how="left",on="#variant")
     df=df.merge(fg_df,how="left",on="#variant")
+
+    del(fg_df)
+
+    print("load functional annotation data...")
+
+    #load functional annotations. 
+    if functional_path == "":
+        func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
+    else:
+        if not os.path.exists("{}.tbi".format(functional_path)):
+            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
+        func_cols=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"consequence"]
+        func_columns = {"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt"}
+        extract_cols = ["chrom","pos","ref","alt","consequence"]
+        func_df = load_groups_from_tabix(call_df_x,functional_path,columns,"locus_id",func_columns,chrom_prefix="chr",na_value="NaN",extract_cols = extract_cols )
+
+        func_df=df_replace_value(func_df,columns["chrom"],"X","23")
+        func_df = func_df[func_cols]
+    
+    if not func_df.empty:
+        #rename columns
+        func_df = func_df.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]).rename(columns={"consequence":"functional_category"})
+        #remove values that are not in the coding categories
+        functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
+        func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
+        func_df = func_df.dropna(axis="index")
+        func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        func_df = func_df[["#variant","functional_category"]]
+    else:
+        for val in ["#variant","functional_category"]:
+            func_df[val]=None
+        func_df = func_df[["#variant","functional_category"]]
+
+    #merge func df columns into df
+    df=df.merge(func_df,how="left",on="#variant")
+
+    del(func_df)
 
     return df
 

@@ -71,7 +71,7 @@ class TestAnnotate(unittest.TestCase):
                         df2=pd.read_csv("{}_{}.csv".format(correct_value_path,i+1),sep="\t").astype(object)
                         pd.testing.assert_frame_equal(out,df2)
         except:
-            self.assertTrue(False)
+            raise
 
 
 
