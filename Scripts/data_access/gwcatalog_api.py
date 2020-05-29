@@ -107,17 +107,15 @@ class SummaryApi(ExtDB):
         results=[i for sublist in results for i in sublist]
         return results
 
-def gwcat_get_alleles(data: List[Dict[str,Any]], filter_nonbiallelic: Optional[bool] = True) -> pd.DataFrame:
+def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
     """Get alleles for Gwas Catalog results, as those don't have them.
     A common step for both the LocalDB and GwasApi, which is why it's separated into its own function.
-    Can filter out nonbiallelic variants (filters by default)
     Args:
-        data (List[Dict[str,Any]]): the data as a list of dicts. Each dict is one row.
-        filter_nonbiallelic (Optional[bool]): Whether to filter out nonbiallelic variants. True by default.
+        rsids (List[str]): List of rsids
     Returns:
-        (pd.DataFrame): pandas DataFrame with columns for rsid, allele1, other allele(s), and whether the variant is biallelic. 
+        (pd.DataFrame): pandas DataFrame with columns for rsid, allele1, other allele(s), whether the variant is biallelic, and the synonyms for the rsid. 
     """
-    rsids = [a["SNPS"] for a in data if '  x  ' not in a["SNPS"]] # remove cross-snp associations
+    rsids = [a for a in rsids if '  x  ' not in a] # remove cross-snp associations
     rsids=[a.split(";")[0].strip() for a in rsids]
     rsids = list(set(rsids)) #remove duplicates
     rsid_out = get_rsid_alleles_ensembl(rsids)
@@ -133,11 +131,10 @@ def gwcat_get_alleles(data: List[Dict[str,Any]], filter_nonbiallelic: Optional[b
             found_data.append( {"rsid": yeslist[0],"ref": snip["ref"], "alt": snip["alt"], \
                 "synonyms": new_synonyms})
     rsid_df =  pd.DataFrame(found_data)
-    if filter_nonbiallelic:
-        rsid_df=rsid_df[rsid_df["biallelic"] == True]
+
     return rsid_df
 
-def gwcat_set_column_types(data: pd.DataFrame) -> pd.DataFrame:
+def _gwcat_set_column_types(data: pd.DataFrame) -> pd.DataFrame:
     """Helper funtion to set the types of dataframe columns.
     Column types: {chrom:str, pos:int, pval:float, trait:str}
     Args:
@@ -190,7 +187,7 @@ class LocalDB(ExtDB):
             return []
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
-        retval=gwcat_set_column_types(retval)
+        retval=_gwcat_set_column_types(retval)
         return retval.to_dict("records")
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -210,7 +207,9 @@ class LocalDB(ExtDB):
         result_df = pd.DataFrame(out)
         #TODO: add ensembl data
         #filter rsids
-        rsid_df = gwcat_get_alleles(out, filter_nonbiallelic=True)
+        rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
+        #filter nonbiallelic variants out
+        rsid_df=rsid_df[rsid_df["biallelic"] == True]
         df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
         return df_out.to_dict("records")
 
@@ -252,7 +251,7 @@ class GwasApi(ExtDB):
             return []
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
-        retval=gwcat_set_column_types(retval)
+        retval=_gwcat_set_column_types(retval)
         return retval.to_dict("records")
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -268,7 +267,9 @@ class GwasApi(ExtDB):
         result_df = pd.DataFrame(results)
         #TODO: add ensembl data
         #filter rsids
-        rsid_df = gwcat_get_alleles(results, filter_nonbiallelic=True)
+        rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
+        #filter nonbiallelic variants out
+        rsid_df=rsid_df[rsid_df["biallelic"] == True]
         df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
         return df_out.to_dict("records")
 
