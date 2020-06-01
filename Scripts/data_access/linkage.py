@@ -65,6 +65,8 @@ class PlinkLD(LDAccess):
     def get_ranges(self, variants, window, ld_threshold = None):
         if not ld_threshold:
             ld_threshold = 0.0
+        #remove duplicates of variants, because PLINK errors with that
+        variants = variants.drop_duplicates(subset=["#variant"])
         #assume columns are: [chrom, pos, ref, alt,#variant], and window is int
         ld_data=pd.DataFrame()
         chromosomes = variants["chr"].unique()
