@@ -46,7 +46,7 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
             group_df=group_df.loc[~t_dropidx,:]
     return new_df
 
-def load_credsets(fname,columns):
+def load_credsets(fname: str, columns: Dict[str, str]) -> pd.DataFrame:
     """
     Load SuSiE credible sets from one bgzipped file.
     In: filename of the SuSie credible set file
@@ -57,17 +57,32 @@ def load_credsets(fname,columns):
         return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id"])
     input_data = input_data[input_data["cs"]!=-1]#filter to credible sets
     input_data["credsetid"]=input_data[["region","cs"]].apply(lambda x: "".join([str(y) for y in x]),axis=1)
-    data=input_data.rename(columns={"chromosome":columns["chrom"], "position": columns["pos"], "allele1": columns["ref"], "allele2": columns["alt"], "prob": "cs_prob"}).copy()
+    data = input_data.rename(columns={"chromosome":columns["chrom"],
+                                      "position": columns["pos"],
+                                      "allele1": columns["ref"],
+                                      "allele2": columns["alt"],
+                                      "prob": "cs_prob",
+                                      "region":"cs_region",
+                                      "cs":"cs_number"}).copy()
     data[columns["chrom"]] = data[columns["chrom"]].str.strip("chr")
     data["cs_id"]=np.NaN
-    for i in data["credsetid"].unique():
-        cs=data[data["credsetid"]==i]
-        rsid=cs.loc[cs["cs_prob"].idxmax(),"rsid"]
-        idx=cs.loc[cs["cs_prob"].idxmax(),"cs"]
-        data.loc[data["credsetid"]==i,"cs_id"] = "{}_{}".format(rsid,idx)
-    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id" ]
-    data=data.loc[:,cols]
+    for name, group in data.groupby("credsetid"):
+        rsid=group.loc[group["cs_prob"].idxmax(),"rsid"]
+        idx=group.loc[group["cs_prob"].idxmax(),"cs_number"]
+        data.loc[data["credsetid"]==name,"cs_id"] = "{}_{}".format(rsid,idx)
+    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id", "cs_number", "cs_region" ]
+    data=data.loc[:,cols].astype({"cs_number":int,"cs_region":str})
     return data
+
+def load_susie_credfile(fname: str) -> pd.DataFrame:
+    """Load information about credible sets from SuSiE .cred file
+    Args:
+        fname (str): Filename
+    Returns:
+        (pd.DataFrame): Dataframe with credible set id (cs_id), bayes factor (cs_log10bf), minimum r2 (cs_min_r2) and cs size (cs_size)
+    """
+    cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
+    return cred_data[["cs_log10bf", "cs_min_r2", "cs_size", "cs_number", "cs_region"]].astype({"cs_number":int,"cs_region":str})
 
 def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,prefix, ld_api, columns):
     """
@@ -250,6 +265,12 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
     if group and grouping_method == "cred":
         #load credsets
         cs_df=load_credsets(cred_set_file,columns)
+        #load credset additional information
+        susie_cred_file = cred_set_file.replace("snp","cred")
+        print(cs_df)
+        cs_info = load_susie_credfile(susie_cred_file)
+        print(cs_info)
+        cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
         #remove ignored region if there is one
         if ignore_region:
             ign_idx=( ( cs_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( cs_df[columns["pos"]]<=ignore_region_["end"] )&( cs_df[columns["pos"]]>=ignore_region_["start"] ) )
