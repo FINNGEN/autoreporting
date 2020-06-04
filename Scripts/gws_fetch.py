@@ -81,8 +81,15 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
     Returns:
         (pd.DataFrame): Dataframe with credible set id (cs_id), bayes factor (cs_log10bf), minimum r2 (cs_min_r2) and cs size (cs_size)
     """
+    cred_data_type = {
+        "cs_log10bf":float,
+        "cs_min_r2":float,
+        "cs_size":int,
+        "cs_number":int,
+        "cs_region":str
+    }
     cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
-    return cred_data[["cs_log10bf", "cs_min_r2", "cs_size", "cs_number", "cs_region"]].astype({"cs_number":int,"cs_region":str})
+    return cred_data[["cs_log10bf", "cs_min_r2", "cs_size", "cs_number", "cs_region"]].astype(cred_data_type)
 
 def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,prefix, ld_api, columns):
     """
@@ -263,13 +270,12 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
     if ignore_region:
         ignore_region_=parse_region(ignore_region)
     if group and grouping_method == "cred":
+        #TODO: handling for missing credible set files, aka aborting with a good error message.
         #load credsets
         cs_df=load_credsets(cred_set_file,columns)
         #load credset additional information
         susie_cred_file = cred_set_file.replace("snp","cred")
-        print(cs_df)
         cs_info = load_susie_credfile(susie_cred_file)
-        print(cs_info)
         cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
         #remove ignored region if there is one
         if ignore_region:
