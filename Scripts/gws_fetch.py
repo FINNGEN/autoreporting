@@ -258,26 +258,29 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         #combine with summary stats to have all rows
 
         join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
-        cs_variants = load_groups_from_tabix(cs_df, gws_fpath, columns, "cs_id", columns)
-        cs_variants = cs_variants.astype({columns["pval"]:float})
-        cs_variants = extract_cols(cs_variants, list(columns.values()) + extra_cols)
-        cs_variants = cs_df.merge(cs_variants,how="inner",on=join_cols)
+        cs_var_dtypes = {columns["chrom"]:str, columns["pos"]:int, columns["ref"]:str, columns["alt"]:str,columns["pval"]:float}
+        cs_variants = load_groups_from_tabix(cs_df, gws_fpath, columns, "cs_id", columns,extract_cols = list(columns.values()) + extra_cols,dtypes=cs_var_dtypes)
+        cs_variants = cs_df.merge(cs_variants,how="inner",on=join_cols) #join to add cs_df columns to cs_variants
         cs_variants.loc[:,"#variant"]=create_variant_column(cs_variants,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        cs_leads = cs_df.loc[cs_df[["cs_id","cs_prob"]].reset_index().groupby("cs_id").max()["index"],:]
-        cs_ranges = cs_leads[[columns["chrom"],columns["pos"]]].copy()
+
+        #get ranges around credible set leads
+        cs_lead_index = cs_df[["cs_id","cs_prob"]].reset_index().groupby("cs_id").max()["index"]
+        cs_ranges = cs_df.loc[cs_lead_index, [columns["chrom"],columns["pos"]]]
         cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width*1000
         cs_ranges["max"] = cs_ranges[columns["pos"]]+locus_width*1000
         cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
         
         #load summary stats around credsets, add columns for data
-        summ_stat_variants = load_tb_ranges(cs_ranges,gws_fpath,"",".").drop_duplicates()
+        summ_stat_variants = load_tb_ranges(cs_ranges,gws_fpath,"",".").drop_duplicates().astype(cs_var_dtypes)
         summ_stat_variants = extract_cols(summ_stat_variants,list(columns.values())+extra_cols)
         summ_stat_variants = summ_stat_variants.astype({columns["pos"]:int,columns["pval"]:float})
         summ_stat_variants.loc[:,"#variant"]=create_variant_column(summ_stat_variants,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        #remove variants that are already in the cs_variants
         summ_stat_variants = summ_stat_variants.loc[~summ_stat_variants["#variant"].isin(cs_variants["#variant"]),:]
+        #concatenate the two 
         not_grouped_data = pd.concat([cs_variants, summ_stat_variants], axis="index", ignore_index=True, sort=False)\
             .sort_values(axis="index",by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"],na_position="last")
-        not_grouped_data=not_grouped_data.reset_index(drop=True).drop_duplicates(keep="first",subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"])
+        not_grouped_data=not_grouped_data.drop_duplicates(keep="first",subset=["#variant"])
 
         not_grouped_data=not_grouped_data.reset_index(drop=True)
         #not_grouped_data.loc[:,"#variant"]=create_variant_column(not_grouped_data,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])

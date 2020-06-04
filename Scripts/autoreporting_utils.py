@@ -1,4 +1,5 @@
 import argparse,shlex,subprocess, os
+from io import StringIO
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
 import tabix
@@ -82,15 +83,16 @@ def load_tb_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_valu
         (pd.DataFrame): Dataframe with variants from the specified ranges
     """
     tb=tabix.open(fpath)
-    tbxlst=[]
-    for _,row in df.iterrows():
-        tbxlst=tbxlst+pytabix( tb,"{}{}".format(chrom_prefix,row["chrom"]),int(row["min"]),int(row["max"]) )
     header=get_gzip_header(fpath)
-    out_df=pd.DataFrame(tbxlst,columns=header )
-    out_df=out_df.replace(na_value,np.nan)
+    dflist=[]
+    for _,row in df.iterrows():
+        region_df = pytabix( tb,"{}{}".format(chrom_prefix,row["chrom"]),int(row["min"]),int(row["max"]) )
+        region_df=pd.DataFrame(region_df,columns=header)
+        dflist.append(region_df)
+    out_df=pd.concat(dflist,ignore_index=True).replace(na_value, np.nan)
     return out_df
 
-def load_tb_ranges_spec_cols(df:pd.DataFrame, fpath: str, extract_cols: List[str], chrom_prefix: str = "", na_value: str = ".") -> pd.DataFrame:
+def load_tb_ranges_spec_cols(df:pd.DataFrame, fpath: str, extract_cols: List[str], chrom_prefix: str = "", na_value: str = ".", dtypes: Optional[Dict[str,Any]] = None) -> pd.DataFrame:
     """Load variant ranges from a file using tabix, but limit the columns to just the specified ones to save memory
     Args:
         df (pd.DataFrame): range dataframe with columns chrom, min, max
@@ -98,6 +100,7 @@ def load_tb_ranges_spec_cols(df:pd.DataFrame, fpath: str, extract_cols: List[str
         extract_cols (List[str]): List of columns to extract from the file
         chrom_prefix (str): Whether the tabix sequence has a prefix, e.g. 'chr10' instead of '10'
         na_value (str): NA representation that gets filled with NaN
+        dtypes (Optional[Dict[str,Any]]): dictionary with type conversion functions for each of the extracted columns 
     Returns:
         (pd.DataFrame): Dataframe with variants from the specified ranges, with the specified columns
     """
@@ -106,13 +109,15 @@ def load_tb_ranges_spec_cols(df:pd.DataFrame, fpath: str, extract_cols: List[str
     dflist=[]
     for _, row in df.iterrows():
         region_df = pytabix( tb,"{}{}".format(chrom_prefix,row["chrom"]),int(row["min"]),int(row["max"]) )
-        region_df=pd.DataFrame(region_df,columns=header)
+        region_df = pd.DataFrame(region_df,columns=header).replace(na_value, np.nan)
+        if dtypes:
+            region_df = region_df.astype(dtype=dtypes)
         region_df=region_df.loc[:,extract_cols]
         dflist.append(region_df)
-    output_df = pd.concat(dflist,ignore_index=True).replace(na_value, np.nan)
+    output_df = pd.concat(dflist,ignore_index=True)
     return output_df
 
-def load_groups_from_tabix(df: pd.DataFrame, fpath: str, columns: Dict[str, str], group_column: str, data_columns: Optional[Dict[str, str]] = None, chrom_prefix: Optional[str] = "", na_value: Optional[str] = ".",extract_cols: Optional[List[str]] = None) -> pd.DataFrame:
+def load_groups_from_tabix(df: pd.DataFrame, fpath: str, columns: Dict[str, str], group_column: str, data_columns: Optional[Dict[str, str]] = None, chrom_prefix: Optional[str] = "", na_value: Optional[str] = ".",extract_cols: Optional[List[str]] = None, dtypes: Optional[Dict[str,Any]] = None) -> pd.DataFrame:
     """Load dataframe's groups from another tabixed file
     Args:
         df (pd.DataFrame): input dataframe
@@ -123,6 +128,7 @@ def load_groups_from_tabix(df: pd.DataFrame, fpath: str, columns: Dict[str, str]
         chrom_prefix (Optional[str]): chromosome prefix, default ""
         na_value (Optional[str]): na representation in data file, default "."
         extract_cols (Optional[List[str]]): columns to extract from dataframe.
+        dtypes (Optional[Dict[str,Any]]): dictionary with type conversion functions for each of the extracted columns
     Returns:
         (pd.DataFrame): Dataframe with the groups from the input dataframe. Contains extra variants.
     """
@@ -140,7 +146,7 @@ def load_groups_from_tabix(df: pd.DataFrame, fpath: str, columns: Dict[str, str]
     if not extract_cols:
         output = load_tb_ranges(df=groups, fpath=fpath,chrom_prefix=chrom_prefix, na_value=na_value)
     else:
-        output = load_tb_ranges_spec_cols(df=groups, fpath=fpath, extract_cols=extract_cols, chrom_prefix=chrom_prefix, na_value=na_value)
+        output = load_tb_ranges_spec_cols(df=groups, fpath=fpath, extract_cols=extract_cols, chrom_prefix=chrom_prefix, na_value=na_value, dtypes=dtypes)
     output = output.rename(columns={data_columns["chrom"]:columns["chrom"],
                             data_columns["pos"]:columns["pos"],
                             data_columns["ref"]:columns["ref"],
@@ -152,6 +158,7 @@ def load_groups_from_tabix(df: pd.DataFrame, fpath: str, columns: Dict[str, str]
     join_types = {columns["chrom"]:str, columns["pos"]:int, columns["ref"]:str, columns["alt"]:str}
     output = output.astype(join_types)
     df = df.astype(join_types)
+    #include only the relevant variants
     output = output.merge(df[join_cols],how="right",on=join_cols)
     return output
 

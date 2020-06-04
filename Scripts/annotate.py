@@ -58,28 +58,85 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     if df.empty:
         return df
 
-    #create chr 23->X calling df
-    #needs chromosome 23 as X
+    #create chr 23->X df for gnomad and other resources that use X instead of 23 as X chromosome name.
     call_df_x = df.copy()
     call_df_x[columns["chrom"]]=call_df_x[columns["chrom"]].astype(str)
     call_df_x = df_replace_value(call_df_x,columns["chrom"],"23","X") #TODO: IF/WHEN GNOMAD RESOURCES USE CHR 23, THIS NEEDS TO BE REMOVED
+
+    #cpra types needed when we coerce join columns to be of same type
+    cpra_types = {columns["chrom"]:str, columns["pos"]:int, columns["ref"]:str, columns["alt"]:str}
+    
+    ##########################
+    #   Gnomad annotations   #
+    ##########################
+
+    #column names for calculating finnish enrichments.
+
+    gn_gen_nfe_counts=["AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
+    gn_gen_nfe_nums=["AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
+    gn_gen_nfe_est_counts=["AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
+    gn_gen_nfe_est_nums=["AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
+
+    gn_exo_nfe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
+    gn_exo_nfe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
+    gn_exo_nfe_est_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
+    gn_exo_nfe_est_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
+    gn_exo_nfe_swe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu"]
+    gn_exo_nfe_swe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu"]
+    gn_exo_nfe_est_swe_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu"]
+    gn_exo_nfe_est_swe_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu"]
+
+    print("load gnomad data...")
+
+    #common data for both gnomad files: the cpra column names, as well as cpra dtypes.
+    gnomad_cpra_cols = {"chrom":"#CHROM","pos":"POS","ref":"REF","alt":"ALT"}
+    gnomad_cpra_dtypes={"#CHROM":str, "POS":int,"REF":str,"ALT":str}
+    
+    
     #load gnomad_genomes
     if not os.path.exists("{}.tbi".format(gnomad_genome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_genome_path))
 
-    print("load gnomad data...")
+    #define the columns that need to be extracted from gnomad genome datafile + determine dtypes so the data has correct types.
 
-    gnomad_columns = {"chrom":"#CHROM","pos":"POS","ref":"REF","alt":"ALT"}
-    gnomad_genomes = load_groups_from_tabix(call_df_x,gnomad_genome_path,columns,"locus_id",gnomad_columns,chrom_prefix="",na_value=".")
+    gnomad_gen_afs = ["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu"] 
+    gnomad_gen_extract_cols = list(gnomad_cpra_cols.values()) + gn_gen_nfe_counts + gn_gen_nfe_nums + gnomad_gen_afs
+
+    dtype_gnomad_gen = {a:float for a in gnomad_gen_extract_cols}#all of the allele frequencies are floats
+    # and allele counts and numbers are unlikely to degrade by being float values, as they are in the range of [0,500 000]
+    dtype_gnomad_gen.update(gnomad_cpra_dtypes)#overwrite the correct types
+
+    gnomad_genomes = load_groups_from_tabix(df=call_df_x,
+                                            fpath=gnomad_genome_path,
+                                            columns=columns,
+                                            group_column="locus_id",
+                                            data_columns=gnomad_cpra_cols,
+                                            chrom_prefix="",
+                                            na_value=".",
+                                            extract_cols=gnomad_gen_extract_cols,
+                                            dtypes=dtype_gnomad_gen)
+    
     #load gnomad_exomes
     if not os.path.exists("{}.tbi".format(gnomad_exome_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_exome_path))
 
-    gnomad_exomes = load_groups_from_tabix(call_df_x,gnomad_exome_path,columns,"locus_id",gnomad_columns,chrom_prefix="",na_value=".")
+    #define the columns that need to be extracted from gnomad exome datafile + determine dtypes so the data has correct types.
+    gnomad_exo_afs = ["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu"]
+    gnomad_exo_extract_cols = list(gnomad_cpra_cols.values()) + gn_exo_nfe_counts + gn_exo_nfe_nums + gnomad_exo_afs
+    dtype_gnomad_exo = {a:float for a in gnomad_exo_extract_cols}#same reasoning as gnomad genomes dtypes
+    dtype_gnomad_exo.update(gnomad_cpra_dtypes)#overwrite the correct types
+
+    gnomad_exomes = load_groups_from_tabix(df=call_df_x,
+                                            fpath=gnomad_exome_path,
+                                            columns=columns,
+                                            group_column="locus_id",
+                                            data_columns=gnomad_cpra_cols,
+                                            chrom_prefix="",
+                                            na_value=".",
+                                            extract_cols=gnomad_exo_extract_cols,
+                                            dtypes=dtype_gnomad_exo)
+    
     #replace X with 23
-
-    cpra_types = {columns["chrom"]:str, columns["pos"]:int, columns["ref"]:str, columns["alt"]:str}
-
     gnomad_genomes = df_replace_value(gnomad_genomes,columns["chrom"],"X","23")
     gnomad_genomes[gnomad_genomes.columns]=gnomad_genomes[gnomad_genomes.columns].apply(pd.to_numeric,errors="ignore")
     gnomad_genomes=gnomad_genomes.astype(cpra_types)
@@ -88,13 +145,9 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     gnomad_exomes=gnomad_exomes.astype(cpra_types)
 
     if not gnomad_genomes.empty:
-        gnomad_genomes=gnomad_genomes.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])#.rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+        gnomad_genomes=gnomad_genomes.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])
         gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        #calculate enrichment for gnomad genomes, nfe, nfe without est
-        gn_gen_nfe_counts=["AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
-        gn_gen_nfe_nums=["AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
-        gn_gen_nfe_est_counts=["AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
-        gn_gen_nfe_est_nums=["AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
+
         #calculate enrichment
         
         gnomad_genomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_genomes,"AF_fin",gn_gen_nfe_counts,gn_gen_nfe_nums)
@@ -104,17 +157,10 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
             gnomad_genomes[val]=None
     
     if not gnomad_exomes.empty:
-        gnomad_exomes=gnomad_exomes.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])#.rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+        gnomad_exomes=gnomad_exomes.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])
         gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
         #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
-        gn_exo_nfe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
-        gn_exo_nfe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
-        gn_exo_nfe_est_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
-        gn_exo_nfe_est_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
-        gn_exo_nfe_swe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu"]
-        gn_exo_nfe_swe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu"]
-        gn_exo_nfe_est_swe_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu"]
-        gn_exo_nfe_est_swe_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu"]
+        
     
         gnomad_exomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_counts,gn_exo_nfe_nums)
         gnomad_exomes.loc[:,"FI_enrichment_nfe_est"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_est_counts,gn_exo_nfe_est_nums)
@@ -124,7 +170,8 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe","#variant"]:
             gnomad_exomes[val]=None
 
-    #rename gnomad_exomes and gnomad_genomes
+    #rename gnomad_exomes and gnomad_genomes with suffixes GENOME and EXOME for easy identification.
+    # Also contain to the columns we want 
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
     gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
     gnomad_genomes=gnomad_genomes.rename(columns=gn_gen_rename_d)
@@ -140,7 +187,16 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
     del(gnomad_genomes)
     del(gnomad_exomes) 
 
+    ###########################
+    #   FinnGen annotations   #
+    ###########################
+
     print("load finngen annotation data...")
+    
+    fg_cols = get_gzip_header(finngen_path)
+    info=list(filter(lambda s: "INFO" in s,fg_cols))
+    imp=list(filter(lambda s: "IMP" in s,fg_cols))
+    af=list(filter(lambda s: "AF" in s,fg_cols))
 
     #load finngen annotations
     if not os.path.exists("{}.tbi".format(finngen_path)):
@@ -154,17 +210,22 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
         
     else:
         fg_columns= {"chrom":"chr","pos":"pos","ref":"ref","alt":"alt"}
-        fg_df = load_groups_from_tabix(call_df_x,finngen_path,columns,"locus_id",fg_columns,chrom_prefix="",na_value="NA")
-        fg_df=fg_df.drop(labels="#variant",axis="columns")
+        fg_extract_cols = ["gene","most_severe"]
+        fg_batch_lst=info+imp+af
+        if batch_freq:
+            fg_extract_cols=fg_extract_cols+fg_batch_lst
+        fg_extract_cols = fg_extract_cols+ list(fg_columns.values())
+        fg_dtypes = {a:float for a in fg_extract_cols}
+        fg_dtypes.update({"chr":str,"pos":int,"ref":str,"alt":str,"gene":str,"most_severe":str})
+        fg_df = load_groups_from_tabix(call_df_x,finngen_path,columns,"locus_id",fg_columns,chrom_prefix="",na_value="NA",extract_cols=fg_extract_cols,dtypes=fg_dtypes)
         fg_df["#variant"]=create_variant_column(fg_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     fg_df = fg_df.drop_duplicates(subset=["#variant"])#.rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"]})
     
-    
     fg_df=fg_df.rename(columns={"gene":"most_severe_gene","most_severe":"most_severe_consequence"})
     fg_cols=fg_df.columns.values.tolist()
-    info=list(filter(lambda s: "INFO" in s,fg_cols))
-    imp=list(filter(lambda s: "IMP" in s,fg_cols))
-    af=list(filter(lambda s: "AFW" in s,fg_cols))
+    #info=list(filter(lambda s: "INFO" in s,fg_cols))
+    #imp=list(filter(lambda s: "IMP" in s,fg_cols))
+    #af=list(filter(lambda s: "AF" in s,fg_cols))
 
     fg_batch_lst=info+imp+af
     fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
@@ -180,16 +241,23 @@ def annotate(df,gnomad_genome_path, gnomad_exome_path, batch_freq, finngen_path,
 
     print("load functional annotation data...")
 
+    ##########################
+    # Functional annotations #
+    ##########################
+
     #load functional annotations. 
     if functional_path == "":
         func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
     else:
         if not os.path.exists("{}.tbi".format(functional_path)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
+
         func_cols=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"consequence"]
+        
         func_columns = {"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt"}
         extract_cols = ["chrom","pos","ref","alt","consequence"]
-        func_df = load_groups_from_tabix(call_df_x,functional_path,columns,"locus_id",func_columns,chrom_prefix="chr",na_value="NaN",extract_cols = extract_cols )
+        func_dtypes = {"chrom":str, "pos":int, "ref":str, "alt":str,"consequence":str}
+        func_df = load_groups_from_tabix(call_df_x,functional_path,columns,"locus_id",func_columns,chrom_prefix="chr",na_value="NaN",extract_cols = extract_cols,dtypes=func_dtypes )
 
         func_df=df_replace_value(func_df,columns["chrom"],"X","23")
         func_df = func_df[func_cols]
@@ -225,7 +293,7 @@ if __name__=="__main__":
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Output filename, default is out.tsv")
-    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval"],help="Names for data file columns. Default is '#chrom pos ref alt pval'.")
     parser.add_argument("--finngen-annotation-version",dest="fg_ann_version",type=str,default="r3",help="Finngen annotation release version: 3 or under or 4 or higher? Allowed values: 'r3' and 'r4'. Default 'r3' ")
     args=parser.parse_args()
     columns=columns_from_arguments(args.column_labels)
