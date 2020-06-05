@@ -159,7 +159,7 @@ def load_groups_from_tabix(df: pd.DataFrame, fpath: str, columns: Dict[str, str]
     output = output.astype(join_types)
     df = df.astype(join_types)
     #include only the relevant variants
-    output = output.merge(df[join_cols],how="right",on=join_cols)
+    output = output.merge(df[join_cols],how="inner",on=join_cols)
     return output
 
 def prune_df_regions(df: pd.DataFrame, cols: Optional[Dict[str, str]] = None) -> pd.DataFrame:
