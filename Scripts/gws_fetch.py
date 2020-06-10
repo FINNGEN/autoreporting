@@ -49,12 +49,16 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
 def load_credsets(fname: str, columns: Dict[str, str]) -> pd.DataFrame:
     """
     Load SuSiE credible sets from one bgzipped file.
-    In: filename of the SuSie credible set file
-    Out: A Dataframe containing all credible sets for this phenotype.
+    Args:
+        fname (str): SUSIE snp file
+        columns (Dict[str, str]): Column name dictionary
+    Returns:
+        (pd.DataFrame): pandas dataframe containing the credible set variants with chr, pos, ref, alt, cs probability, and cs id.
+
     """
     input_data = pd.read_csv(fname,sep="\t",compression="gzip")
     if input_data.empty:
-        return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id"])
+        return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id","cs_region","cs_number","r2_to_lead"])
     input_data = input_data[input_data["cs"]!=-1]#filter to credible sets
     input_data["credsetid"]=input_data[["region","cs"]].apply(lambda x: "".join([str(y) for y in x]),axis=1)
     data = input_data.rename(columns={"chromosome":columns["chrom"],
@@ -63,14 +67,15 @@ def load_credsets(fname: str, columns: Dict[str, str]) -> pd.DataFrame:
                                       "allele2": columns["alt"],
                                       "prob": "cs_prob",
                                       "region":"cs_region",
-                                      "cs":"cs_number"}).copy()
+                                      "cs":"cs_number",
+                                      "lead_r2":"r2_to_lead"}).copy()
     data[columns["chrom"]] = data[columns["chrom"]].str.strip("chr")
     data["cs_id"]=np.NaN
     for name, group in data.groupby("credsetid"):
         rsid=group.loc[group["cs_prob"].idxmax(),"rsid"]
         idx=group.loc[group["cs_prob"].idxmax(),"cs_number"]
         data.loc[data["credsetid"]==name,"cs_id"] = "{}_{}".format(rsid,idx)
-    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id", "cs_number", "cs_region" ]
+    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id", "cs_number", "cs_region", "r2_to_lead"]
     data=data.loc[:,cols].astype({"cs_number":int,"cs_region":str})
     return data
 
@@ -86,10 +91,12 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
         "cs_min_r2":float,
         "cs_size":int,
         "cs_number":int,
-        "cs_region":str
+        "cs_region":str,
+         "low_purity":bool
     }
+    cred_columns = list(cred_data_type.keys())
     cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
-    return cred_data[["cs_log10bf", "cs_min_r2", "cs_size", "cs_number", "cs_region"]].astype(cred_data_type)
+    return cred_data[cred_columns].astype(cred_data_type)
 
 def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,prefix, ld_api, columns):
     """
