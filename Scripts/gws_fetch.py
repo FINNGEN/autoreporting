@@ -92,7 +92,7 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
         "cs_size":int,
         "cs_number":int,
         "cs_region":str,
-         "low_purity":bool
+        "low_purity":bool
     }
     cred_columns = list(cred_data_type.keys())
     cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
@@ -332,8 +332,11 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
         if cred_set_file != "":
             cs_df=load_credsets(cred_set_file,columns)
+            susie_cred_file = cred_set_file.replace("snp","cred")
+            cs_info = load_susie_credfile(susie_cred_file)
+            cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
         else:
-            cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
+            cs_df=pd.DataFrame(columns=join_cols+["cs_prob", "cs_id", "cs_number", "cs_region", "r2_to_lead", "cs_log10bf", "cs_min_r2", "cs_size"])
         #merge with gws_df, by using chrom,pos,ref,alt
         temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
         #create necessary columns for the data
