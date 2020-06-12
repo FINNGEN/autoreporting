@@ -411,11 +411,48 @@ The WDL pipeline can be used to run a set of phenotypes as a batch job on a Crom
 
 ### 5.1 <a name='wdlinputs'></a> Input Files
 
-TODO
+The WDL pipeline requires an input JSON file to work correctly. Example input files can be found in the `wdl` folder. The files are named like so:  
+`autoreporting_$PIPELINE_$RELEASE.json`, where the `$PIPELINE` and `$RELEASE` keywords are determined based on what pipeline and data release those files correspond to. The `serial` keyword corresponds to the `report_serial.wdl` pipeline, and the `completely_parallel` keyword corresponds to the `autoreporting.wdl` pipeline. For the releases, the only difference is in annotation resources. 
+
+For smaller runs of the pipeline, I suggest running the `autoreporting.wdl` pipeline with a JSON file based on one of the `autoreportng_completely_parallel` files. For larger datasets, e.g over 500 phenotypes, it might be preferable to run the `report_serial.wdl` pipeline, that calculates results for multiple phenotypes on a single worker machine. For full releases, currently the only possibility is to use the `report_serial.wdl` pipeline.
+
+The only difference between the JSON files is that the `autoreporting_serial_r4.json` and `autoreporting_serial_r5.json` files have an extra parameter, named `phenos_per_worker`, which determines how many phenotypes one worker machine processes. For example, if there are 1000 phenotypes and the `phenos_per_worker` parameter is set to 10, the cromwell job will spawn 100 worker machines.
 
 ### 5.2 <a name='wdlrun'></a> Running the pipeline
 
-TODO
+#### Preparing inputs
+The main input for the pipeline is an input array consisting of a phenotype name, a summary statistic file path (to a google cloud bucket), and an optional SUSIE fine-mapping file. This input array is formatted as a headerless tsv-file. You can prepare this file by hand, or if you already have a list of summary statistics and fine-mapping results, you can use the helper script `Scripts/wdl_processing_scripts/pheno_credset_array.py`. This helper script matches your summary statistic files and fine-mapping results, assuming they are named similarly.
+
+```
+usage: Create a phenotype, summary statistic file, credible set file-array from two file list files
+       [-h] --phenotype-list PHENOTYPE_LIST --credset-list CREDSET_LIST
+       [--phenotype-prefix PHENOTYPE_PREFIX] [--credset-prefix CREDSET_PREFIX]
+       --out OUT
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --phenotype-list PHENOTYPE_LIST
+                        phenotype list (e.g. output from 'gsutil ls
+                        gs://pheno_folder'
+  --credset-list CREDSET_LIST
+                        SuSiE credible set list (e.g. output from 'gsutil ls
+                        gs://credset_folder'
+  --phenotype-prefix PHENOTYPE_PREFIX
+                        If the phenotypes have a prefix that is not part of
+                        the phenotype name, e.g. version number use this flag
+                        to include it.
+  --credset-prefix CREDSET_PREFIX
+                        If the credible sets have a prefix that is not part of
+                        the phenotype name, e.g. version number use this flag
+                        to include it.
+  --out OUT             Output file
+```
+
+## TODO 
+
+- Determining parameter values
+
+- Running the pipeline
 <!-- 
 The WDL pipeline can be used to run multiple phenotypes as a batch job on a cromwell server. This is very useful for e.g. processing all of the phenotypes in one data release. There are two different pipelines: the autoreporting.wdl is run parallel per phenotype, in that every phenotype gets its own container. This is easy to implement, but due to the large files necessary to run these pipelines (such as the LD panel), the initialization of the containers takes a substantial amount of the total processing time.  
 The autoreporting_partially_serialized.wdl pipeline divides the phenotypes into smaller groups, which are then processed one group per container. This amortizes the time taken in downloading resources between the phenotypes in a group, lowering total machine time required to process all phenotypes, but possibly increasing the total time to process all phenotypes (as the time taken to process all phenotypes is the time of the slowest container). The size of these groups is changeable. The parameters in the json resource file are similarly named as the parameters in the command line.  -->
