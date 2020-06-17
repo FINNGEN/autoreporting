@@ -39,7 +39,7 @@ def create_rename_dict(list_of_names, prefix):
         d[value]="{}{}".format(prefix,value)
     return d
 
-def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, batch_freq: bool, finngen_path: str, functional_path: str, prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
+def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, batch_freq: bool, finngen_path: str, functional_path: str, previous_release_path: str ,prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
     """
     Annotates variants with allele frequencies, enrichment numbers, and most severe gene/consequence data
     Annotations from gnomad exome data, gnomad genome data, finngen annotation file, functional annotation file.
@@ -50,6 +50,7 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
         batch_freq (bool): flag for whether to include batch-specific frequencies from finngen annotation
         finngen_path (str): finngen annotation file path
         functional_path (str): functional annotation file path
+        previous_release_path (str): filepath for the previous release
         prefix (str): prefix for analysis files
         columns (Dict[str, str]): column dictionary
     Returns:
@@ -107,6 +108,19 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
         func_cols=["chrom","pos","ref","alt","consequence"]
         func_df = func_df[func_cols]
 
+
+    #load previous release annotations
+    previous_cols = [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "beta_previous_release", "pval_previous_release"]
+    if previous_release_path == "":
+        previous_df = pd.DataFrame(columns = ["#variant","beta_previous_release", "pval_previous_release"])
+    else:
+        if not os.path.exists("{}.tbi".format(previous_release_path)):
+            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(previous_release_path))
+         
+        previous_df = load_tb_df(call_df_x,previous_release_path, chrom_prefix="", na_value="", columns=columns)
+        previous_df = previous_df.rename(columns={"beta":"beta_previous_release","pval":"pval_previous_release"})
+        previous_df = previous_df[previous_cols]
+
     if not gnomad_genomes.empty:
         gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
         gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
@@ -158,6 +172,11 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
             func_df[val]=None
         func_df = func_df[["#variant","functional_category"]]
 
+    if not previous_df.empty:
+        previous_df = previous_df.drop_duplicates(subset=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]])
+        previous_df["#variant"] = create_variant_column(previous_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]]
+
     #rename gnomad_exomes and gnomad_genomes
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
     gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
@@ -186,6 +205,7 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     df=df.merge(gnomad_exomes,how="left",on="#variant")
     df=df.merge(func_df,how="left",on="#variant")
     df=df.merge(fg_df,how="left",on="#variant")
+    df=df.merge(previous_df,how="left",on="#variant")
 
     return df
 
@@ -197,6 +217,7 @@ if __name__=="__main__":
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
+    parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Output filename, default is out.tsv")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
@@ -210,5 +231,5 @@ if __name__=="__main__":
     else:    
         input_df = pd.read_csv(args.annotate_fpath,sep="\t")
         df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,
-        functional_path=args.functional_path, prefix=args.prefix, columns=columns)
+        functional_path=args.functional_path, previous_release_path=args.previous_release_path, prefix=args.prefix, columns=columns)
         df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
