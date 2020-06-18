@@ -10,44 +10,31 @@ def process_phenos(input_array_fname, num_per_worker):
     credsetname="credset"
     data=pd.read_csv(input_array_fname,header=None, sep="\t",names=[phenoname,ssname,credsetname])
     data=data.fillna("")
-    #create boolean is credset column
-    data["is_credset"]=~(data[credsetname]=="")
-    #summstat arr, summstat tbi arr, credset arr
-    cr_phenos = [getattr(t,phenoname) for t in data.itertuples() if getattr(t,credsetname) != "" ]
-    ld_phenos = [getattr(t,phenoname) for t in data.itertuples() if getattr(t,credsetname) == "" ]
+
     phenolines=[]
     summstatlines=[]
     summstattbilines=[]
     credsetarrlines=[]
-    cr_data = data[data[phenoname].isin(cr_phenos)].reset_index(drop=True)
-    ld_data = data[data[phenoname].isin(ld_phenos)].reset_index(drop=True)
-    for i in range(cr_data.shape[0]//num_per_worker+1):
+
+    for i in range(data.shape[0]//num_per_worker+1):
         idx_start = i*num_per_worker
         idx_end = (i+1)*num_per_worker-1 # -1 because of pandas indexing being start and end inclusive
-        tmp_dat = cr_data.loc[idx_start:idx_end,:]
-        additional_tabs = max(num_per_worker - len(list(tmp_dat[phenoname])),0)
-        phenos = "\t".join( list(tmp_dat[phenoname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
-        summ_stat = "\t".join( list(tmp_dat[ssname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
-        summ_stat_tb = "\t".join([a+".tbi" for a in tmp_dat[ssname] ]) +"".join( ["\t"] * additional_tabs ) + "\n"
-        credset = "\t".join(list(tmp_dat[credsetname])) +"".join( ["\t"] * additional_tabs ) + "\n"
+        tmp_dat = data.loc[idx_start:idx_end,:]
+        
+        phenos = "\t".join( list(tmp_dat[phenoname]) ) + "\n"
+        summ_stat = "\t".join( list(tmp_dat[ssname]) ) + "\n"
+        summ_stat_tb = "\t".join([a+".tbi" for a in tmp_dat[ssname] ]) + "\n"
+        credset = "\t".join(list(tmp_dat[credsetname])) + "\n"
         phenolines.append(phenos)
         summstatlines.append(summ_stat)
         summstattbilines.append(summ_stat_tb)
         credsetarrlines.append(credset)
 
-    for i in range(ld_data.shape[0]//num_per_worker+1):
-        idx_start = i*num_per_worker
-        idx_end = (i+1)*num_per_worker-1 # -1 because of pandas indexing being start and end inclusive
-        tmp_dat = ld_data.loc[idx_start:idx_end,:]
-        additional_tabs = max(num_per_worker - len(list(tmp_dat[phenoname])),0)
-        phenos = "\t".join( list(tmp_dat[phenoname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
-        summ_stat = "\t".join( list(tmp_dat[ssname]) ) +"".join( ["\t"] * additional_tabs ) + "\n"
-        summ_stat_tb = "\t".join([a+".tbi" for a in tmp_dat[ssname] ]) +"".join( ["\t"] * additional_tabs ) + "\n"
-        credset = "".join(["\t"] * max(num_per_worker-1, 1) )+"\n" #use at least one \t so wdl does not remove this cell
-        phenolines.append(phenos)
-        summstatlines.append(summ_stat)
-        summstattbilines.append(summ_stat_tb)
-        credsetarrlines.append(credset)
+    #strip empty lines
+    phenolines=[a for a in phenolines if a not in ["","\n"]]
+    summstatlines=[a  for a in summstatlines if a not in ["","\n"]]
+    summstattbilines=[a for a in summstattbilines if a not in ["","\n"]]
+    credsetarrlines=[a for a in credsetarrlines if a not in ["","\n"]]
     #write them into files
     with open("pheno_array","w") as f:
         f.writelines(phenolines)

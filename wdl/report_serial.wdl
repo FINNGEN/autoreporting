@@ -29,9 +29,8 @@ task report{
     Array[String] pheno_ids
     Array[File] summ_stat
     Array[File] summ_stat_tb
-    Array[String] credsets
-    Boolean use_credsets = if length(credsets) > 0 then true else false
-    Array[File] selected_credsets = if use_credsets then credsets else []
+    Array[File] credsets
+    File dummy_file
     Int len = length(pheno_ids)
 
     File gnomad_exome
@@ -104,15 +103,15 @@ task report{
         include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
-        grouping_method = "${primary_grouping_method}" if "true" == "${use_credsets}" else "${secondary_grouping_method}"
+        grouping_method = ["${primary_grouping_method}" if a != "${dummy_file}" else "${secondary_grouping_method}" for a in "${sep=";" credsets}".split(";") ]
         #process the summstats and credsets etc
         summstats="${sep=";" summ_stat}".split(";")
         phenotypes="${sep=";" pheno_ids}".split(";")
         custom_dataresource="${custom_dataresource}"
         column_names = "${sep=" " column_names}"
         extra_columns = "${extra_columns}"
-        credset_calls = []
-        credset_cmds=["--credible-set-file {}".format(a) for a in "${sep=";" selected_credsets}".split(";")] if "true" == "${use_credsets}" else [""] * ${len}
+
+        credset_cmds=["--credible-set-file {}".format(a) if a != "${dummy_file}" else "" for a in "${sep=";" credsets}".split(";") ]
         #efo codes
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
@@ -156,7 +155,7 @@ task report{
                             sign_treshold,
                             alt_sign_treshold,
                             group,
-                            grouping_method,
+                            grouping_method[i],
                             grouping_locus_width,
                             plink_path,
                             ld_r2,
@@ -244,7 +243,7 @@ workflow autoreporting{
     File custom_dataresource
     Array[String] column_names
     String extra_columns
-
+    File dummy_file
     call preprocess_serial{
         input: input_array = input_array_file, phenos_per_worker = phenos_per_worker, docker=docker
     }
@@ -256,13 +255,12 @@ workflow autoreporting{
 
     #reports
     scatter (i in range(length(pheno_arr))) {
-        Array[String] credset_input = if length(credset_arr[i]) == length(pheno_arr[i]) then credset_arr[i]  else []
         call report{
             input: 
             pheno_ids=pheno_ids[i],
             summ_stat=pheno_arr[i], 
             summ_stat_tb=pheno_tbi_arr[i], 
-            credsets=credset_input, 
+            credsets=credset_arr[i], 
             docker=docker, 
             memory=memory, 
             cpus=cpus, 
@@ -291,7 +289,8 @@ workflow autoreporting{
             secondary_grouping_method=secondary_grouping_method,
             custom_dataresource=custom_dataresource,
             column_names=column_names,
-            extra_columns=extra_columns
+            extra_columns=extra_columns,
+            dummy_file=dummy_file
         }
     }
 }

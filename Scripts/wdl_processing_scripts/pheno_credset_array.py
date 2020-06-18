@@ -33,6 +33,8 @@ def main(args):
         line="{}\t{}/{}{}.{}\t".format(p,phenopath, args.phenotype_prefix,p,phenosuffix)
         if p in creds:
             line=line+"{}/{}{}.{}".format(credpath, args.credset_prefix,p,credsuffix)
+        else:
+            line = line+"{}".format(args.empty_file_path)
         line=line+"\n"
         output_list.append(line)
     #write to file
@@ -45,6 +47,7 @@ if __name__ == "__main__":
     parser.add_argument("--credset-list",type=str,required=True,help="SuSiE credible set list (e.g. output from 'gsutil ls gs://credset_folder'")
     parser.add_argument("--phenotype-prefix",type=str,default="",help="If the phenotypes have a prefix that is not part of the phenotype name, e.g. version number use this flag to include it.")
     parser.add_argument("--credset-prefix",type=str,default="",help="If the credible sets have a prefix that is not part of the phenotype name, e.g. version number use this flag to include it.")
+    parser.add_argument("--empty-file-path",type=str,required=True,help="File path for an empty dummy file in google cloud. Used to fill missing entries.")
     parser.add_argument("--out", type=str, required=True, help="Output file")
     args=parser.parse_args()
     main(args)
