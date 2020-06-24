@@ -46,7 +46,10 @@ def main(args):
         ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols)
     
     #write fetch_df as a file, so that other parts of the script work
-    fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
+    if type(fetch_df) != type(None):
+        fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
+    else:
+        return
     ###########################
     ##########Finemap##########
     ###########################

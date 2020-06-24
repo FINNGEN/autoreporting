@@ -254,6 +254,9 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         if ignore_region:
             ign_idx=( ( cs_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( cs_df[columns["pos"]]<=ignore_region_["end"] )&( cs_df[columns["pos"]]>=ignore_region_["start"] ) )
             cs_df=cs_df.loc[~ign_idx,:]
+        if cs_df.empty:
+            print("The input file {} contains no credible sets. Aborting.".format(gws_fpath))
+            return None
         cs_leads = cs_df.loc[cs_df[["cs_id","cs_prob"]].reset_index().groupby("cs_id").max()["index"],:]
         cs_ranges = cs_leads[[columns["chrom"],columns["pos"]]].copy()
         cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width*1000
@@ -310,6 +313,9 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
         df_p1=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_1,: ].copy()
         df_p2=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_2,: ].copy()
+        if df_p1.empty:
+            print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(gws_fpath,sig_tresh_1))
+            return None
         #grouping
         if group:
             if grouping_method=="ld":
