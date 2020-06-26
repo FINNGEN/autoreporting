@@ -151,6 +151,7 @@ class TestGws(unittest.TestCase):
         data["pos_rmin"]=data["pos"]
         data["cs_id"]=np.nan
         data["cs_prob"]=np.nan
+        data["r2_to_lead"]=np.nan
         sig_tresh_2 = 0.2
         loc_width=1000
         overlap=False

@@ -76,6 +76,10 @@ def load_credsets(fname: str, columns: Dict[str, str]) -> pd.DataFrame:
         idx=group.loc[group["cs_prob"].idxmax(),"cs_number"]
         data.loc[data["credsetid"]==name,"cs_id"] = "{}_{}".format(rsid,idx)
     cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id", "cs_number", "cs_region", "r2_to_lead"]
+    for column in cols:
+        if column not in data.columns:
+            data[column] = np.NaN
+            print("NOTE: CS .snp file {} does not contain data for column {}. Setting it to NA".format(fname, column))
     data=data.loc[:,cols].astype({"cs_number":int,"cs_region":str})
     return data
 
@@ -92,10 +96,15 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
         "cs_size":int,
         "cs_number":int,
         "cs_region":str,
-         "low_purity":bool
+        "low_purity":bool
     }
     cred_columns = list(cred_data_type.keys())
     cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
+    # if the credible set data does not have a certain column, make that NaN (for older data)
+    for column in cred_columns:
+        if column not in cred_data.columns:
+            cred_data[column] = np.NaN
+            print("NOTE: CS .cred file {} does not contain data for column {}. Setting it to NA".format(fname, column))
     return cred_data[cred_columns].astype(cred_data_type)
 
 def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,prefix, ld_api, columns):
@@ -162,7 +171,7 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
     #filter by p-value
-    out_df = pd.DataFrame(columns=list(data.columns)+["r2_to_lead"])
+    out_df = pd.DataFrame(columns=list(data.columns))
     #create df with only lead variants
     leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
     while not leads.empty:
@@ -173,10 +182,15 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
         #create credible set group and ld partner group
         credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
         credible_set= data.loc[data["cs_id"] == credible_id,:].copy()
-        cred_group = credible_set.merge(ld_data,on="#variant",how="left")#contains all variants of this CS, even though LD might be smaller than ld threshold
+        cred_group = credible_set.merge(ld_data,on="#variant",how="left",suffixes = ("","_right"))#contains all variants of this CS, even though LD might be smaller than ld threshold
+        cred_group["r2_to_lead"]=cred_group["r2_to_lead"].fillna(cred_group["r2_to_lead_right"])
+        cred_group = cred_group.drop(columns=["r2_to_lead_right"])
+
         ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=ld_threshold].copy() #filter ld
         group = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
-        group = pd.merge(group,ld_data_filtered,on="#variant",how="left")
+        group = pd.merge(group,ld_data_filtered,on="#variant",how="left", suffixes = ("","_right"))
+        group["r2_to_lead"] = group["r2_to_lead"].fillna(group["r2_to_lead_right"])
+        group = group.drop(columns=["r2_to_lead_right"])
         #concat the two, remove duplicate entries. Entries with cs_id are preferred over entries without cs_id.
         #Though it shouldn't be possible for there to be variants that are both in the credible set and out of it. 
         group=pd.concat([group,cred_group],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
