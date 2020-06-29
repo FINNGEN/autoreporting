@@ -122,6 +122,7 @@ task report{
         for i in range(num_phenos):
             phenotype_name=phenotypes[i]
             call_command=("main.py {} "
+                        "--pheno-name {} "
                         " --sign-treshold {} " 
                         "--alt-sign-treshold {} "
                         "{} "
@@ -153,6 +154,7 @@ task report{
                         "--report-out {}.report.out "
                         "--top-report-out {}.top.out "
                         ).format(summstats[i],
+                            phenotype_name,
                             sign_treshold,
                             alt_sign_treshold,
                             group,

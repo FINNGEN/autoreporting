@@ -102,6 +102,7 @@ task report {
                 efo_cmd="--efo-codes {}".format(efos[pheno_id])
 
         call_command=("main.py {} "
+                    "--pheno-name {} "
                     " --sign-treshold {} " 
                     "--alt-sign-treshold {} "
                     "{} "
@@ -133,6 +134,7 @@ task report {
                     "--report-out {}.report.out "
                     "--top-report-out {}.top.out "
                     ).format(summstat,
+                        pheno_id,
                         sign_treshold,
                         alt_sign_treshold,
                         group,

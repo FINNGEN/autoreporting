@@ -338,6 +338,9 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
     retval = df_replace_value(retval,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
     retval = df_replace_value(retval,"#variant",r'^chrX(.*)',r'chr23\1',regex=True)# NOTE: change 23 back in variant_id
     retval = df_replace_value(retval,"locus_id",r'^chrX(.*)',r'chr23\1',regex=True)
+
+    #add phenotype name
+    retval["phenotype"] = pheno_name
     return retval
     
 if __name__=="__main__":
@@ -359,6 +362,7 @@ if __name__=="__main__":
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
+    parser.add_argument("--pheno-name",dest="pheno_name",type=str,default="",help="Phenotype name")
     args=parser.parse_args()
     columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
@@ -373,5 +377,5 @@ if __name__=="__main__":
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols)
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols,pheno_name=args.pheno_name)
     fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
