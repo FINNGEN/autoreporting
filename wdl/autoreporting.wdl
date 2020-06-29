@@ -50,6 +50,7 @@ task report {
     String extra_columns
     Float strict_group_r2
     String phenoname = basename(phenotype_name,".gz")
+    File phenotype_info_file
 
     command <<<
         python3 <<CODE
@@ -84,6 +85,7 @@ task report {
         custom_dataresource="${custom_dataresource}"
         column_names = "${sep=" " column_names}"
         extra_columns = "${extra_columns}"
+        phenotype_info = "${phenotype_info_file}"
 
         #changing variables
         #summ stat
@@ -125,6 +127,7 @@ task report {
                     "--db {} "
                     "--column-labels {} "
                     "--extra-cols {} "
+                    "--pheno-info-file {} "
                     "{} " #local gwascatalog
                     "{} " #efo
                     "{} " #ignore
@@ -156,6 +159,7 @@ task report {
                         db_choice,
                         column_names,
                         extra_columns,
+                        phenotype_info,
                         local_gwascatalog,
                         efo_cmd,
                         ignore_cmd,
@@ -223,6 +227,7 @@ workflow autoreporting{
     File custom_dataresource
     Array[String] column_names
     String extra_columns
+    File phenotype_info_file
 
     scatter (arr in  input_array ){
         call report {
@@ -255,7 +260,8 @@ workflow autoreporting{
             overlap=overlap, 
             custom_dataresource=custom_dataresource,
             column_names=column_names,
-            extra_columns=extra_columns
+            extra_columns=extra_columns,
+            phenotype_info_file=phenotype_info_file
         }
     }
 

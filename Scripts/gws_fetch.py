@@ -225,7 +225,8 @@ def merge_credset(gws_df,cs_df,fname,columns):
     return merged
 
 def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grouping_method: str, locus_width: int, sig_tresh_2: float,
-                ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess, extra_cols: List[str]):
+                ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess, 
+                extra_cols: List[str], pheno_name: str, pheno_data_file :str):
     """Filter and group variants.
     Args:
         gws_fpath (str): summary statistic filename
@@ -241,7 +242,8 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         ignore_region (str): Region to be ignored in the analysis
         cred_set_file (str): Credible set filename
         ld_api (LDAccess): ld api object 
-        extra_cols (List[str]): Extra columns to include in 
+        extra_cols (List[str]): Extra columns to include in results
+        pheno_name (str): Phenotype name
     Returns:
         (pd.DataFrame): Filtered and grouped variants
     """
@@ -341,6 +343,21 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
 
     #add phenotype name
     retval["phenotype"] = pheno_name
+    #add phenotype data
+    #load phenotype datafile
+    if pheno_data_file != "":
+        pheno_data = pd.read_csv(pheno_data_file,sep="\t")
+        pheno_row = pheno_data[pheno_data["phenocode"] == pheno_name].iloc[0]
+        retval["longname"] = pheno_row["name"]
+        retval["category"] = pheno_row["category"]
+        retval["n_cases"] = pheno_row["num_cases"]
+        retval["n_controls"] = pheno_row["num_controls"]
+    else:
+        retval["longname"] = np.nan
+        retval["category"] = np.nan
+        retval["n_cases"] = np.nan
+        retval["n_controls"] = np.nan
+
     return retval
     
 if __name__=="__main__":
@@ -363,6 +380,7 @@ if __name__=="__main__":
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
     parser.add_argument("--pheno-name",dest="pheno_name",type=str,default="",help="Phenotype name")
+    parser.add_argument("--pheno-info-file",dest="pheno_info_file",type=str,default="",help="Phenotype information file path")
     args=parser.parse_args()
     columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":
@@ -377,5 +395,5 @@ if __name__=="__main__":
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
     fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols,pheno_name=args.pheno_name)
+        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols, pheno_name=args.pheno_name,pheno_data_file =args.pheno_info_file)
     fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")

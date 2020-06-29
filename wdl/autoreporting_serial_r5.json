@@ -29,5 +29,7 @@
     "autoreporting.secondary_grouping_method":"ld",
     "autoreporting.custom_dataresource":"gs://r4_data_west1/autoreporting/custom_dataresource_r4_2020_03_25.tsv",
     "autoreporting.column_names":["#chrom","pos","ref","alt","pval"],
-    "autoreporting.extra_columns":"beta maf maf_cases maf_controls rsids"
+    "autoreporting.extra_columns":"beta maf maf_cases maf_controls rsids",
+    "autoreporting.dummy_file":"gs://misc-analysis/EMPTY_FILE",
+    "autoreporting.phenotype_info_file":"gs://finngen-production-library-green/finngen_R5/finngen_R5_analysis_data/finngen_R5_pheno_n.tsv"
 }
