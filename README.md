@@ -429,7 +429,7 @@ usage: Create a phenotype, summary statistic file, credible set file-array from 
        [--phenotype-prefix PHENOTYPE_PREFIX] [--credset-prefix CREDSET_PREFIX]
        --out OUT
 
-optional arguments:
+arguments:
   -h, --help            show this help message and exit
   --phenotype-list PHENOTYPE_LIST
                         phenotype list (e.g. output from 'gsutil ls
@@ -445,14 +445,52 @@ optional arguments:
                         If the credible sets have a prefix that is not part of
                         the phenotype name, e.g. version number use this flag
                         to include it.
-  --out OUT             Output file
+  --out OUT             Output file, a headerless tsv file
 ```
+#### WDL parameters
 
-## TODO 
+The WDL pipeline parameters are largely the same as the parameters defined for the autoreporting script. Most of these parameters can be left to be the same as in the JSON configuration files available in the folder `wdl/`, with mostly the input array and analysis-specific parameters, such as R^2 threshold for grouping or significance threshold for including variants. All of the parameters are detailed in the table below:
 
-- Determining parameter values
+Parameter   |  Meaning   | Type |   Example   |
+--- | --- | --- | --- |
+autoreporting.input_array_file |  GCS link to the aforementioned input array  |   String   | "gs://r5_data/autoreporting/r5_phenotype_array_2020_03_25.tsv",
+autoreporting.docker |  URL for VM docker image  |   String   |"eu.gcr.io/finngen-refinery-dev/autorep:984100b"
+autoreporting.memory |  VM memory in GB  |   Integer   |20
+autoreporting.phenos_per_worker |  How many phenotypes to process per VM (`report_serial.wdl` only)  |   Integer   | 5
+autoreporting.cpus |   VM CPU count  |   Integer   |4
+autoreporting.gnomad_exome |   GCS link to Gnomad exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz"
+autoreporting.gnomad_genome |   GCS link to Gnomad exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/genomes/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz"
+autoreporting.ld_panel |   GCS link to imputation panel resource (without suffix)   |   String   |"gs://finngen-imputation-panel/sisu3/wgs_all"
+autoreporting.finngen_annotation |   GCS link to FinnGen annotation resource   |   String   |"gs://r5_data/annotations/R5_annotated_variants_v1.gz"
+autoreporting.functional_annotation |   GCS link to functional annotation resource  |   String   |"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz"
+autoreporting.local_gwcatalog |   GCS link to GWAS Catalog resource. Needed if `db_choice` is 'local'  |   String   |"gs://r5_data/autoreporting/gwas_catalog_associations_2020-03-08.tsv"
+autoreporting.db_choice |   Autoreporting Gwas catalog backend. Options: \['local','gwas','summary_stats'\]   |   String   |"local"
+autoreporting.efo_code_file |   GCS link to EFO to FinnGen phenotype mapping file   |   String   |"gs://r4_data_west1/autoreporting/efo_map_na.tsv"
+autoreporting.ignore_region |   Region to ignore from the results   |   String   |"6:23000000-38000000"
+autoreporting.include_batch_freq |   Whether to include batch-specific annotations for INFO scores   |   Boolean   |true
+autoreporting.sign_treshold |   Significance threshold for simple and ld grouping   |   Float   |5e-8
+autoreporting.alt_sign_treshold |   Alternate significance threshold for simple and ld grouping   |    Float  |1e-2
+autoreporting.grouping_locus_width |   Grouping window in kilobases   |   Integer   |2000
+autoreporting.ld_r2 |   R^2 threshold for LD partners   |   Float   |0.1
+autoreporting.plink_memory |   PLINK memory in MB   |   Integer   |17000
+autoreporting.gwascatalog_pval |   GWAS Catalog p-value threshold   |   Float   |5e-8
+autoreporting.gwascatalog_width_kb |   GWAS Catalog padding in kilobases   |   Integer   |25
+autoreporting.gwascatalog_threads |   GWAS Catalog API threads   |   Integer   |8
+autoreporting.strict_group_r2 |   R^2 threshold for strict grouping in case of `ld` grouping   |   Float   |0.5
+autoreporting.group |   Whether to group the variants or not   |   Boolean   |true
+autoreporting.overlap |   Whether variants in a group are allowed to be part of other groups   |   Boolean   |false
+autoreporting.primary_grouping_method |   Primary grouping method, currently only makes sense to be `cred`. Primary grouping is used when the credible set file is available.   |   String   |"cred"
+autoreporting.secondary_grouping_method |   Grouping method to use if credible set file is not available.   |   String   |"ld"
+autoreporting.custom_dataresource |   GCS link to a manually curated dataresource.   |   String   |"gs://r4_data_west1/autoreporting/custom_dataresource_r4_2020_03_25.tsv"
+autoreporting.column_names |   Column names in summary statistic files. Columns are [chromosome, position, reference allele, alternate allele, p-value ]   |   Array\[String\]   |["#chrom","pos","ref","alt","pval"]
+autoreporting.extra_columns |   extra columns to include from summary statistic file than the ones presented in `column_names`, e.g. beta or MAF   |   String   |"beta maf maf_cases maf_controls rsids"
 
-- Running the pipeline
+#### Running the pipeline
+
+After the pipeline inputs are prepared, the next step is running the pipeline. This is easiest done by connecting to a cromwell server ( See instructions in https://github.com/FINNGEN/CROMWELL#access-cromwell-server-and-submit-workflows) or by using other tools for that (e.g. https://github.com/FINNGEN/CromwellInteract). In short, after the input array is created and the configuration JSON file is ready, take the WDL pipeline file and JSON file and send them to the server. The results can be acquired by copying them from the result bucket:
+```
+gsutil -m cp gs://link-to-cromwell-bucket/autoreporting/pipeline_hash/call-report/**/*.out destination_folder/
+``` 
 <!-- 
 The WDL pipeline can be used to run multiple phenotypes as a batch job on a cromwell server. This is very useful for e.g. processing all of the phenotypes in one data release. There are two different pipelines: the autoreporting.wdl is run parallel per phenotype, in that every phenotype gets its own container. This is easy to implement, but due to the large files necessary to run these pipelines (such as the LD panel), the initialization of the containers takes a substantial amount of the total processing time.  
 The autoreporting_partially_serialized.wdl pipeline divides the phenotypes into smaller groups, which are then processed one group per container. This amortizes the time taken in downloading resources between the phenotypes in a group, lowering total machine time required to process all phenotypes, but possibly increasing the total time to process all phenotypes (as the time taken to process all phenotypes is the time of the slowest container). The size of these groups is changeable. The parameters in the json resource file are similarly named as the parameters in the command line.  -->
