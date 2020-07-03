@@ -455,39 +455,39 @@ arguments:
 
 The WDL pipeline parameters are largely the same as the parameters defined for the autoreporting script. Most of these parameters can be left to be the same as in the JSON configuration files available in the folder `wdl/`, with mostly the input array and analysis-specific parameters, such as R² threshold for grouping or significance threshold for including variants. All of the parameters are detailed in the table below:
 
-Parameter   |  Meaning   | Type |   Example   |
---- | --- | --- | --- |
-autoreporting.input_array_file |  GCS (Google Cloud Storage) link to the aforementioned input array  |   String   | "gs://r5_data/autoreporting/r5_phenotype_array_2020_03_25.tsv",
-autoreporting.docker |  URL for VM docker image  |   String   |"eu.gcr.io/finngen-refinery-dev/autorep:984100b"
-autoreporting.memory |  VM memory in GB  |   Integer   |20
-autoreporting.phenos_per_worker |  How many phenotypes to process per VM (`report_serial.wdl` only)  |   Integer   | 5
-autoreporting.cpus |   VM CPU count  |   Integer   |4
-autoreporting.gnomad_exome |   GCS link to gnomAD exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz"
-autoreporting.gnomad_genome |   GCS link to gnomAD exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/genomes/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz"
-autoreporting.ld_panel |   GCS link to imputation panel resource (without suffix)   |   String   |"gs://finngen-imputation-panel/sisu3/wgs_all"
-autoreporting.finngen_annotation |   GCS link to FinnGen annotation resource   |   String   |"gs://r5_data/annotations/R5_annotated_variants_v1.gz"
-autoreporting.functional_annotation |   GCS link to functional annotation resource  |   String   |"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz"
-autoreporting.local_gwcatalog |   GCS link to GWAS catalog resource. Needed if `db_choice` is 'local'  |   String   |"gs://r5_data/autoreporting/gwas_catalog_associations_2020-03-08.tsv"
-autoreporting.db_choice |   Autoreporting GWAS catalog backend. Options: \['local','gwas','summary_stats'\]   |   String   |"local"
-autoreporting.efo_code_file |   GCS link to EFO to FinnGen phenotype mapping file   |   String   |"gs://r4_data_west1/autoreporting/efo_map_na.tsv"
-autoreporting.ignore_region |   Region to ignore from the results   |   String   |"6:23000000-38000000"
-autoreporting.include_batch_freq |   Whether to include batch-specific annotations for INFO scores   |   Boolean   |true
-autoreporting.sign_treshold |   Significance threshold for simple and ld grouping   |   Float   |5e-8
-autoreporting.alt_sign_treshold |   Alternate significance threshold for simple and ld grouping   |    Float  |1e-2
-autoreporting.grouping_locus_width |   Grouping window in kilobases   |   Integer   |2000
-autoreporting.ld_r2 |   R² threshold for LD partners   |   Float   |0.1
-autoreporting.plink_memory |   PLINK memory in MB   |   Integer   |17000
-autoreporting.gwascatalog_pval |   GWAS catalog p-value threshold   |   Float   |5e-8
-autoreporting.gwascatalog_width_kb |   GWAS catalog padding in kilobases   |   Integer   | 25
-autoreporting.gwascatalog_threads |   GWAS catalog API threads   |   Integer   |8
-autoreporting.strict_group_r2 |   R² threshold for strict grouping in case of `ld` grouping   |   Float   | 0.5
-autoreporting.group |   Whether to group the variants or not   |   Boolean   |true
-autoreporting.overlap |   Whether variants in a group are allowed to be part of other groups   |   Boolean   |false
-autoreporting.primary_grouping_method |   Primary grouping method, currently only makes sense to be `cred`. Primary grouping is used when the credible set file is available.   |   String   |"cred"
-autoreporting.secondary_grouping_method |   Grouping method to use if credible set file is not available.   |   String   |"ld"
-autoreporting.custom_dataresource |   GCS link to a manually curated dataresource.   |   String   |"gs://r4_data_west1/autoreporting/custom_dataresource_r4_2020_03_25.tsv"
-autoreporting.column_names |   Column names in summary statistic files. Columns are [chromosome, position, reference allele, alternate allele, p-value ]   |   Array\[String\]   |["#chrom","pos","ref","alt","pval"]
-autoreporting.extra_columns |   Extra columns to include from summary statistic file than the ones presented in `column_names`, e.g. beta or MAF   |   String   |"beta maf maf_cases maf_controls rsids"
+Parameter   |  Meaning   | Type |   Example   | Corresponding script parameter
+--- | --- | --- | --- | ---
+autoreporting.phenos_per_worker |  How many phenotypes to process per VM (`report_serial.wdl` only)  |   Integer   | 5 | -
+autoreporting.input_array_file |  GCS (Google Cloud Storage) link to the aforementioned input array  |   String   | "gs://r5_data/autoreporting/r5_phenotype_array_2020_03_25.tsv", | -
+autoreporting.docker |  URL for VM docker image  |   String   |"eu.gcr.io/finngen-refinery-dev/autorep:984100b" | -
+autoreporting.memory |  VM memory in GB  |   Integer   |20 | -
+autoreporting.cpus |   VM CPU count  |   Integer   |4 | -
+autoreporting.gnomad_exome |   GCS link to gnomAD exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz" | `--gnomad-exome-path`
+autoreporting.gnomad_genome |   GCS link to gnomAD exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/genomes/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz" | `--gnomad-genome-path`
+autoreporting.finngen_annotation |   GCS link to FinnGen annotation resource   |   String   |"gs://r5_data/annotations/R5_annotated_variants_v1.gz" | `--finngen-path`
+autoreporting.functional_annotation |   GCS link to functional annotation resource  |   String   |"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz" | `functional-path`
+autoreporting.ld_panel |   GCS link to imputation panel resource (without suffix)   |   String   |"gs://finngen-imputation-panel/sisu3/wgs_all" | `--ld-panel-path`
+autoreporting.column_names |   Column names in summary statistic files. Columns are [chromosome, position, reference allele, alternate allele, p-value ]   |   Array\[String\]   |["#chrom","pos","ref","alt","pval"] | `--column-labels`
+autoreporting.extra_columns |   Extra columns to include from summary statistic file than the ones presented in `column_names`, e.g. beta or MAF   |   String   |"beta maf maf_cases maf_controls rsids" | `--extra-cols`
+autoreporting.efo_code_file |   GCS link to EFO to FinnGen phenotype mapping file   |   String   |"gs://r4_data_west1/autoreporting/efo_map_na.tsv" | No direct mapping, used for `--efo-codes`
+autoreporting.ignore_region |   Region to ignore from the results   |   String   |"6:23000000-38000000" | `--ignore-region`
+autoreporting.primary_grouping_method |   Primary grouping method, currently only makes sense to be `cred`. Primary grouping is used when the credible set file is available.   |   String   |"cred" | -
+autoreporting.secondary_grouping_method |   Grouping method to use if credible set file is not available.   |   String   |"ld" | -
+autoreporting.group |   Whether to group the variants or not   |   Boolean   |true | `--group`
+autoreporting.overlap |   Whether variants in a group are allowed to be part of other groups   |   Boolean   | false | `--overlap`
+autoreporting.include_batch_freq |   Whether to include batch-specific annotations for INFO scores   |   Boolean   |true | `--include-batch-freq`
+autoreporting.sign_treshold |   Significance threshold for simple and ld grouping   |   Float   |5e-8 | `--sign-treshold`
+autoreporting.alt_sign_treshold |   Alternate significance threshold for simple and ld grouping   |    Float  |1e-2 | `--alt-sign-treshold`
+autoreporting.grouping_locus_width |   Grouping window in kilobases   |   Integer   |2000 | `--locus-width-kb`
+autoreporting.ld_r2 |   R² threshold for LD partners   |   Float   |0.1 | `--ld-r2`
+autoreporting.plink_memory |   PLINK memory in MB   |   Integer   |17000 | `--plink-memory`
+autoreporting.local_gwcatalog |   GCS link to GWAS catalog resource. Needed if `db_choice` is 'local'  |   String   |"gs://r5_data/autoreporting/gwas_catalog_associations_2020-03-08.tsv" | `--local-gwascatalog`
+autoreporting.db_choice |   Autoreporting GWAS catalog backend. Options: \['local','gwas','summary_stats'\]   |   String   |"local" | `--db`
+autoreporting.gwascatalog_pval |   GWAS catalog p-value threshold   |   Float   |5e-8 | `--gwascatalog-pval`
+autoreporting.gwascatalog_width_kb |   GWAS catalog padding in kilobases   |   Integer   | 25 | `--gwascatalog-width-pval`
+autoreporting.gwascatalog_threads |   GWAS catalog API threads   |   Integer   |8 | `--gwasccatalog-threads`
+autoreporting.strict_group_r2 |   R² threshold for strict grouping in case of `ld` grouping   |   Float   | 0.5 | `--strict-group-r2`
+autoreporting.custom_dataresource |   GCS link to a manually curated dataresource.   |   String   |"gs://r4_data_west1/autoreporting/custom_dataresource_r4_2020_03_25.tsv" | `--custom-dataresource`
 
 #### Running the pipeline
 
