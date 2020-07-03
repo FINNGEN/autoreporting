@@ -333,7 +333,7 @@ python3 Scripts/annotate.py $file --prefix $prefix \
         --functional-path $functional_ann \
 ``` 
 
-###  4.2.2.1. <a name='detailedannotate'></a>A detailed description of annotate<span><\span>.py
+###  4.2.2.1. <a name='detailedannotate'></a>A detailed description of annotate<span></span>.py
 
 __input__:  
 annotate_fpath: The output of gws_fetch.py  
@@ -409,7 +409,7 @@ Optionally, genome-wide significant variants can also be tested for LD against d
 ##  5. <a name='Outputs'></a>Outputs
 
 ### Top report
-The `top_report.tsv` file contains the group-level summary of the autoreporting sun. This file is mostly useful as a first step in the analysis of a  phenotype. The file is a tsv file with one row per one credible set/group of variants. The columns are as follows: 
+The `top_report.tsv` file contains the group-level summary of an autoreporting run. This file is mostly useful as a first step in the analysis of a  phenotype. It is a tab-separated file with one row per one credible set/group of variants. The columns are as follows: 
  
 Column  |  Description  |  Example value/Formatting  
 --- | --- | ---
@@ -421,14 +421,14 @@ enrichment | How much the lead variant is enriched in Finnish population compare
 lead_pval | lead variant p-value | `5.01e-7` 
 most_severe_gene | most severe gene of the lead variant | `APOE`  
 most_severe_consequence | most severe consequence of lead variant | `missense_variant` 
-found_associations_strict | This column lists all of the trait associations found in GWAS Catalog for variants that are in the credible set/strict group  (strict group here means that in case of LD grouping, variants that are in higher LD than a given threshold). The trait name is followed by the amount of correlation (in R²) that association had with the lead variant. If there are multiple variants associated with that trait, the largest value is chosen. | `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R^2 of [0.5,0.8] with top SNP. All of the variants associated with a trait are guaranteed to either be part of a credible set (in the case of credible set grouping), or to have LD larger than a given threshold with the top variant (in case of LD grouping).
-found_associations_relaxed | This column lists all of the trait associations found in GWAS Catalog for variants in the group. The trait name is followed  by the R^2 to lead value of the variant that had the association. If there are multiple variants associated with that trait, the largest value is chosen.  |  `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R^2 of [0.5,0.8] with top SNP. All associated variants are guaranteed to be part of this group.  
-credible_set_variants | This column lists the credible set variants. The PIP and R^2 values are listed after the variant | `chr1_1_C_T\|0.6\|1;chr1_100_A_G\|0.2\|0.999` for variants `chr1_1_C_T` and `chr1_100_A_G`, with PIP and R^2 values of [0.6,0.2] and [1,0.999], respectively.
-functional_variants_strict | All of the variants with a functional consequence, with the functional consequence label and R^2 to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R^2 to lead variant of `0.6`. All listed variants are guaranteed to be part of the credible set/strict group. 
-functional_variants_relaxed | All of the variants with a functional consequence, with the functional consequence label and R^2 to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R^2 to lead variant of `0.6`. All listed variants are guaranteed to be part of the group.
+found_associations_strict | This column lists all of the trait associations found in GWAS Catalog for variants that are in the credible set/strict group  (strict group here means that in case of LD grouping, variants that are in higher LD than a given threshold). The trait name is followed by the amount of correlation (in R²) that association had with the lead variant. If there are multiple variants associated with that trait, the largest value is chosen. | `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All of the variants associated with a trait are guaranteed to either be part of a credible set (in the case of credible set grouping), or to have LD larger than a given threshold with the top variant (in case of LD grouping).
+found_associations_relaxed | This column lists all of the trait associations found in GWAS Catalog for variants in the group. The trait name is followed  by the R² to lead value of the variant that had the association. If there are multiple variants associated with that trait, the largest value is chosen.  |  `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All associated variants are guaranteed to be part of this group.  
+credible_set_variants | This column lists the credible set variants. The PIP and R² values are listed after the variant | `chr1_1_C_T\|0.6\|1;chr1_100_A_G\|0.2\|0.999` for variants `chr1_1_C_T` and `chr1_100_A_G`, with PIP and R² values of [0.6,0.2] and [1,0.999], respectively.
+functional_variants_strict | All of the variants with a functional consequence, with the functional consequence label and R² to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the credible set/strict group. 
+functional_variants_relaxed | All of the variants with a functional consequence, with the functional consequence label and R² to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the group.
 specific_efo_trait_associations_strict | If specific traits were given to the script(e.g. equivalent EFO codes to the phenotype in question), any trait associations correspoding to those traits are listed here. This column lists only associations where the variant is in the credible set/strict group.| Same formatting as found_associations_strict 
 specific_efo_trait_associations_relaxed | If specific traits were given to the script(e.g. equivalent EFO codes to the phenotype in question), any trait associations correspoding to those traits are listed here. This column lists associations to all variants in the group. |  Same formatting as found_associations_relaxed
-credible_set_min_r2_value | The minimum R^2 value to lead variant in the credible set | `0.489`
+credible_set_min_r2_value | The minimum R² value to lead variant in the credible set | `0.489`
 
 
 ##  6. <a name='WDLpipeline'></a>WDL pipeline
