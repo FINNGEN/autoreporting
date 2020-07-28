@@ -453,7 +453,7 @@ arguments:
 ```
 #### WDL parameters
 
-The WDL pipeline parameters are largely the same as the parameters defined for the autoreporting script. Most of these parameters can be left to be the same as in the JSON configuration files available in the folder `wdl/`, with mostly the input array and analysis-specific parameters, such as R² threshold for grouping or significance threshold for including variants. All of the parameters are detailed in the table below:
+The WDL pipeline parameters are largely the same as the parameters defined for the autoreporting script. Most of these parameters can be left to be the same as in the JSON configuration files available in the folder `wdl/`, with mostly the input array and analysis-specific parameters, such as R² threshold for grouping (`autoreporting.ld_r2`) or significance threshold for including variants (`autoreporting.sign_treshold`). All of the parameters are detailed in the table below:
 
 Parameter   |  Meaning   | Type |   Example   | Corresponding script parameter
 --- | --- | --- | --- | ---
