@@ -17,9 +17,10 @@
             * 4.2.2.1. [A detailed description of annotate](#detailedannotate)  
         * 4.2.3. [compare<span></span>.py:](#comparespanspanpy)  
             * 4.2.3.1. [A detailed description of compare](#detailedcompare)  
-* 5. [WDL pipeline](#WDLpipeline)  
-    * 5.1. [WDL files](#wdlinputs)  
-    * 5.2. [Running the pipeline](#wdlrun)    
+* 5. [Outputs](#Outputs)  
+* 6. [WDL pipeline](#WDLpipeline)  
+    * 6.1. [WDL files](#wdlinputs)  
+    * 6.2. [Running the pipeline](#wdlrun)    
 
 
 <!-- vscode-markdown-toc-config
@@ -332,7 +333,7 @@ python3 Scripts/annotate.py $file --prefix $prefix \
         --functional-path $functional_ann \
 ``` 
 
-###  4.2.2.1. <a name='detailedannotate'></a>A detailed description of annotate<span><\span>.py
+###  4.2.2.1. <a name='detailedannotate'></a>A detailed description of annotate<span></span>.py
 
 __input__:  
 annotate_fpath: The output of gws_fetch.py  
@@ -405,15 +406,41 @@ The GWAS Catalog API access can be controlled using parameters ```--gwascatalog-
 Optionally, genome-wide significant variants can also be tested for LD against database associations using the flag ```--check-for-ld```. Variants for which the ld value is larger than `--ld-treshold` value are reported. Same parameters that were used in gws_fetch.py, like ```--plink-memory``` and ```--ld-panel-path``` need to be used. However, these results are not incorporated to the top report.
 
 
-##  5. <a name='WDLpipeline'></a>WDL pipeline
+##  5. <a name='Outputs'></a>Outputs
+
+### Top report
+The `top_report.tsv` file contains the group-level summary of an autoreporting run. This file is mostly useful as a first step in the analysis of a  phenotype. It is a tab-separated file with one row per one credible set/group of variants. The columns are as follows: 
+ 
+Column  |  Description  |  Example value/Formatting  
+--- | --- | ---
+locus_id | The locus in question, formatted from the top SNP's chromosome, position, reference and alternate alleles. In case of credible set grouping, the top SNP is the variant with the  largest PIP in thta credible set. In case of LD and simple grouping, tthe top SNP is the variant with smallest p-value of that group/region. Most if not all release results are grouped around credible sets.| `chr1_1_C_T` for a lead variant with chromosome 1, position 1, reference allele C and alternate  allele T.  
+chr | chromosome of locus | `1`  
+start | locus start position in basepairs | `1` for a group with positions [1,2,3,4,5] 
+end | locus end position in basepairs | `5` for a group with positions [1,2,3,4,5] 
+enrichment | How much the lead variant is enriched in Finnish population compared to other Europe (data from Gnomad) | `4.35` 
+lead_pval | lead variant p-value | `5.01e-7` 
+most_severe_gene | most severe gene of the lead variant | `APOE`  
+most_severe_consequence | most severe consequence of lead variant | `missense_variant` 
+found_associations_strict | This column lists all of the trait associations found in GWAS Catalog for variants that are in the credible set/strict group  (strict group here means that in case of LD grouping, variants that are in higher LD than a given threshold). The trait name is followed by the amount of correlation (in R²) that association had with the lead variant. If there are multiple variants associated with that trait, the largest value is chosen. | `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All of the variants associated with a trait are guaranteed to either be part of a credible set (in the case of credible set grouping), or to have LD larger than a given threshold with the top variant (in case of LD grouping).
+found_associations_relaxed | This column lists all of the trait associations found in GWAS Catalog for variants in the group. The trait name is followed  by the R² to lead value of the variant that had the association. If there are multiple variants associated with that trait, the largest value is chosen.  |  `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All associated variants are guaranteed to be part of this group.  
+credible_set_variants | This column lists the credible set variants. The PIP and R² values are listed after the variant | `chr1_1_C_T\|0.6\|1;chr1_100_A_G\|0.2\|0.999` for variants `chr1_1_C_T` and `chr1_100_A_G`, with PIP and R² values of [0.6,0.2] and [1,0.999], respectively.
+functional_variants_strict | All of the variants with a functional consequence, with the functional consequence label and R² to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the credible set/strict group. 
+functional_variants_relaxed | All of the variants with a functional consequence, with the functional consequence label and R² to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the group.
+specific_efo_trait_associations_strict | If specific traits were given to the script(e.g. equivalent EFO codes to the phenotype in question), any trait associations correspoding to those traits are listed here. This column lists only associations where the variant is in the credible set/strict group.| Same formatting as found_associations_strict 
+specific_efo_trait_associations_relaxed | If specific traits were given to the script(e.g. equivalent EFO codes to the phenotype in question), any trait associations correspoding to those traits are listed here. This column lists associations to all variants in the group. |  Same formatting as found_associations_relaxed
+credible_set_min_r2_value | The minimum R² value to lead variant in the credible set | `0.489`
+
+
+##  6. <a name='WDLpipeline'></a>WDL pipeline
 
 The WDL pipeline can be used to run a set of phenotypes as a batch job on a Cromwell server. There are two pipelines to choose from:   
 - The ```autoreporting.wdl``` pipeline assigns a container for each phenotype, which creates a lot of overhead per phenotype. 
 - The ```report_serial.wdl``` pipeline groups multiple phenotypes per one container, and therefore reduces the overhead per phenotype. This is mostly useful when the amount of phenotypes to process is very large, for example when running the pipeline for a whole release. This also means that running the pipeline requires more time, with the time multiplier being approximately the same as the number of phenotypes processed on one VM.
 
+
 Choose the `autoreporting.wdl` pipeline for smaller runs that you need to get quickly, and `report_serial.wdl` for runs that are large and not as urgent.
 
-### 5.1 <a name='wdlinputs'></a> WDL Files
+### 6.1 <a name='wdlinputs'></a> WDL Files
 
 The WDL pipeline requires an input JSON file to work correctly. Example input files can be found in the `wdl` folder. The files are named like so:  
 `autoreporting_$PIPELINE_$RELEASE.json`, where the `$PIPELINE` and `$RELEASE` keywords are determined based on what pipeline and data release those files correspond to. The `serial` keyword corresponds to the `report_serial.wdl` pipeline, and the `completely_parallel` keyword corresponds to the `autoreporting.wdl` pipeline. For the releases, the only difference is in annotation resources. 
@@ -422,7 +449,7 @@ For smaller runs of the pipeline, I suggest running the `autoreporting.wdl` pipe
 
 The only difference between the parallel and serial JSON files is that the `autoreporting_serial_r4.json` and `autoreporting_serial_r5.json` files have an extra parameter, named `phenos_per_worker`, which determines how many phenotypes one worker machine processes. For example, if there are 1000 phenotypes and the `phenos_per_worker` parameter is set to 10, the cromwell job will spawn 100 worker machines, not 1000 worker machines like the `autoreporting.wdl` pipeline would.
 
-### 5.2 <a name='wdlrun'></a> Running the pipeline
+### 6.2 <a name='wdlrun'></a> Running the pipeline
 
 #### Preparing inputs
 The main input for the pipeline is an input array consisting of a phenotype name, a summary statistic file path (to a google cloud bucket), and an optional SUSIE fine-mapping file. This input array is formatted as a tab-separated headerless file. You can prepare this file by hand, or if you already have a list of summary statistics and fine-mapping results, you can use the helper script `Scripts/wdl_processing_scripts/pheno_credset_array.py`. This helper script matches your summary statistic files and fine-mapping results, assuming they are named similarly.
