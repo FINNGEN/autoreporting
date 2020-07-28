@@ -19,7 +19,7 @@
             * 4.2.3.1. [A detailed description of compare](#detailedcompare)  
 * 5. [Outputs](#Outputs)  
 * 6. [WDL pipeline](#WDLpipeline)  
-    * 6.1. [Input files](#wdlinputs)  
+    * 6.1. [WDL files](#wdlinputs)  
     * 6.2. [Running the pipeline](#wdlrun)    
 
 
@@ -433,15 +433,95 @@ credible_set_min_r2_value | The minimum R² value to lead variant in the credibl
 
 ##  6. <a name='WDLpipeline'></a>WDL pipeline
 
-The WDL pipeline can be used to run a set of phenotypes as a batch job on a Cromwell server. There are two pipelines to choose from: the ```autoreporting.wdl``` pipeline assigns a container for each phenotype, which creates a lot of overhead per phenotype. The ```report_serial.wdl``` pipeline groups multiple phenotypes per one container, and therefore reduces the overhead per phenotype. This is mostly useful when the amount of phenotypes to process is very large, for example when running the pipeline for a whole release.
+The WDL pipeline can be used to run a set of phenotypes as a batch job on a Cromwell server. There are two pipelines to choose from:   
+- The ```autoreporting.wdl``` pipeline assigns a container for each phenotype, which creates a lot of overhead per phenotype. 
+- The ```report_serial.wdl``` pipeline groups multiple phenotypes per one container, and therefore reduces the overhead per phenotype. This is mostly useful when the amount of phenotypes to process is very large, for example when running the pipeline for a whole release. This also means that running the pipeline requires more time, with the time multiplier being approximately the same as the number of phenotypes processed on one VM.
 
-### 6.1 <a name='wdlinputs'></a> Input Files
 
-TODO
+Choose the `autoreporting.wdl` pipeline for smaller runs that you need to get quickly, and `report_serial.wdl` for runs that are large and not as urgent.
+
+### 6.1 <a name='wdlinputs'></a> WDL Files
+
+The WDL pipeline requires an input JSON file to work correctly. Example input files can be found in the `wdl` folder. The files are named like so:  
+`autoreporting_$PIPELINE_$RELEASE.json`, where the `$PIPELINE` and `$RELEASE` keywords are determined based on what pipeline and data release those files correspond to. The `serial` keyword corresponds to the `report_serial.wdl` pipeline, and the `completely_parallel` keyword corresponds to the `autoreporting.wdl` pipeline. For the releases, the only difference is in annotation resources. 
+
+For smaller runs of the pipeline, I suggest running the `autoreporting.wdl` pipeline with a JSON file based on one of the `autoreportng_completely_parallel` files. For larger datasets, e.g over 500 phenotypes, it might be preferable to run the `report_serial.wdl` pipeline, that calculates results for multiple phenotypes on a single worker machine. For full releases, currently the only possibility is to use the `report_serial.wdl` pipeline.
+
+The only difference between the parallel and serial JSON files is that the `autoreporting_serial_r4.json` and `autoreporting_serial_r5.json` files have an extra parameter, named `phenos_per_worker`, which determines how many phenotypes one worker machine processes. For example, if there are 1000 phenotypes and the `phenos_per_worker` parameter is set to 10, the cromwell job will spawn 100 worker machines, not 1000 worker machines like the `autoreporting.wdl` pipeline would.
 
 ### 6.2 <a name='wdlrun'></a> Running the pipeline
 
-TODO
+#### Preparing inputs
+The main input for the pipeline is an input array consisting of a phenotype name, a summary statistic file path (to a google cloud bucket), and an optional SUSIE fine-mapping file. This input array is formatted as a tab-separated headerless file. You can prepare this file by hand, or if you already have a list of summary statistics and fine-mapping results, you can use the helper script `Scripts/wdl_processing_scripts/pheno_credset_array.py`. This helper script matches your summary statistic files and fine-mapping results, assuming they are named similarly.
+
+```
+usage: Create a phenotype, summary statistic file, credible set file-array from two file list files
+       [-h] --phenotype-list PHENOTYPE_LIST --credset-list CREDSET_LIST
+       [--phenotype-prefix PHENOTYPE_PREFIX] [--credset-prefix CREDSET_PREFIX]
+       --out OUT
+
+arguments:
+  -h, --help            show this help message and exit
+  --phenotype-list PHENOTYPE_LIST
+                        phenotype list (e.g. output from 'gsutil ls
+                        gs://pheno_folder/*.gz'
+  --credset-list CREDSET_LIST
+                        SuSiE credible set list (e.g. output from 'gsutil ls
+                        gs://credset_folder'. NOTE: use only the SUSIE.snp.bgz-files.
+  --phenotype-prefix PHENOTYPE_PREFIX
+                        If the phenotypes have a prefix that is not part of
+                        the phenotype name, e.g. version number use this flag
+                        to include it.
+  --credset-prefix CREDSET_PREFIX
+                        If the credible sets have a prefix that is not part of
+                        the phenotype name, e.g. version number use this flag
+                        to include it.
+  --out OUT             Output file, a headerless tsv file
+```
+#### WDL parameters
+
+The WDL pipeline parameters are largely the same as the parameters defined for the autoreporting script. Most of these parameters can be left to be the same as in the JSON configuration files available in the folder `wdl/`, with mostly the input array and analysis-specific parameters, such as R² threshold for grouping (`autoreporting.ld_r2`) or significance threshold for including variants (`autoreporting.sign_treshold`). All of the parameters are detailed in the table below:
+
+Parameter   |  Meaning   | Type |   Example   | Corresponding script parameter
+--- | --- | --- | --- | ---
+autoreporting.phenos_per_worker |  How many phenotypes to process per VM (`report_serial.wdl` only)  |   Integer   | 5 | -
+autoreporting.input_array_file |  GCS (Google Cloud Storage) link to the aforementioned input array  |   String   | "gs://r5_data/autoreporting/r5_phenotype_array_2020_03_25.tsv", | -
+autoreporting.docker |  URL for VM docker image  |   String   |"eu.gcr.io/finngen-refinery-dev/autorep:984100b" | -
+autoreporting.memory |  VM memory in GB  |   Integer   |20 | -
+autoreporting.cpus |   VM CPU count  |   Integer   |4 | -
+autoreporting.gnomad_exome |   GCS link to gnomAD exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz" | `--gnomad-exome-path`
+autoreporting.gnomad_genome |   GCS link to gnomAD exome resource   |   String   |"gs://fg-datateam-analysisteam-share/gnomad/2.1/genomes/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz" | `--gnomad-genome-path`
+autoreporting.finngen_annotation |   GCS link to FinnGen annotation resource   |   String   |"gs://r5_data/annotations/R5_annotated_variants_v1.gz" | `--finngen-path`
+autoreporting.functional_annotation |   GCS link to functional annotation resource  |   String   |"gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz" | `functional-path`
+autoreporting.ld_panel |   GCS link to imputation panel resource (without suffix)   |   String   |"gs://finngen-imputation-panel/sisu3/wgs_all" | `--ld-panel-path`
+autoreporting.column_names |   Column names in summary statistic files. Columns are [chromosome, position, reference allele, alternate allele, p-value ]   |   Array\[String\]   |["#chrom","pos","ref","alt","pval"] | `--column-labels`
+autoreporting.extra_columns |   Extra columns to include from summary statistic file than the ones presented in `column_names`, e.g. beta or MAF   |   String   |"beta maf maf_cases maf_controls rsids" | `--extra-cols`
+autoreporting.efo_code_file |   GCS link to EFO to FinnGen phenotype mapping file   |   String   |"gs://r4_data_west1/autoreporting/efo_map_na.tsv" | No direct mapping, used for `--efo-codes`
+autoreporting.ignore_region |   Region to ignore from the results   |   String   |"6:23000000-38000000" | `--ignore-region`
+autoreporting.primary_grouping_method |   Primary grouping method, currently only makes sense to be `cred`. Primary grouping is used when the credible set file is available.   |   String   |"cred" | -
+autoreporting.secondary_grouping_method |   Grouping method to use if credible set file is not available.   |   String   |"ld" | -
+autoreporting.group |   Whether to group the variants or not   |   Boolean   |true | `--group`
+autoreporting.overlap |   Whether variants in a group are allowed to be part of other groups   |   Boolean   | false | `--overlap`
+autoreporting.include_batch_freq |   Whether to include batch-specific annotations for INFO scores   |   Boolean   |true | `--include-batch-freq`
+autoreporting.sign_treshold |   Significance threshold for simple and ld grouping   |   Float   |5e-8 | `--sign-treshold`
+autoreporting.alt_sign_treshold |   Alternate significance threshold for simple and ld grouping   |    Float  |1e-2 | `--alt-sign-treshold`
+autoreporting.grouping_locus_width |   Grouping window in kilobases   |   Integer   |2000 | `--locus-width-kb`
+autoreporting.ld_r2 |   R² threshold for LD partners   |   Float   |0.1 | `--ld-r2`
+autoreporting.plink_memory |   PLINK memory in MB   |   Integer   |17000 | `--plink-memory`
+autoreporting.local_gwcatalog |   GCS link to GWAS catalog resource. Needed if `db_choice` is 'local'  |   String   |"gs://r5_data/autoreporting/gwas_catalog_associations_2020-03-08.tsv" | `--local-gwascatalog`
+autoreporting.db_choice |   Autoreporting GWAS catalog backend. Options: \['local','gwas','summary_stats'\]   |   String   |"local" | `--db`
+autoreporting.gwascatalog_pval |   GWAS catalog p-value threshold   |   Float   |5e-8 | `--gwascatalog-pval`
+autoreporting.gwascatalog_width_kb |   GWAS catalog padding in kilobases   |   Integer   | 25 | `--gwascatalog-width-pval`
+autoreporting.gwascatalog_threads |   GWAS catalog API threads   |   Integer   |8 | `--gwasccatalog-threads`
+autoreporting.strict_group_r2 |   R² threshold for strict grouping in case of `ld` grouping   |   Float   | 0.5 | `--strict-group-r2`
+autoreporting.custom_dataresource |   GCS link to a manually curated dataresource.   |   String   |"gs://r4_data_west1/autoreporting/custom_dataresource_r4_2020_03_25.tsv" | `--custom-dataresource`
+
+#### Running the pipeline
+
+After the pipeline inputs are prepared, the next step is running the pipeline. This is easiest done by connecting to a cromwell server ( See instructions in https://github.com/FINNGEN/CROMWELL#access-cromwell-server-and-submit-workflows) or by using other tools for that (e.g. https://github.com/FINNGEN/CromwellInteract). In short, after the input array is created and the configuration JSON file is ready, take the WDL pipeline file and JSON file and send them to the server. The results can be acquired by copying them from the result bucket:
+```
+gsutil -m cp gs://[link-to-cromwell-bucket]/autoreporting/[pipeline hash]/call-report/**/*.out [destination_folder]/
+``` 
 <!-- 
 The WDL pipeline can be used to run multiple phenotypes as a batch job on a cromwell server. This is very useful for e.g. processing all of the phenotypes in one data release. There are two different pipelines: the autoreporting.wdl is run parallel per phenotype, in that every phenotype gets its own container. This is easy to implement, but due to the large files necessary to run these pipelines (such as the LD panel), the initialization of the containers takes a substantial amount of the total processing time.  
 The autoreporting_partially_serialized.wdl pipeline divides the phenotypes into smaller groups, which are then processed one group per container. This amortizes the time taken in downloading resources between the phenotypes in a group, lowering total machine time required to process all phenotypes, but possibly increasing the total time to process all phenotypes (as the time taken to process all phenotypes is the time of the slowest container). The size of these groups is changeable. The parameters in the json resource file are similarly named as the parameters in the command line.  -->
