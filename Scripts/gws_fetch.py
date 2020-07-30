@@ -244,6 +244,7 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         ld_api (LDAccess): ld api object 
         extra_cols (List[str]): Extra columns to include in results
         pheno_name (str): Phenotype name
+        pheno_data_file (str): Phenotype info file
     Returns:
         (pd.DataFrame): Filtered and grouped variants
     """
