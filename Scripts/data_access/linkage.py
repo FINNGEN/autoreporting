@@ -1,10 +1,10 @@
 import abc
 import argparse,shlex,subprocess, glob, time
 from subprocess import Popen, PIPE
-from typing import List, Text, Dict,Any
+from typing import List, Text, Dict,Any, Optional
 import pandas as pd, numpy as np
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
-from data_access.db import LDAccess
+from data_access.db import LDAccess, LDData, LDInput
 
 
 class OnlineLD(LDAccess):
@@ -15,7 +15,9 @@ class OnlineLD(LDAccess):
         parsed_variant="chr{}".format( variant.replace(":","_"))
         return parsed_variant
 
-    def __get_range(self, chrom,pos,ref,alt,window,ld_threshold = None):
+    def __get_range(self, chrom, pos, ref, alt, window, ld_threshold=None) -> List[LDData]:
+        """Get LD data for a range around one variant
+        """
         window = max(min(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
         variant="{}:{}:{}:{}".format(chrom, pos, ref, alt)
         params={"variant":variant,"panel":"sisu3","variant":variant,"window":window}
@@ -25,35 +27,30 @@ class OnlineLD(LDAccess):
             data=try_request("GET",url=self.url,params=params)
         except ResourceNotFound as e:
             print("LD data not found (status code {}) with url {} and params {}.".format(e.parameters["status_code"],self.url,params) )
-            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
+            return None
         except ResponseFailure as e:
             print("Error with request.")
             print(e)
-            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
+            return None
         #parse data
         ld_data=data.json()["ld"]
-        ld_data=pd.DataFrame(ld_data)
-        if ld_data.empty:
-            return pd.DataFrame(columns=["variation1", "variation2", "r2"])
-        ld_data=ld_data[ ["variation1", "variation2", "r2"] ]
-        ld_data=ld_data.append({"variation1":variant,"variation2":variant,"r2":1.00},ignore_index=True)
-        return ld_data
+        ld_out=[]
+        for d in ld_data:
+            v1 = d["variation1"]
+            v2 = d["variation2"]
+            r2 = float(d["r2"])
+            c1 = v1.split(":")[0]
+            c2 = v2.split(":")[0]
+            p1 = int(v1.split(":")[1])
+            p2 = int(v2.split(":")[1])
+            ld_out.append(LDData(v1, v2, c1, c2, p1, p2, r2))
+        return ld_out
 
-    def get_ranges(self, variants, window,ld_threshold = None):
-        data=variants[ [ "chr", "pos", "ref", "alt" ] ]
-        ld_data=pd.DataFrame()
-        for idx, row in variants.iterrows():
-            variant_ld = self.__get_range(row["chr"],row["pos"],row["ref"],row["alt"],window*2,ld_threshold)
-            ld_data=pd.concat([ld_data,variant_ld],ignore_index=True,sort=False)
-        ld_data["variant_1"] = ld_data["variation1"].apply(self.__parse_variant)
-        ld_data["variant_2"] = ld_data["variation2"].apply(self.__parse_variant)
-        ld_data["chrom_1"] = ld_data["variation1"].apply(lambda x: x.split(":")[0])
-        ld_data["pos_1"] = ld_data["variation1"].apply(lambda x: x.split(":")[1])
-        ld_data["chrom_2"] = ld_data["variation2"].apply(lambda x: x.split(":")[0])
-        ld_data["pos_2"] = ld_data["variation2"].apply(lambda x: x.split(":")[1])
-        ld_data=ld_data.astype(dtype={"pos_1":int,"pos_2":int,"r2":float})
-        returncolumns=["chrom_1","pos_1","variant_1","chrom_2","pos_2","variant_2","r2"]
-        ld_data=ld_data[returncolumns]
+    def get_ranges(self, variants: List[LDInput], window: int, ld_threshold: Optional[float]=None) -> List[LDData]:
+        ld_data=[]
+        for v in variants:
+            variant_ld = self.__get_range(v.chrom,v.pos,v.ref,v.alt,window*2,ld_threshold)
+            ld_data=ld_data + variant_ld
         return ld_data
 
 
@@ -62,26 +59,30 @@ class PlinkLD(LDAccess):
         self.path=path
         self.memory=memory
 
-    def get_ranges(self, variants, window, ld_threshold = None):
+    def get_ranges(self, variants: List[LDInput], window: int, ld_threshold: Optional[float]=None) -> List[LDData]:
         if not ld_threshold:
             ld_threshold = 0.0
         #remove duplicates of variants, because PLINK errors with that
-        variants = variants.drop_duplicates(subset=["#variant"])
-        #assume columns are: [chrom, pos, ref, alt,#variant], and window is int
+        nodups = sorted(set(variants))
+        #get chromosomes, order variants under them
+        chroms = sorted(set([a.chrom for a in variants]))
+        chromdict={}
+        for c in chroms:
+            chromdict[c] = [var for var in nodups if var.chrom == c]
         ld_data=pd.DataFrame()
-        chromosomes = variants["chr"].unique()
-        r=window//1000
-        for chrom in chromosomes:
-            chrom_variants = variants.loc[variants["chr"] == chrom,"#variant" ].copy()
-            plink_prefix = "plink{}{}".format(chrom,chrom_variants.shape[0])
+        r_kb=window//1000
+        for chromosome, variants in chromdict.items():
+            var_df = pd.DataFrame(variants)
+            var_df=var_df["variant"]
+            plink_prefix = "plink{}{}".format(chromosome,len(variants))
             plink_name="{}_variants".format(plink_prefix)
-            chrom_variants.to_csv(plink_name,sep="\t",index=False, header=False)
+            var_df.to_csv(plink_name,sep="\t",index=False, header=False)
             plink_cmd="plink --allow-extra-chr --chr {} --bfile {} --r2 --ld-snp-list {} --ld-window-r2 {} --ld-window-kb {} --ld-window 100000 --out {} --memory {}".format(
-                chrom,
+                chromosome,
                 self.path,
                 plink_name,
                 ld_threshold,
-                r,
+                r_kb,
                 plink_prefix,
                 self.memory
             )
@@ -90,7 +91,7 @@ class PlinkLD(LDAccess):
             plink_log = pr.stdout.readlines()
             if pr.returncode != 0:
                 if any([ True for a in plink_log if "Error: No valid variants specified by --ld-snp/--ld-snps/--ld-snp-list." in a]):
-                    print("PLINK FAILURE. Variants not found in LD panel for chromosome {}".format(chrom))     
+                    print("PLINK FAILURE. Variants not found in LD panel for chromosome {}".format(chromosome))
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
                 print(*plink_log, sep="\n")
                 #raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
@@ -101,6 +102,15 @@ class PlinkLD(LDAccess):
             plink_files = glob.glob( "{}.*".format(plink_prefix) )
             subprocess.call(shlex.split(cleanup_cmd)+plink_files, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if ld_data.empty:
-            return pd.DataFrame(columns=["variant_1","pos_1","chrom_1","variant_2","pos_2","chrom_2","r2"])
-        ld_data=ld_data.rename(columns={"SNP_A":"variant_1","BP_A":"pos_1","CHR_A":"chrom_1","SNP_B":"variant_2","BP_B":"pos_2","CHR_B":"chrom_2","R2":"r2"})
-        return ld_data.astype({"pos_1":int,"pos_2":int,"r2":float})
+            return []
+        ld_data = ld_data.astype({"BP_A":int,"BP_B":int,"R2":float})
+        #convert to List[LDData]
+        ld_data=ld_data.to_dict('records')
+        ld_data = [LDData(variant1=d['SNP_A'],
+                          variant2=d['SNP_B'],
+                          chrom1=d['CHR_A'],
+                          chrom2=d['CHR_B'],
+                          pos1=d['BP_A'],
+                          pos2=d['BP_B'],
+                          r2=d['R2']) for d in ld_data]
+        return ld_data

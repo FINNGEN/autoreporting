@@ -7,7 +7,7 @@ import pandas as pd, numpy as np
 import tabix
 from typing import Dict, List
 from autoreporting_utils import *
-from data_access.linkage import PlinkLD, OnlineLD
+from data_access.linkage import PlinkLD, OnlineLD, LDInput, LDData
 from data_access.db import LDAccess
 
 def parse_region(region):
@@ -77,16 +77,20 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     all_variants=df_p2.copy()
     group_leads = df_p1.copy()
     ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
-    ld_data = ld_api.get_ranges(ld_ranges,locus_width*1000,ld_treshold)
-    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],ld_data,how="inner",left_on="#variant",right_on="variant_2" )
-    ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
+    ld_ = []
+    for idx, row in ld_ranges.iterrows():
+        ld_.append( LDInput(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
+    ld_data=ld_api.get_ranges(ld_,locus_width*1000, ld_treshold)
+    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','variant2','chrom1','chrom2','pos1','pos2','r2'])
+    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],all_lead_ld_data,how="inner",left_on="#variant",right_on="variant2" )
+    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2"])
     ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
     out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
     #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
     #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
     while not group_leads.empty:
         lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
-        ld_data = ld_df.loc[ld_df["variant_1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
+        ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         group = all_variants[all_variants["#variant"].isin(ld_data["#variant"]) ].copy()
         group= pd.merge(group,ld_data,on="#variant",how="left")
         grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
@@ -128,10 +132,14 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
         return pd.DataFrame(columns=df.columns)
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
     ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
-    all_lead_ld_data=ld_api.get_ranges(ld_ranges,locus_range*1000)
+    ld_ = []
+    for idx, row in ld_ranges.iterrows():
+        ld_.append( LDInput(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
+    ld_data=ld_api.get_ranges(ld_,locus_range*1000)
+    all_lead_ld_data=pd.DataFrame(ld_data )
     #join
-    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant_2") #does include all of the lead variants as well
-    ld_df=ld_df.drop(columns=["chrom_2","pos_2","variant_2"])
+    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant2") #does include all of the lead variants as well
+    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2"])
     #filter by p-value
     out_df = pd.DataFrame(columns=list(data.columns)+["r2_to_lead"])
     #create df with only lead variants
@@ -139,7 +147,7 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     while not leads.empty:
         #get lead variant and ld data
         lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"] #choose the lead variant with smallest p-value
-        ld_data = ld_df.loc[ld_df["variant_1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
+        ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         
         #create credible set group and ld partner group
         credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
