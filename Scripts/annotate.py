@@ -39,6 +39,33 @@ def create_rename_dict(list_of_names, prefix):
         d[value]="{}{}".format(prefix,value)
     return d
 
+def previous_release_annotate(fpath: str, df: pd.DataFrame, columns: Dict[str,str]) -> pd.DataFrame:
+    """Create the previous release annotation
+    Args:
+        fpath (str): filepath to the previous release summary statistic
+        df (pd.DataFrame): Variant dataframe
+        columns (Dict[str,str]): column dictionary
+    Returns:
+        (pd.DataFrame): Dataframe with columns [#variant, beta_previous_release, pval_previous_release]
+    """
+    previous_cols = [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "beta_previous_release", "pval_previous_release"]
+    if fpath == "":
+        return pd.DataFrame(columns = ["#variant","beta_previous_release", "pval_previous_release"])
+    else:
+        if not os.path.exists("{}.tbi".format(fpath)):
+            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(fpath))
+         
+        previous_df = load_tb_df(df,fpath, chrom_prefix="", na_value="", columns=columns)
+        previous_df = previous_df.rename(columns={"beta":"beta_previous_release","pval":"pval_previous_release"})
+        previous_df = previous_df[previous_cols]
+    
+    if not previous_df.empty:
+        previous_df = previous_df.drop_duplicates(subset=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]])
+        previous_df["#variant"] = create_variant_column(previous_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]] 
+    return previous_df
+
+
 def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, batch_freq: bool, finngen_path: str, functional_path: str, previous_release_path: str ,prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
     """
     Annotates variants with allele frequencies, enrichment numbers, and most severe gene/consequence data
@@ -110,16 +137,7 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
 
 
     #load previous release annotations
-    previous_cols = [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "beta_previous_release", "pval_previous_release"]
-    if previous_release_path == "":
-        previous_df = pd.DataFrame(columns = ["#variant","beta_previous_release", "pval_previous_release"])
-    else:
-        if not os.path.exists("{}.tbi".format(previous_release_path)):
-            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(previous_release_path))
-         
-        previous_df = load_tb_df(call_df_x,previous_release_path, chrom_prefix="", na_value="", columns=columns)
-        previous_df = previous_df.rename(columns={"beta":"beta_previous_release","pval":"pval_previous_release"})
-        previous_df = previous_df[previous_cols]
+    previous_df = previous_release_annotate(previous_release_path,call_df_x,columns)
 
     if not gnomad_genomes.empty:
         gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
@@ -172,10 +190,6 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
             func_df[val]=None
         func_df = func_df[["#variant","functional_category"]]
 
-    if not previous_df.empty:
-        previous_df = previous_df.drop_duplicates(subset=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]])
-        previous_df["#variant"] = create_variant_column(previous_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]]
 
     #rename gnomad_exomes and gnomad_genomes
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
