@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
 import tabix
-from typing import Dict
+from typing import Dict, Optional
 from autoreporting_utils import *
 #TODO: make a system for making sure we can calculate all necessary fields,
 #e.g by checking that the columns exist
@@ -39,7 +39,7 @@ def create_rename_dict(list_of_names, prefix):
         d[value]="{}{}".format(prefix,value)
     return d
 
-def previous_release_annotate(fpath: str, df: pd.DataFrame, columns: Dict[str,str]) -> pd.DataFrame:
+def previous_release_annotate(fpath: Optional[str], df: pd.DataFrame, columns: Dict[str,str]) -> pd.DataFrame:
     """Create the previous release annotation
     Args:
         fpath (str): filepath to the previous release summary statistic
@@ -49,15 +49,15 @@ def previous_release_annotate(fpath: str, df: pd.DataFrame, columns: Dict[str,st
         (pd.DataFrame): Dataframe with columns [#variant, beta_previous_release, pval_previous_release]
     """
     previous_cols = [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "beta_previous_release", "pval_previous_release"]
-    if fpath == "":
-        return pd.DataFrame(columns = ["#variant","beta_previous_release", "pval_previous_release"])
-    else:
+    if fpath:
         if not os.path.exists("{}.tbi".format(fpath)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(fpath))
          
         previous_df = load_tb_df(df,fpath, chrom_prefix="", na_value="", columns=columns)
         previous_df = previous_df.rename(columns={"beta":"beta_previous_release","pval":"pval_previous_release"})
         previous_df = previous_df[previous_cols]
+    else:
+        return pd.DataFrame(columns = ["#variant","beta_previous_release", "pval_previous_release"])
     
     if not previous_df.empty:
         previous_df = previous_df.drop_duplicates(subset=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]])
@@ -233,7 +233,7 @@ if __name__=="__main__":
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
-    parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")
+    parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,help="File path to previous release summary statistic file")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Output filename, default is out.tsv")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA","AF","AF_CASE","AF_CONTROL"),nargs=9,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")

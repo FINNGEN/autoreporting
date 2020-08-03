@@ -50,7 +50,7 @@ class TestAnnotate(unittest.TestCase):
         args.finngen_path="testing/annotate_resources/finngen_anno.tsv.gz"
         args.annotate_out="testing/annotate_resources/test_out.csv"
         args.functional_path=""
-        args.previous_release_path=""
+        args.previous_release_path=None
         args.prefix=""
         correct_value_path="testing/annotate_resources/ann_validate"
         args.batch_freq=False
