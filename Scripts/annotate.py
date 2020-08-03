@@ -62,7 +62,9 @@ def previous_release_annotate(fpath: str, df: pd.DataFrame, columns: Dict[str,st
     if not previous_df.empty:
         previous_df = previous_df.drop_duplicates(subset=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]])
         previous_df["#variant"] = create_variant_column(previous_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]] 
+    else:
+        previous_df["#variant"] = None
+    previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]]
     return previous_df
 
 
