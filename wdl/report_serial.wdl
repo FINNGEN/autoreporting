@@ -146,7 +146,7 @@ task report{
                         "--db {} "
                         "--column-labels {} "
                         "--extra-cols {} "
-                        "----pheno-info-file {} "
+                        "--pheno-info-file {} "
                         "{} "
                         "{} "
                         "{} "

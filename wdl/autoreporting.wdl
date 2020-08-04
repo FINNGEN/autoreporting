@@ -21,7 +21,7 @@ task report {
     File finngen_annotation_tb=finngen_annotation+".tbi"
     File functional_annotation
     File functional_annotation_tb=functional_annotation+".tbi"
-    
+
     File? local_gwcatalog
 
     Float sign_treshold
@@ -79,7 +79,7 @@ task report {
         group="--group" if "${group}"=="true" else ""
         overlap="--overlap" if "${overlap}"=="true" else ""
         include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
-        grouping_method = "${primary_grouping_method}" if ${arr_len} >1 else "${secondary_grouping_method}" 
+        grouping_method = "${primary_grouping_method}" if ${arr_len} >1 else "${secondary_grouping_method}"
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
         custom_dataresource="${custom_dataresource}"
@@ -94,7 +94,7 @@ task report {
         credset=""
         if "${credset_filtering}" == "true":
             credset="--credible-set-file ${credible_set}"
-        
+
         #efo codes
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
@@ -176,7 +176,7 @@ task report {
         print(pr.stdout)
         if pr.returncode != 0:
             print("The report did not run successfully. Check the logs.")
-            print(phenoname,"exit code:",pr.returncode)
+            print("${phenoname}","exit code:",pr.returncode)
             sys.exit(1)
         CODE
     >>>
@@ -190,7 +190,7 @@ task report {
         memory: "${docker_memory} GB"
         disks: "local-disk 100 HDD"
         zones: "europe-west1-b"
-        preemptible: 2 
+        preemptible: 2
     }
 }
 
@@ -232,32 +232,32 @@ workflow autoreporting{
     scatter (arr in  input_array ){
         call report {
             input: input_file_list = arr,
-            docker=docker, 
+            docker=docker,
             primary_grouping_method=primary_grouping_method,
             secondary_grouping_method=secondary_grouping_method,
-            docker_memory=memory, 
-            cpus=cpus, 
+            docker_memory=memory,
+            cpus=cpus,
             gnomad_exome=gnomad_exome,
-            gnomad_genome=gnomad_genome, 
-            ld_panel=ld_panel, 
+            gnomad_genome=gnomad_genome,
+            ld_panel=ld_panel,
             strict_group_r2=strict_group_r2,
-            finngen_annotation=finngen_annotation, 
+            finngen_annotation=finngen_annotation,
             functional_annotation=functional_annotation,
-            local_gwcatalog=local_gwcatalog, 
-            db_choice=db_choice, 
+            local_gwcatalog=local_gwcatalog,
+            db_choice=db_choice,
             efo_map=efo_code_file,
-            include_batch_freq=include_batch_freq, 
+            include_batch_freq=include_batch_freq,
             ignore_region=ignore_region,
-            sign_treshold=sign_treshold, 
-            alt_sign_treshold=alt_sign_treshold, 
-            grouping_locus_width=grouping_locus_width, 
-            ld_r2=ld_r2, 
-            plink_memory=plink_memory, 
-            gwascatalog_pval=gwascatalog_pval, 
-            gwascatalog_width_kb=gwascatalog_width_kb, 
-            gwascatalog_threads=gwascatalog_threads, 
-            group=group, 
-            overlap=overlap, 
+            sign_treshold=sign_treshold,
+            alt_sign_treshold=alt_sign_treshold,
+            grouping_locus_width=grouping_locus_width,
+            ld_r2=ld_r2,
+            plink_memory=plink_memory,
+            gwascatalog_pval=gwascatalog_pval,
+            gwascatalog_width_kb=gwascatalog_width_kb,
+            gwascatalog_threads=gwascatalog_threads,
+            group=group,
+            overlap=overlap,
             custom_dataresource=custom_dataresource,
             column_names=column_names,
             extra_columns=extra_columns,
