@@ -4,7 +4,7 @@ from subprocess import Popen, PIPE
 from typing import List, Text, Dict,Any, Optional
 import pandas as pd, numpy as np
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
-from data_access.db import LDAccess, LDData, LDInput
+from data_access.db import LDAccess, LDData, Variant
 
 
 class OnlineLD(LDAccess):
@@ -37,16 +37,28 @@ class OnlineLD(LDAccess):
         ld_out=[]
         for d in ld_data:
             v1 = d["variation1"]
-            v2 = d["variation2"]
-            r2 = float(d["r2"])
             c1 = v1.split(":")[0]
-            c2 = v2.split(":")[0]
             p1 = int(v1.split(":")[1])
+            ref1 = v1.split(":")[2]
+            alt1 = v1.split(":")[3]
+
+            v2 = d["variation2"]
+            c2 = v2.split(":")[0]
             p2 = int(v2.split(":")[1])
-            ld_out.append(LDData(v1, v2, c1, c2, p1, p2, r2))
+            ref2 = v2.split(":")[2]
+            alt2 = v2.split(":")[3]
+
+            r2 = float(d["r2"])
+
+            ld_out.append(
+                LDData(
+                    Variant(v1, c1, p1, ref1, alt1),
+                    Variant(v2, c2, p2, ref2, alt2),
+                    r2)
+                )
         return ld_out
 
-    def get_ranges(self, variants: List[LDInput], window: int, ld_threshold: Optional[float]=None) -> List[LDData]:
+    def get_ranges(self, variants: List[Variant], window: int, ld_threshold: Optional[float]=None) -> List[LDData]:
         ld_data=[]
         for v in variants:
             variant_ld = self.__get_range(v.chrom,v.pos,v.ref,v.alt,window*2,ld_threshold)
@@ -59,7 +71,7 @@ class PlinkLD(LDAccess):
         self.path=path
         self.memory=memory
 
-    def get_ranges(self, variants: List[LDInput], window: int, ld_threshold: Optional[float]=None) -> List[LDData]:
+    def get_ranges(self, variants: List[Variant], window: int, ld_threshold: Optional[float]=None) -> List[LDData]:
         if not ld_threshold:
             ld_threshold = 0.0
         #remove duplicates of variants, because PLINK errors with that
@@ -94,7 +106,6 @@ class PlinkLD(LDAccess):
                     print("PLINK FAILURE. Variants not found in LD panel for chromosome {}".format(chromosome))
                 print("PLINK FAILURE. Error code {}".format(pr.returncode)  )
                 print(*plink_log, sep="\n")
-                #raise ValueError("Plink r2 calculation returned code {}".format(pr.returncode))
             else:
                 ld_data_=pd.read_csv("{}.ld".format(plink_prefix),sep="\s+")
                 ld_data=pd.concat([ld_data,ld_data_],axis="index",sort=False,ignore_index=True)
@@ -106,11 +117,17 @@ class PlinkLD(LDAccess):
         ld_data = ld_data.astype({"BP_A":int,"BP_B":int,"R2":float})
         #convert to List[LDData]
         ld_data=ld_data.to_dict('records')
-        ld_data = [LDData(variant1=d['SNP_A'],
-                          variant2=d['SNP_B'],
-                          chrom1=d['CHR_A'],
-                          chrom2=d['CHR_B'],
-                          pos1=d['BP_A'],
-                          pos2=d['BP_B'],
-                          r2=d['R2']) for d in ld_data]
+        ld_data = [LDData(
+            Variant(d['SNP_A'],
+                    d['CHR_A'],
+                    int(d['BP_A']),
+                    d['SNP_A'].split("_")[2],
+                    d['SNP_A'].split("_")[3]),
+            Variant(d['SNP_B'],
+                    d['CHR_B'],
+                    int(d['BP_B']),
+                    d['SNP_B'].split("_")[2],
+                    d['SNP_B'].split("_")[3]),
+            d['R2'])
+                   for d in ld_data]
         return ld_data

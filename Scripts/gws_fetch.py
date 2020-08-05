@@ -7,7 +7,7 @@ import pandas as pd, numpy as np
 import tabix
 from typing import Dict, List
 from autoreporting_utils import *
-from data_access.linkage import PlinkLD, OnlineLD, LDInput, LDData
+from data_access.linkage import PlinkLD, OnlineLD, Variant, LDData
 from data_access.db import LDAccess
 
 def parse_region(region):
@@ -79,11 +79,13 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_ = []
     for idx, row in ld_ranges.iterrows():
-        ld_.append( LDInput(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
+        ld_.append( Variant(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
     ld_data=ld_api.get_ranges(ld_,locus_width*1000, ld_treshold)
-    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','variant2','chrom1','chrom2','pos1','pos2','r2'])
+    #un-nest ld data
+    ld_data = [a.to_flat() for a in ld_data]
+    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','chrom1','pos1','ref1','alt1','variant2','chrom2','pos2','ref2','alt2','r2'])
     ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],all_lead_ld_data,how="inner",left_on="#variant",right_on="variant2" )
-    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2"])
+    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])
     ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
     out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
     #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
@@ -134,12 +136,14 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_ = []
     for idx, row in ld_ranges.iterrows():
-        ld_.append( LDInput(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
+        ld_.append( Variant(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
     ld_data=ld_api.get_ranges(ld_,locus_range*1000)
-    all_lead_ld_data=pd.DataFrame(ld_data )
+    #un-nest ld data
+    ld_data = [a.to_flat() for a in ld_data]
+    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','chrom1','pos1','ref1','alt1','variant2','chrom2','pos2','ref2','alt2','r2'])
     #join
     ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant2") #does include all of the lead variants as well
-    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2"])
+    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])
     #filter by p-value
     out_df = pd.DataFrame(columns=list(data.columns)+["r2_to_lead"])
     #create df with only lead variants

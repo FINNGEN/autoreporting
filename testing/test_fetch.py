@@ -7,7 +7,7 @@ sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import gws_fetch
 from Scripts import autoreporting_utils as autils
-from Scripts.data_access.db import LDData
+from Scripts.data_access.db import LDData, Variant
 from io import StringIO
 
 class Arg():
@@ -90,13 +90,17 @@ class TestGws(unittest.TestCase):
         prefix=""
         r2_out = pd.read_csv("testing/fetch_resources/ld_grouping_report.csv",sep="\t")
         r2_out = r2_out.to_dict('records')
-        r2_out = [LDData(variant1=a['variant_1'],
-                         variant2=a['variant_2'],
-                         chrom1=a['chrom_1'],
-                         chrom2=a['chrom_2'],
-                         pos1=a['pos_1'],
-                         pos2=a['pos_2'],
-                         r2=a['r2']) for a in r2_out]
+        r2_out = [LDData(Variant(a['variant_1'],
+                                 a['chrom_1'],
+                                 a['pos_1'],
+                                 a['variant_1'].split("_")[2],
+                                 a['variant_1'].split("_")[3]),
+                         Variant(a['variant_2'],
+                                 a['chrom_2'],
+                                 a['pos_2'],
+                                 a['variant_2'].split("_")[2],
+                                 a['variant_2'].split("_")[3]),
+                         a['r2']) for a in r2_out]
         #1
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
@@ -182,13 +186,17 @@ class TestGws(unittest.TestCase):
         data.loc[9,"cs_prob"] = 0.997
         r2_out=pd.read_csv("testing/fetch_resources/ld_report.csv",sep="\t")
         r2_out = r2_out.to_dict('records')
-        r2_out = [LDData(variant1=a['variant_1'],
-                         variant2=a['variant_2'],
-                         chrom1=a['chrom_1'],
-                         chrom2=a['chrom_2'],
-                         pos1=a['pos_1'],
-                         pos2=a['pos_2'],
-                         r2=a['r2']) for a in r2_out]
+        r2_out = [LDData(Variant(a['variant_1'],
+                                 a['chrom_1'],
+                                 a['pos_1'],
+                                 a['variant_1'].split("_")[2],
+                                 a['variant_1'].split("_")[3]),
+                         Variant(a['variant_2'],
+                                 a['chrom_2'],
+                                 a['pos_2'],
+                                 a['variant_1'].split("_")[2],
+                                 a['variant_1'].split("_")[3]),
+                         a['r2']) for a in r2_out]
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
                 return r2_out

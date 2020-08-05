@@ -17,7 +17,7 @@ class ExtDB(object):
             regions (List[Dict[str, Any]]): The list of regions for which associations are queried
         """
 
-class LDInput(NamedTuple):
+class Variant(NamedTuple):
     """Variant class for LDAccess api
         variant: str
         chrom: str
@@ -30,29 +30,38 @@ class LDInput(NamedTuple):
     pos: int
     ref: str
     alt: str
-
     def __eq__(self, other): 
-        if not isinstance(other, LDInput):
+        if not isinstance(other, Variant):
             return NotImplemented
         return self.variant == other.variant
 
 class LDData(NamedTuple):
     """LD information class for LDAccess api
-        variant1: str
-        variant2: str
-        chrom1: str
-        chrom2: str
-        pos1: int
-        pos2: int
+        variant1: Variant
+        variant2: Variant
         r2: float
     """
-    variant1: str
-    variant2: str
-    chrom1: str
-    chrom2: str
-    pos1: int
-    pos2: int
+    variant1: Variant
+    variant2: Variant
     r2: float
+    def to_flat(self) -> Dict[str,Any]:
+        """Helper method to flatten LDData
+        Returns:
+            Dict[str,Any]: Dictionary with keys (variant1,chrom1,pos1,ref1,alt1,variant2,chrom2,pos2,ref2,alt2,r2)
+        """
+        return {
+            "variant1":self.variant1.variant,
+            "chrom1":self.variant1.chrom,
+            "pos1":self.variant1.pos,
+            "ref1":self.variant1.ref,
+            "alt1":self.variant1.alt,
+            "variant2":self.variant2.variant,
+            "chrom2":self.variant2.chrom,
+            "pos2":self.variant2.pos,
+            "ref2":self.variant2.ref,
+            "alt2":self.variant2.alt,
+            "r2":self.r2
+        }
 
 class LDAccess(object):
     """
@@ -60,7 +69,7 @@ class LDAccess(object):
     """
 
     @abc.abstractmethod
-    def get_ranges(self, variants: List[LDInput], window: int, ld_threshold: Optional[float]) -> List[LDData]:
+    def get_ranges(self, variants: List[Variant], window: int, ld_threshold: Optional[float]) -> List[LDData]:
         """Return LD for multiple variant ranges
         Args: variant data, i.e. a dataframe with columns [chr, pos, ref, alt, #variant], a window,ld threshold
             variants (List[LDInput]): List of input variants ()
