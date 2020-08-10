@@ -67,6 +67,70 @@ def previous_release_annotate(fpath: Optional[str], df: pd.DataFrame, columns: D
     previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]]
     return previous_df
 
+def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], columns: Dict[str,str]) -> pd.DataFrame:
+    """Annotate variants with functional consequence
+    Args:
+        df (pd.DataFrame): Input dataframe
+        functional_path (str): Annotation file path
+        columns (Dict[str,str]): column names
+    Returns:
+        (pd.DataFrame): Dataframe with columns for variant id, functional consequence
+    """
+    if (not functional_path) or df.empty:
+        return pd.DataFrame(columns=["#variant"])
+    if not os.path.exists(functional_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(functional_path))
+    if not os.path.exists("{}.tbi".format(functional_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
+    func_df = load_tb_df(df,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
+    func_df["chrom"] = func_df["chrom"].apply(lambda x:x.strip("chr"))
+    func_df=df_replace_value(func_df,"chrom","X","23")
+    func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).\
+        rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
+    functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
+    func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
+    func_df = func_df.dropna(axis="index")
+    func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    return func_df[["#variant","functional_category"]]
+
+def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: bool, columns: Dict[str,str]) -> pd.DataFrame:
+    """Annotate variants with finngen annotations
+    Args:
+        df (pd.DataFrame): Input dataframe
+        finngen_path (str): Annotation file path
+        batch_freq (bool): whether to incluyde
+        columns (Dict[str,str]): column names
+    Returns:
+        (pd.DataFrame): Dataframe with columns for variant id, finngen annotation columns prefixed with 'FG_'
+    """
+    finngen_cols=["most_severe_gene","most_severe_consequence"]
+    if (not finngen_path) or df.empty:
+        return pd.DataFrame(columns=["#variant"])
+    if not os.path.exists(finngen_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(finngen_path))
+    if not os.path.exists("{}.tbi".format(finngen_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
+    fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+    fg_df=fg_df.drop(labels="#variant",axis="columns")
+    fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
+    fg_df = fg_df.drop_duplicates(subset=["#variant"])
+    #sanity check: if number of variants is >0 and FG annotations are smaller, emit a warning message.
+    if df.shape[0]>0 and all(fg_df["INFO"].isna()):
+        print("Warning: FG annotation does not have any hits but the input data has. Check that you are using a recent version of the finngen annotation file (R3_v1 or above)")
+    fg_df=fg_df.rename(columns={"gene":"most_severe_gene","most_severe":"most_severe_consequence"})
+    fg_cols=fg_df.columns.values.tolist()
+    info=list(filter(lambda s: "INFO" in s,fg_cols))
+    imp=list(filter(lambda s: "IMP" in s,fg_cols))
+    af=list(filter(lambda s: "AF" in s,fg_cols))
+
+    fg_batch_lst=info+imp+af
+    fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
+    fg_df=fg_df.rename(columns=fg_batch_rename)
+    fg_batch_lst=["FG_{}".format(x) for x in fg_batch_lst]
+    if batch_freq:
+        finngen_cols=finngen_cols+fg_batch_lst
+    fg_df=fg_df.loc[:,["#variant"]+finngen_cols]
+    return fg_df
 
 def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, batch_freq: bool, finngen_path: str, functional_path: str, previous_release_path: str ,prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
     """
@@ -90,7 +154,6 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
     gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
         "AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe"]
-    finngen_cols=["most_severe_gene","most_severe_consequence"]
 
     if df.empty:
         return df
@@ -112,30 +175,6 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     #replace X with 23
     gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
     gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
-     
-    #load finngen annotations
-    if not os.path.exists("{}.tbi".format(finngen_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
-
-    fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
-    fg_df=fg_df.drop(labels="#variant",axis="columns")
-    fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
-    fg_df = fg_df.drop_duplicates(subset=["#variant"]).rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"]})
-    #sanity check: if number of variants is >0 and FG annotations are smaller, emit a warning message.
-    if df.shape[0]>0 and all(fg_df["INFO"].isna()):
-        print("Warning: FG annotation does not have any hits but the input data has. Check that you are using a recent version of the finngen annotation file (R3_v1 or above)")
-
-    #load functional annotations. 
-    if functional_path == "":
-        func_df = pd.DataFrame(columns=["chrom","pos","ref","alt","consequence"])
-    else:
-        if not os.path.exists("{}.tbi".format(functional_path)):
-            raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
-        func_df = load_tb_df(call_df_x,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
-        func_df["chrom"] = func_df["chrom"].apply(lambda x:x.strip("chr"))
-        func_df=df_replace_value(func_df,"chrom","X","23")
-        func_cols=["chrom","pos","ref","alt","consequence"]
-        func_df = func_df[func_cols]
 
 
     #load previous release annotations
@@ -177,22 +216,8 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     else:
         for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe","#variant"]:
             gnomad_exomes[val]=None
-    
-    if not func_df.empty:
-        #rename columns
-        func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
-        #remove values that are not in the coding categories
-        functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
-        func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
-        func_df = func_df.dropna(axis="index")
-        func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        func_df = func_df[["#variant","functional_category"]]
-    else:
-        for val in ["#variant","functional_category"]:
-            func_df[val]=None
-        func_df = func_df[["#variant","functional_category"]]
 
-
+    func_df = functional_annotate(call_df_x, functional_path, columns)
     #rename gnomad_exomes and gnomad_genomes
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
     gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
@@ -202,19 +227,7 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     gn_exo_rename_d=create_rename_dict(gnomad_exo_cols,"EXOME_")
     gnomad_exomes=gnomad_exomes.rename(columns=gn_exo_rename_d)
     
-    fg_df=fg_df.rename(columns={"gene":"most_severe_gene","most_severe":"most_severe_consequence"})
-    fg_cols=fg_df.columns.values.tolist()
-    info=list(filter(lambda s: "INFO" in s,fg_cols))
-    imp=list(filter(lambda s: "IMP" in s,fg_cols))
-    af=list(filter(lambda s: "AFW" in s,fg_cols))
-
-    fg_batch_lst=info+imp+af
-    fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
-    fg_df=fg_df.rename(columns=fg_batch_rename)
-    fg_batch_lst=["FG_{}".format(x) for x in fg_batch_lst]
-    if batch_freq:
-        finngen_cols=finngen_cols+fg_batch_lst
-    fg_df=fg_df.loc[:,["#variant"]+finngen_cols]
+    fg_df = finngen_annotate(df,finngen_path,batch_freq,columns)
 
     #merge the wanted columns into df
     df=df.merge(gnomad_genomes,how="left",on="#variant")
@@ -231,8 +244,8 @@ if __name__=="__main__":
     parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
     parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
-    parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
-    parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
+    parser.add_argument("--finngen-path",dest="finngen_path",type=str,help="Finngen annotation file filepath")
+    parser.add_argument("--functional-path",dest="functional_path",type=str,help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,help="File path to previous release summary statistic file")
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix. Default value is the base name (no path and no file extensions) of input file. ")
     parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Output filename, default is out.tsv")

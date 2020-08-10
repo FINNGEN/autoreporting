@@ -50,9 +50,6 @@ def main(args):
         fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
     else:
         return
-    ###########################
-    ##########Finemap##########
-    ###########################
 
     ###########################
     #######Annotate SNPs#######

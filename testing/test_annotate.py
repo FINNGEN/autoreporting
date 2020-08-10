@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock as mock
 import sys,os,io
 sys.path.append("../")
 sys.path.append("./")
@@ -32,7 +33,7 @@ class TestAnnotate(unittest.TestCase):
         test=annotate.calculate_enrichment(g_df,fi_af_col,count_nfe_lst,number_nfe_lst)
         for idx,_val in result.iteritems():
             self.assertAlmostEqual(result[idx],test[idx]) 
-
+    """
     def test_annotate(self):
         #define args
         #needed files: gnomad_genome_tabixed file, exome gnomad, finngen annotations
@@ -49,7 +50,7 @@ class TestAnnotate(unittest.TestCase):
         args.gnomad_exome_path="testing/annotate_resources/gnomad_exomes.tsv.gz"
         args.finngen_path="testing/annotate_resources/finngen_anno.tsv.gz"
         args.annotate_out="testing/annotate_resources/test_out.csv"
-        args.functional_path=""
+        args.functional_path=None
         args.previous_release_path=None
         args.prefix=""
         correct_value_path="testing/annotate_resources/ann_validate"
@@ -73,7 +74,84 @@ class TestAnnotate(unittest.TestCase):
                             pd.testing.assert_series_equal(out[col],df2[col])
         except:
             self.assertTrue(False)
+    """
+    def test_func_anno(self):
+        """Test functional annotation
+        Cases:
+            Empty data
+            Missing gzip file
+            Missing tabix file
+            Data available
+        """
+        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        #empty data
+        input_data = pd.DataFrame()
+        retval = annotate.functional_annotate(input_data,None,columns)
+        self.assertTrue(retval.empty)
+        self.assertEqual(retval.columns,["#variant"])
+        #missing gzip file
+        input_data = "testing/annotate_resources/annotate_df.tsv"
+        annotation_file = "nofile" 
+        ann_df = pd.read_csv(input_data,sep="\t")
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.functional_annotate(ann_df,annotation_file,columns)
+        #missing tabix file
+        annotation_file = "testing/annotate_resources/annotate_df.tsv"
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.functional_annotate(ann_df,annotation_file,columns)
+        #with proper data
+        #prepare data
+        rename_dict = {
+            "#chrom":"chrom"
+        }
+        ann_df = pd.read_csv(input_data,sep="\t")
+        ann_df["consequence"] = "missense_variant"
+        func_mock_df=ann_df.rename(columns=rename_dict)[[
+            "chrom",
+            "pos",
+            "ref",
+            "alt",
+            "consequence"
+        ]].astype(dtype={"chrom":str})
+        validation = ann_df[["#variant","consequence"]].rename(columns={"consequence":"functional_category"})
+        #mock the file loading so it's not actually loaded, so we can use any other file
+        with mock.patch("Scripts.annotate.load_tb_df",return_value=func_mock_df):
+            out = annotate.functional_annotate(ann_df,"testing/annotate_resources/finngen_anno.tsv.gz",columns)
+        self.assertTrue(out.equals(validation))
 
+    def test_fg_anno(self):
+        """Test annotate.finngen_annotate
+        Cases:
+            Empty data
+            Missing gzip file
+            Missing tabix file
+            Data available
+        """
+        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        #empty data
+        input_data = pd.DataFrame()
+        retval = annotate.finngen_annotate(input_data,None,False,columns)
+        self.assertTrue(retval.empty)
+        self.assertEqual(retval.columns,["#variant"])
+        #missing gzip file
+        input_data = "testing/annotate_resources/annotate_df.tsv"
+        annotation_file = "nofile" 
+        ann_df = pd.read_csv(input_data,sep="\t")
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.finngen_annotate(ann_df,annotation_file,False,columns)
+        #missing tabix file
+        annotation_file = "testing/annotate_resources/annotate_df.tsv"
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.finngen_annotate(ann_df,annotation_file,False,columns)
+        #proper data
+        data = pd.read_csv(annotation_file,sep="\t")
+        fg_file = "testing/annotate_resources/finngen_anno.tsv.gz"
+        out = annotate.finngen_annotate(data,fg_file,False,columns)
+        validation = {"#variant":["chr23_23_G_C","chr23_230_C_G"],
+            "most_severe_gene":["GENE3","GENE3"],
+            "most_severe_consequence":["non_coding_transcript_exon_variant","missense_variant"]}
+        validation = pd.DataFrame(validation)
+        self.assertTrue(validation.equals( out))
 
 
         
