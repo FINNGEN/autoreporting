@@ -144,9 +144,8 @@ class TestAnnotate(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             retval = annotate.finngen_annotate(ann_df,annotation_file,False,columns)
         #proper data
-        data = pd.read_csv(annotation_file,sep="\t")
         fg_file = "testing/annotate_resources/finngen_anno.tsv.gz"
-        out = annotate.finngen_annotate(data,fg_file,False,columns)
+        out = annotate.finngen_annotate(ann_df,fg_file,False,columns)
         validation = {"#variant":["chr23_23_G_C","chr23_230_C_G"],
             "most_severe_gene":["GENE3","GENE3"],
             "most_severe_consequence":["non_coding_transcript_exon_variant","missense_variant"]}
@@ -154,7 +153,68 @@ class TestAnnotate(unittest.TestCase):
         self.assertTrue(validation.equals( out))
 
 
+    def test_gnomad_gen(self):
+        """Test annotate.gnomad_gen_annotate
+        Cases:
+            Empty data
+            Missing gzip file
+            Missing tabix file
+            Data available
+        """
+        #Empty data
+        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        #empty data
+        input_data = pd.DataFrame()
+        retval = annotate.gnomad_gen_annotate(input_data,None,columns)
+        self.assertTrue(retval.empty)
+        self.assertEqual(retval.columns,["#variant"])
+        #missing gzip file
+        input_data = "testing/annotate_resources/annotate_df.tsv"
+        annotation_file = "nofile" 
+        ann_df = pd.read_csv(input_data,sep="\t")
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.gnomad_gen_annotate(ann_df,annotation_file,columns)
+        #missing tabix file
+        annotation_file = "testing/annotate_resources/annotate_df.tsv"
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.gnomad_gen_annotate(ann_df,annotation_file,columns)
+        #proper data
+        gnomad_file = "testing/annotate_resources/gnomad_genomes.tsv.gz"
+        out = annotate.gnomad_gen_annotate(ann_df,gnomad_file,columns)
+        validation = pd.read_csv("testing/annotate_resources/gnomad_gen_validate.tsv",sep="\t")
+        self.assertTrue(validation.equals( out))
         
+
+    def test_gnomad_exo(self):
+        """Test annotate.gnomad_exo_annotate
+        Cases:
+            Empty data
+            Missing gzip file
+            Missing tabix file
+            Data available
+        """
+        #Empty data
+        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        #empty data
+        input_data = pd.DataFrame()
+        retval = annotate.gnomad_exo_annotate(input_data,None,columns)
+        self.assertTrue(retval.empty)
+        self.assertEqual(retval.columns,["#variant"])
+        #missing gzip file
+        input_data = "testing/annotate_resources/annotate_df.tsv"
+        annotation_file = "nofile" 
+        ann_df = pd.read_csv(input_data,sep="\t")
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.gnomad_exo_annotate(ann_df,annotation_file,columns)
+        #missing tabix file
+        annotation_file = "testing/annotate_resources/annotate_df.tsv"
+        with self.assertRaises(FileNotFoundError):
+            retval = annotate.gnomad_exo_annotate(ann_df,annotation_file,columns)
+        #proper data
+        gnomad_file = "testing/annotate_resources/gnomad_exomes.tsv.gz"
+        out = annotate.gnomad_exo_annotate(ann_df,gnomad_file,columns)
+        validation = pd.read_csv("testing/annotate_resources/gnomad_exo_validate.tsv",sep="\t")
+        self.assertTrue(validation.equals( out))
 
 if __name__=="__main__":
     unittest.main()

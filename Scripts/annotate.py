@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
 import tabix
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from autoreporting_utils import *
 #TODO: make a system for making sure we can calculate all necessary fields,
 #e.g by checking that the columns exist
@@ -132,6 +132,87 @@ def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: 
     fg_df=fg_df.loc[:,["#variant"]+finngen_cols]
     return fg_df
 
+def gnomad_gen_annotate(df: pd.DataFrame, gnomad_path: Optional[str], columns: Dict[str, str]) -> pd.DataFrame:
+    """Annotate variants with gnomad genome annotations
+    Args:
+        df (pd.DataFrame): input dataframe, with chromosome containing X instead of 23
+        gnomad_path (Optional[str]): gnomad filepath
+        columns (Dict[str, str]): input dataframe column dictionary
+    Returns:
+        (pd.DataFrame): dataframe with columns for variant id, allele frequencies, enrichment
+    """
+    #gnomad out columns
+    gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
+
+    if (not gnomad_path) or df.empty:
+        return pd.DataFrame(columns=["#variant"])
+    if not os.path.exists(gnomad_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(gnomad_path))
+    if not os.path.exists("{}.tbi".format(gnomad_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
+
+    gnomad_genomes=load_tb_df(df,gnomad_path,columns=columns)
+    gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
+    gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+    gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    #calculate enrichment for gnomad genomes, nfe, nfe without est
+    gn_gen_nfe_counts=["AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
+    gn_gen_nfe_nums=["AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
+    gn_gen_nfe_est_counts=["AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
+    gn_gen_nfe_est_nums=["AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
+
+    gnomad_genomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_genomes,"AF_fin",gn_gen_nfe_counts,gn_gen_nfe_nums)
+    gnomad_genomes.loc[:,"FI_enrichment_nfe_est"]=calculate_enrichment(gnomad_genomes,"AF_fin",gn_gen_nfe_est_counts,gn_gen_nfe_est_nums)
+
+    gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
+    gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
+    gnomad_genomes=gnomad_genomes.rename(columns=gn_gen_rename_d)
+    return gnomad_genomes
+
+def gnomad_exo_annotate(df: pd.DataFrame, gnomad_path: str, columns: Dict[str, str]) -> pd.DataFrame:
+    """Annotate variants with gnomad exome annotations
+    Args:
+        df (pd.DataFrame): input dataframe, with chromosome containing X instead of 23
+        gnomad_path (Optional[str]): gnomad filepath
+        columns (Dict[str, str]): input dataframe column dictionary
+    Returns:
+        (pd.DataFrame): dataframe with columns for variant id, allele frequencies, enrichment
+    """
+    #gnomad out columns
+    gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
+        "AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe"]
+
+    if (not gnomad_path) or df.empty:
+        return pd.DataFrame(columns=["#variant"])
+    if not os.path.exists(gnomad_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(gnomad_path))
+    if not os.path.exists("{}.tbi".format(gnomad_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
+    
+    gnomad_exomes=load_tb_df(df,gnomad_path,columns=columns)
+    gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
+    gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
+    gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
+    gn_exo_nfe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
+    gn_exo_nfe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
+    gn_exo_nfe_est_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
+    gn_exo_nfe_est_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
+    gn_exo_nfe_swe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu"]
+    gn_exo_nfe_swe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu"]
+    gn_exo_nfe_est_swe_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu"]
+    gn_exo_nfe_est_swe_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu"]
+
+    gnomad_exomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_counts,gn_exo_nfe_nums)
+    gnomad_exomes.loc[:,"FI_enrichment_nfe_est"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_est_counts,gn_exo_nfe_est_nums)
+    gnomad_exomes.loc[:,"FI_enrichment_nfe_swe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_swe_counts,gn_exo_nfe_swe_nums)
+    gnomad_exomes.loc[:,"FI_enrichment_nfe_est_swe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_est_swe_counts,gn_exo_nfe_est_swe_nums)
+
+    gnomad_exomes=gnomad_exomes.loc[:,["#variant"]+gnomad_exo_cols]
+    gn_exo_rename_d=create_rename_dict(gnomad_exo_cols,"EXOME_")
+    gnomad_exomes=gnomad_exomes.rename(columns=gn_exo_rename_d)
+    return gnomad_exomes
+
 def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, batch_freq: bool, finngen_path: str, functional_path: str, previous_release_path: str ,prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
     """
     Annotates variants with allele frequencies, enrichment numbers, and most severe gene/consequence data
@@ -150,10 +231,6 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
         (pd.DataFrame): Annotated dataframe
     Out: Annotated dataframe
     """
-    #columns that we want to take from gnomad and finngen annotations
-    gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
-    gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
-        "AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe"]
 
     if df.empty:
         return df
@@ -163,70 +240,13 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     call_df_x = df.copy()
     call_df_x[columns["chrom"]]=call_df_x[columns["chrom"]].astype(str)
     call_df_x = df_replace_value(call_df_x,columns["chrom"],"23","X") #TODO: IF/WHEN GNOMAD RESOURCES USE CHR 23, THIS NEEDS TO BE REMOVED
-    #load gnomad_genomes
-    if not os.path.exists("{}.tbi".format(gnomad_genome_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_genome_path))
-    gnomad_genomes=load_tb_df(call_df_x,gnomad_genome_path,columns=columns)
-
-    #load gnomad_exomes
-    if not os.path.exists("{}.tbi".format(gnomad_exome_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_exome_path))
-    gnomad_exomes=load_tb_df(call_df_x,gnomad_exome_path,columns=columns)
-    #replace X with 23
-    gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
-    gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
-
-
+    
+    #load annotation dataframes
     #load previous release annotations
     previous_df = previous_release_annotate(previous_release_path,call_df_x,columns)
-
-    if not gnomad_genomes.empty:
-        gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
-        gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        #calculate enrichment for gnomad genomes, nfe, nfe without est
-        gn_gen_nfe_counts=["AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
-        gn_gen_nfe_nums=["AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
-        gn_gen_nfe_est_counts=["AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
-        gn_gen_nfe_est_nums=["AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
-        #calculate enrichment
-        
-        gnomad_genomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_genomes,"AF_fin",gn_gen_nfe_counts,gn_gen_nfe_nums)
-        gnomad_genomes.loc[:,"FI_enrichment_nfe_est"]=calculate_enrichment(gnomad_genomes,"AF_fin",gn_gen_nfe_est_counts,gn_gen_nfe_est_nums)
-    else:
-        for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","#variant"]:
-            gnomad_genomes[val]=None
-    
-    if not gnomad_exomes.empty:
-        gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
-        gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-        #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
-        gn_exo_nfe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
-        gn_exo_nfe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
-        gn_exo_nfe_est_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
-        gn_exo_nfe_est_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
-        gn_exo_nfe_swe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu"]
-        gn_exo_nfe_swe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu"]
-        gn_exo_nfe_est_swe_counts=["AC_nfe_bgr","AC_nfe_onf","AC_nfe_seu"]
-        gn_exo_nfe_est_swe_nums=["AN_nfe_bgr","AN_nfe_onf","AN_nfe_seu"]
-    
-        gnomad_exomes.loc[:,"FI_enrichment_nfe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_counts,gn_exo_nfe_nums)
-        gnomad_exomes.loc[:,"FI_enrichment_nfe_est"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_est_counts,gn_exo_nfe_est_nums)
-        gnomad_exomes.loc[:,"FI_enrichment_nfe_swe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_swe_counts,gn_exo_nfe_swe_nums)
-        gnomad_exomes.loc[:,"FI_enrichment_nfe_est_swe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_est_swe_counts,gn_exo_nfe_est_swe_nums)
-    else:
-        for val in ["FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe","#variant"]:
-            gnomad_exomes[val]=None
-
     func_df = functional_annotate(call_df_x, functional_path, columns)
-    #rename gnomad_exomes and gnomad_genomes
-    gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
-    gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
-    gnomad_genomes=gnomad_genomes.rename(columns=gn_gen_rename_d)
-
-    gnomad_exomes=gnomad_exomes.loc[:,["#variant"]+gnomad_exo_cols]
-    gn_exo_rename_d=create_rename_dict(gnomad_exo_cols,"EXOME_")
-    gnomad_exomes=gnomad_exomes.rename(columns=gn_exo_rename_d)
-    
+    gnomad_genomes = gnomad_gen_annotate(call_df_x,gnomad_genome_path,columns)
+    gnomad_exomes = gnomad_exo_annotate(call_df_x,gnomad_exome_path,columns)
     fg_df = finngen_annotate(df,finngen_path,batch_freq,columns)
 
     #merge the wanted columns into df
