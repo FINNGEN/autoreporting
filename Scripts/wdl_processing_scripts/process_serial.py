@@ -8,7 +8,8 @@ def process_phenos(input_array_fname, num_per_worker):
     phenoname="pheno"
     ssname="ss"
     credsetname="credset"
-    data=pd.read_csv(input_array_fname,header=None, sep="\t",names=[phenoname,ssname,credsetname])
+    prevname="prev_ss"
+    data=pd.read_csv(input_array_fname,header=None, sep="\t",names=[phenoname,ssname,credsetname,prevname])
     data=data.fillna("")
 
     phenolines=[]
@@ -19,6 +20,8 @@ def process_phenos(input_array_fname, num_per_worker):
     line_amount = data.shape[0]//num_per_worker
     if data.shape[0]%num_per_worker:
         line_amount = line_amount+1
+    prevarrlines=[]
+    prevarrtbilines=[]
 
     for i in range(line_amount):
         idx_start = i*num_per_worker
@@ -29,16 +32,16 @@ def process_phenos(input_array_fname, num_per_worker):
         summ_stat = "\t".join( list(tmp_dat[ssname]) ) + "\n"
         summ_stat_tb = "\t".join([a+".tbi" for a in tmp_dat[ssname] ]) + "\n"
         credset = "\t".join(list(tmp_dat[credsetname])) + "\n"
+        prev_ss = "\t".join(list(tmp_dat[prevname])) + "\n"
+        prev_ss_tb = "\t".join([a+".tbi" for a in tmp_dat[prevname] ]) + "\n"
+        
         phenolines.append(phenos)
         summstatlines.append(summ_stat)
         summstattbilines.append(summ_stat_tb)
         credsetarrlines.append(credset)
+        prevarrlines.append(prev_ss)
+        prevarrtbilines.append(prev_ss_tb)
 
-    #strip empty lines
-    phenolines=[a for a in phenolines if a not in ["","\n"]]
-    summstatlines=[a  for a in summstatlines if a not in ["","\n"]]
-    summstattbilines=[a for a in summstattbilines if a not in ["","\n"]]
-    credsetarrlines=[a for a in credsetarrlines if a not in ["","\n"]]
     #write them into files
     with open("pheno_array","w") as f:
         f.writelines(phenolines)
@@ -48,10 +51,14 @@ def process_phenos(input_array_fname, num_per_worker):
         f.writelines(summstattbilines)
     with open("credset_array","w") as f:
         f.writelines(credsetarrlines)
+    with open("prev_array","w") as f:
+        f.writelines(prevarrlines)
+    with open("prev_tb_array","w") as f:
+        f.writelines(prevarrtbilines)
 
     
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser("preprocess an input array (pheno,ss,credset) into multiple Array[Array[String]]s")
+    ap = argparse.ArgumentParser("preprocess an input array (pheno,ss,credset,prev_ss) into multiple Array[Array[String]]s")
     ap.add_argument("file",type=str,help="array filename")
     ap.add_argument("--n",type=int,required=True,help="num_workers")
     args = ap.parse_args()
