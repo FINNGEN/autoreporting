@@ -15,8 +15,12 @@ def process_phenos(input_array_fname, num_per_worker):
     summstatlines=[]
     summstattbilines=[]
     credsetarrlines=[]
+    #num of lines is data.shape[0]//num_per_worker plus one if they don't divide evenly
+    line_amount = data.shape[0]//num_per_worker
+    if data.shape[0]%num_per_worker:
+        line_amount = line_amount+1
 
-    for i in range(data.shape[0]//num_per_worker+1):
+    for i in range(line_amount):
         idx_start = i*num_per_worker
         idx_end = (i+1)*num_per_worker-1 # -1 because of pandas indexing being start and end inclusive
         tmp_dat = data.loc[idx_start:idx_end,:]
