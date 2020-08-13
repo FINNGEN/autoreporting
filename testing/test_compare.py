@@ -52,6 +52,7 @@ class TestCompare(unittest.TestCase):
         self.assertEqual(list(df2["map_variant"]),list(res["map_variant"]))
 
     def test_top_report(self):
+        # NOTE: This test is pretty bad and does not properly test the different features of top report creation
         #Needed: dataframe, summary variant dataframe, end result dataframe
         #also need to test using empty summary dataframe as well as empty dataframe
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
@@ -66,7 +67,8 @@ class TestCompare(unittest.TestCase):
         extra_cols=["beta","maf","maf_cases","maf_controls"]
         res=compare.create_top_level_report(raport_df,traits,columns,"ld",0.5,0.3,extra_cols)
         validate=pd.DataFrame(columns=end_result_cols)
-        self.assertTrue(res.equals(validate) )
+        for col in validate.columns:
+            self.assertTrue(res[col].equals(validate[col]) )
         # test two: populated dataframe, empty summary variant dataframe
         df=pd.read_csv("testing/compare_resources/top_df.csv",sep="\t")
         df["cs_id"]=np.nan
