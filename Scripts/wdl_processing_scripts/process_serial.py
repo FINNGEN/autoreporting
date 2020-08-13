@@ -16,12 +16,12 @@ def process_phenos(input_array_fname, num_per_worker):
     summstatlines=[]
     summstattbilines=[]
     credsetarrlines=[]
+    prevarrlines=[]
+    prevarrtbilines=[]
     #num of lines is data.shape[0]//num_per_worker plus one if they don't divide evenly
     line_amount = data.shape[0]//num_per_worker
     if data.shape[0]%num_per_worker:
         line_amount = line_amount+1
-    prevarrlines=[]
-    prevarrtbilines=[]
 
     for i in range(line_amount):
         idx_start = i*num_per_worker
