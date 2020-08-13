@@ -18,6 +18,8 @@ task preprocess_serial{
         File summ_array = "summ_array"
         File summ_tb_array = "summ_tb_array"
         File credset_array = "credset_array"
+        File prev_array = "prev_array"
+        File prev_tb_array = "prev_tb_array"
     }
 }
 
@@ -30,6 +32,8 @@ task report{
     Array[File] summ_stat
     Array[File] summ_stat_tb
     Array[File] credsets
+    Array[File] prev_array
+    Array[File] prev_array_tbi
     File dummy_file
     Int len = length(pheno_ids)
 
@@ -112,6 +116,8 @@ task report{
         extra_columns = "${extra_columns}"
 
         credset_cmds=["--credible-set-file {}".format(a) if a != "${dummy_file}" else "" for a in "${sep=";" credsets}".split(";") ]
+
+        previous_release = ["--previous-release-path {}".format(a) if a != "${dummy_file}" else "" for a in "${sep=";" prev_array}".split(";") ]
         #efo codes
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
@@ -134,6 +140,7 @@ task report{
                         "--functional-path {} "
                         "--gnomad-genome-path {} "
                         "--gnomad-exome-path {} "
+                        "{} "
                         "{} "
                         "--use-gwascatalog "
                         "--gwascatalog-threads {} "
@@ -165,6 +172,7 @@ task report{
                             functional_annotation,
                             gnomad_genome,
                             gnomad_exome,
+                            previous_release[i],
                             credset_cmds[i],
                             gwascatalog_threads,
                             strict_group_r2,
@@ -252,6 +260,8 @@ workflow autoreporting{
     Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_serial.summ_tb_array)
     Array[Array[File]] credset_arr = read_tsv(preprocess_serial.credset_array)
     Array[Array[String]] pheno_ids = read_tsv(preprocess_serial.pheno_array)
+    Array[Array[String]] prev_arr = read_tsv(preprocess_serial.prev_array)
+    Array[Array[String]] prev_tbi_arr = read_tsv(preprocess_serial.prev_tb_array)
 
     #reports
     scatter (i in range(length(pheno_arr))) {
@@ -290,7 +300,9 @@ workflow autoreporting{
             custom_dataresource=custom_dataresource,
             column_names=column_names,
             extra_columns=extra_columns,
-            dummy_file=dummy_file
+            dummy_file=dummy_file,
+            prev_array=prev_arr[i],
+            prev_array_tbi=prev_tbi_arr[i]
         }
     }
 }
