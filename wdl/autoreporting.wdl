@@ -3,11 +3,12 @@ task report {
     String docker
     Array[String] input_file_list
     Int arr_len = length(input_file_list)
-    Boolean credset_filtering = if arr_len > 2 then true else false
     String phenotype_name = input_file_list[0]
     File summ_stat = input_file_list[1]
     File summ_stat_tb=summ_stat+".tbi"
-    File credible_set = if credset_filtering then input_file_list[2] else summ_stat #'if a else summstat' so that it evaluates into a file
+    File credible_set = input_file_list[2] 
+    File previous_release = input_file_list[3]
+    File previous_release_tbi =previous_release+".tbi" 
 
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
@@ -50,6 +51,7 @@ task report {
     String extra_columns
     Float strict_group_r2
     String phenoname = basename(phenotype_name,".gz")
+    File dummy_file
     File phenotype_info_file
 
     command <<<
@@ -58,12 +60,14 @@ task report {
         from subprocess import PIPE
         #do everything a wrapper should do
         #unchanged variables
+        empty_file = "${dummy_file}"
         pheno_id="${phenotype_name}"
         plink_path = "${ld_panel_bed}".replace(".bed","")
         gnomad_exome="${gnomad_exome}"
         gnomad_genome="${gnomad_genome}"
         finngen_annotation="${finngen_annotation}"
         functional_annotation="${functional_annotation}"
+        previous_release="--previous-release-path ${previous_release}" if "${previous_release}" != empty_file else "" 
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
 
         sign_treshold=${sign_treshold}
@@ -79,7 +83,7 @@ task report {
         group="--group" if "${group}"=="true" else ""
         overlap="--overlap" if "${overlap}"=="true" else ""
         include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
-        grouping_method = "${primary_grouping_method}" if ${arr_len} >1 else "${secondary_grouping_method}"
+        grouping_method = "${primary_grouping_method}" if "${credible_set}" != empty_file else "${secondary_grouping_method}" 
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
         custom_dataresource="${custom_dataresource}"
@@ -92,7 +96,7 @@ task report {
         summstat="${summ_stat}"
         #credible set
         credset=""
-        if "${credset_filtering}" == "true":
+        if "${credible_set}" != empty_file:
             credset="--credible-set-file ${credible_set}"
 
         #efo codes
@@ -118,6 +122,7 @@ task report {
                     "--functional-path {} "
                     "--gnomad-genome-path {} "
                     "--gnomad-exome-path {} "
+                    "{} "
                     "{} "
                     "--use-gwascatalog "
                     "--gwascatalog-threads {} "
@@ -151,6 +156,7 @@ task report {
                         functional_annotation,
                         gnomad_genome,
                         gnomad_exome,
+                        previous_release,
                         credset,
                         gwascatalog_threads,
                         strict_group_r2,
@@ -227,6 +233,7 @@ workflow autoreporting{
     File custom_dataresource
     Array[String] column_names
     String extra_columns
+    File dummy_file
     File phenotype_info_file
 
     scatter (arr in  input_array ){
@@ -261,6 +268,7 @@ workflow autoreporting{
             custom_dataresource=custom_dataresource,
             column_names=column_names,
             extra_columns=extra_columns,
+            dummy_file=dummy_file,
             phenotype_info_file=phenotype_info_file
         }
     }

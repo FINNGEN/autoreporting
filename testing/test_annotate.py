@@ -50,6 +50,7 @@ class TestAnnotate(unittest.TestCase):
         args.finngen_path="testing/annotate_resources/finngen_anno.tsv.gz"
         args.annotate_out="testing/annotate_resources/test_out.csv"
         args.functional_path=""
+        args.previous_release_path=None
         args.prefix=""
         correct_value_path="testing/annotate_resources/ann_validate"
         args.batch_freq=False
@@ -66,9 +67,10 @@ class TestAnnotate(unittest.TestCase):
                     with io.StringIO(tmp) as args.annotate_fpath:
                         in_df = pd.read_csv(args.annotate_fpath,sep="\t")
                         out = annotate.annotate(df=in_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,
-                            functional_path=args.functional_path, prefix=args.prefix, columns=columns).astype(object)
+                            functional_path=args.functional_path, previous_release_path=args.previous_release_path, prefix=args.prefix, columns=columns).astype(object)
                         df2=pd.read_csv("{}_{}.csv".format(correct_value_path,i+1),sep="\t").astype(object)
-                        pd.testing.assert_frame_equal(out,df2)
+                        for col in df2.columns:
+                            pd.testing.assert_series_equal(out[col],df2[col])
         except:
             self.assertTrue(False)
 
