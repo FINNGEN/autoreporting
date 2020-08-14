@@ -77,6 +77,7 @@ task report{
     String db_choice
     Array[String] column_names
     String extra_columns
+    File phenotype_info_file
 
     command <<<
         python3 <<CODE
@@ -122,11 +123,12 @@ task report{
         with open("${efo_map}","r") as f:
             efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
         efo_array=["--efo-codes {}".format(efos[a]) if a in efos.keys() else "" for a in phenotypes ]
-        
+        phenotype_info = "${phenotype_info_file}"
         exit_codes = []
         for i in range(num_phenos):
             phenotype_name=phenotypes[i]
             call_command=("main.py {} "
+                        "--pheno-name {} "
                         " --sign-treshold {} " 
                         "--alt-sign-treshold {} "
                         "{} "
@@ -150,6 +152,7 @@ task report{
                         "--db {} "
                         "--column-labels {} "
                         "--extra-cols {} "
+                        "--pheno-info-file {} "
                         "{} "
                         "{} "
                         "{} "
@@ -159,6 +162,7 @@ task report{
                         "--report-out {}.report.out "
                         "--top-report-out {}.top.out "
                         ).format(summstats[i],
+                            phenotype_name,
                             sign_treshold,
                             alt_sign_treshold,
                             group,
@@ -181,6 +185,7 @@ task report{
                             db_choice,
                             column_names,
                             extra_columns,
+                            phenotype_info,
                             local_gwascatalog,
                             efo_array[i],
                             ignore_cmd,
@@ -252,6 +257,8 @@ workflow autoreporting{
     Array[String] column_names
     String extra_columns
     File dummy_file
+    File phenotype_info_file
+
     call preprocess_serial{
         input: input_array = input_array_file, phenos_per_worker = phenos_per_worker, docker=docker
     }
@@ -302,7 +309,8 @@ workflow autoreporting{
             extra_columns=extra_columns,
             dummy_file=dummy_file,
             prev_array=prev_arr[i],
-            prev_array_tbi=prev_tbi_arr[i]
+            prev_array_tbi=prev_tbi_arr[i],
+            phenotype_info_file=phenotype_info_file
         }
     }
 }
