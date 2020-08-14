@@ -8,7 +8,7 @@ task report {
     File summ_stat = input_file_list[1]
     File summ_stat_tb=summ_stat+".tbi"
     File credible_set = if credset_filtering then input_file_list[2] else summ_stat #'if a else summstat' so that it evaluates into a file
-
+    File credible_set_cred = if credset_filtering then sub(input_file_list[2],".snp",".cred") else summ_stat
     File gnomad_exome
     File gnomad_exome_tb=gnomad_exome+".tbi"
     File gnomad_genome
