@@ -18,6 +18,7 @@ task preprocess_serial{
         File summ_array = "summ_array"
         File summ_tb_array = "summ_tb_array"
         File credset_array = "credset_array"
+        File credset_array_cred = "credset_array_cred"
     }
 }
 
@@ -30,8 +31,10 @@ task report{
     Array[File] summ_stat
     Array[File] summ_stat_tb
     Array[String] credsets
+    Array[String] credset_creds
     Boolean use_credsets = if length(credsets) > 0 then true else false
     Array[File] selected_credsets = if use_credsets then credsets else []
+    Array[File] selected_credset_creds = if use_credsets then credset_creds else []
     Int len = length(pheno_ids)
 
     File gnomad_exome
@@ -252,6 +255,7 @@ workflow autoreporting{
     Array[Array[File]] pheno_arr = read_tsv(preprocess_serial.summ_array)
     Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_serial.summ_tb_array)
     Array[Array[File]] credset_arr = read_tsv(preprocess_serial.credset_array)
+    Array[Array[File]] credset_arr_cred = read_tsv(preprocess_serial.credset_array_cred)
     Array[Array[String]] pheno_ids = read_tsv(preprocess_serial.pheno_array)
 
     #reports
@@ -263,6 +267,7 @@ workflow autoreporting{
             summ_stat=pheno_arr[i], 
             summ_stat_tb=pheno_tbi_arr[i], 
             credsets=credset_input, 
+            credset_creds = credset_arr_cred[i],
             docker=docker, 
             memory=memory, 
             cpus=cpus, 
