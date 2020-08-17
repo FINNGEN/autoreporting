@@ -18,6 +18,7 @@ task preprocess_serial{
         File summ_array = "summ_array"
         File summ_tb_array = "summ_tb_array"
         File credset_array = "credset_array"
+        File credset_array_cred = "credset_array_cred"
         File prev_array = "prev_array"
         File prev_tb_array = "prev_tb_array"
     }
@@ -32,6 +33,7 @@ task report{
     Array[File] summ_stat
     Array[File] summ_stat_tb
     Array[File] credsets
+    Array[File] credset_creds
     Array[File] prev_array
     Array[File] prev_array_tbi
     File dummy_file
@@ -266,6 +268,7 @@ workflow autoreporting{
     Array[Array[File]] pheno_arr = read_tsv(preprocess_serial.summ_array)
     Array[Array[File]] pheno_tbi_arr = read_tsv(preprocess_serial.summ_tb_array)
     Array[Array[File]] credset_arr = read_tsv(preprocess_serial.credset_array)
+    Array[Array[File]] credset_arr_cred = read_tsv(preprocess_serial.credset_array_cred)
     Array[Array[String]] pheno_ids = read_tsv(preprocess_serial.pheno_array)
     Array[Array[String]] prev_arr = read_tsv(preprocess_serial.prev_array)
     Array[Array[String]] prev_tbi_arr = read_tsv(preprocess_serial.prev_tb_array)
@@ -278,6 +281,7 @@ workflow autoreporting{
             summ_stat=pheno_arr[i], 
             summ_stat_tb=pheno_tbi_arr[i], 
             credsets=credset_arr[i], 
+            credset_creds = credset_arr_cred[i],
             docker=docker, 
             memory=memory, 
             cpus=cpus, 

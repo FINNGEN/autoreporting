@@ -41,6 +41,8 @@ def process_phenos(input_array_fname, num_per_worker):
         credsetarrlines.append(credset)
         prevarrlines.append(prev_ss)
         prevarrtbilines.append(prev_ss_tb)
+    credsetarrcredlines = [a.replace("snp","cred") for a in credsetarrlines]
+        
 
     #write them into files
     with open("pheno_array","w") as f:
@@ -51,6 +53,8 @@ def process_phenos(input_array_fname, num_per_worker):
         f.writelines(summstattbilines)
     with open("credset_array","w") as f:
         f.writelines(credsetarrlines)
+    with open("credset_array_cred","w") as f:
+        f.writelines(credsetarrcredlines)
     with open("prev_array","w") as f:
         f.writelines(prevarrlines)
     with open("prev_tb_array","w") as f:

@@ -6,7 +6,8 @@ task report {
     String phenotype_name = input_file_list[0]
     File summ_stat = input_file_list[1]
     File summ_stat_tb=summ_stat+".tbi"
-    File credible_set = input_file_list[2] 
+    File credible_set = input_file_list[2]
+    File credible_set_cred = sub(input_file_list[2],".snp",".cred") 
     File previous_release = input_file_list[3]
     File previous_release_tbi =previous_release+".tbi" 
 

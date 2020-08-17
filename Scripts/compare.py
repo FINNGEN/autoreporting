@@ -93,6 +93,11 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "lead_pval"]+extra_colnames+\
                         ["most_severe_gene",
                         "most_severe_consequence",
+                        "cs_id",
+                        "cs_size",
+                        "cs_log_bayes_factor",
+                        "cs_number",
+                        "cs_region",
                         "found_associations_strict",
                         "found_associations_relaxed",
                         "credible_set_variants",
@@ -146,6 +151,27 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         ex_col_d = {}
         for idx,col in enumerate(extra_cols):
             row[extra_colnames[idx]] = loc_variants.loc[loc_variants["#variant"]==locus_id, col ].values[0]
+        lead_idx = loc_variants["#variant"]==locus_id
+        try:
+            cs_id = loc_variants.loc[lead_idx,"cs_id"].values[0]
+            cs_number = loc_variants.loc[lead_idx,"cs_number"].values[0]
+            cs_size = loc_variants.loc[lead_idx,"cs_size"].values[0]
+            cs_logbf = loc_variants.loc[lead_idx,"cs_log10bf"].values[0]
+            cs_min_r2 = loc_variants.loc[lead_idx,"cs_min_r2"].values[0]
+            cs_region = str(loc_variants.loc[lead_idx,"cs_region"].values[0])
+            row["cs_id"] = cs_id
+            row["cs_number"] = cs_number
+            row["cs_size"] = cs_size
+            row["cs_log_bayes_factor"] = cs_logbf
+            row["cs_minimum_r2"] = cs_min_r2
+            row["cs_region"] = cs_region
+        except:
+            row["cs_id"] = np.nan
+            row["cs_number"] = np.nan
+            row["cs_size"] = np.nan
+            row["cs_log_bayes_factor"] = np.nan
+            row["cs_minimum_r2"] = np.nan
+            row["cs_region"] = np.nan
         # Get credible set variants in relazed & strict group, as well as functional variants. 
         # Try because it is possible that functional data was skipped.
         cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob","r2_to_lead"] ].drop_duplicates()
