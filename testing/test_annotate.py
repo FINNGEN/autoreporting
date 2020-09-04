@@ -72,11 +72,25 @@ class TestAnnotate(unittest.TestCase):
             "alt",
             "consequence"
         ]].astype(dtype={"chrom":str})
+        for v in ["enrichment_nfsee",
+            "fin.AF",
+            "fin.AN",
+            "fin.AC", 
+            "fin.homozygote_count",
+            "fet_nfsee.odds_ratio",
+            "fet_nfsee.p_value",
+            "nfsee.AC",
+            "nfsee.AN",
+            "nfsee.AF",
+            "nfsee.homozygote_count"]:
+            func_mock_df[v]=0.1
         validation = ann_df[["#variant","consequence"]].rename(columns={"consequence":"functional_category"})
         #mock the file loading so it's not actually loaded, so we can use any other file
         with mock.patch("Scripts.annotate.load_tb_df",return_value=func_mock_df):
             out = annotate.functional_annotate(ann_df,"testing/annotate_resources/finngen_anno.tsv.gz",columns)
-        self.assertTrue(out.equals(validation))
+        val_cols = ["functional_category"]
+        for c in val_cols:
+            self.assertTrue(out[c].equals(validation[c]))
 
     def test_fg_anno(self):
         """Test annotate.finngen_annotate

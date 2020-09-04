@@ -122,6 +122,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     lead_col_d: Dict = {k:"lead_{}".format(k) for k in lead_var_cols}
     lead_col_d["GENOME_FI_enrichment_nfe_est"]="lead_enrichment"
 
+    gnomad_add_cols = ["functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count"]
+    gnomad_add_cols_rename = {k:"gnomAD_{}".format(k) for k in gnomad_add_cols}
     cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region"]
     cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor" }
 
@@ -131,6 +133,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                        "specific_efo_trait_associations_relaxed", "credible_set_min_r2_value"]
 
     lead_cols=list(lead_col_d.values())
+    gnomad_cols = list(gnomad_add_cols_rename.values())
 
     top_level_cols=["phenotype",
                     "phenotype_abbreviation",
@@ -142,6 +145,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                     "ref",
                     "alt"]+\
                     lead_cols+\
+                    gnomad_cols+\
                     ["cs_id",
                      "cs_size",
                      "cs_log_bayes_factor",
@@ -182,6 +186,15 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         lead_info_df=lead_info_df.rename(columns= lead_col_d)
     except:
         lead_info_df = pd.DataFrame(columns = lead_cols+["#variant"])
+
+    #get gnomad cols
+    try:
+        gnomad_info_df = pd.merge(lead_var_df, df[gnomad_add_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"])
+        gnomad_info_df = gnomad_info_df.rename(columns=gnomad_add_cols_rename)
+    except:
+        gnomad_info_df=pd.DataFrame(columns=gnomad_cols+["#variant"])
+
+
     top_level_df=pd.DataFrame(columns=["#variant"]+aggregated_cols)
 
     
@@ -256,6 +269,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     top_level_df=top_level_df.merge(group_info_df,on="#variant",how="left")
     top_level_df=top_level_df.merge(cs_info_df,on="#variant",how="left")
     top_level_df=top_level_df.merge(lead_info_df,on="#variant",how="left")
+    top_level_df = top_level_df.merge(gnomad_info_df,on="#variant",how="left")
     
     return top_level_df[top_level_cols]
 

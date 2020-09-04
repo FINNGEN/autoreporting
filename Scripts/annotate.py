@@ -75,8 +75,11 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
         functional_path (str): Annotation file path
         columns (Dict[str,str]): column names
     Returns:
-        (pd.DataFrame): Dataframe with columns for variant id, functional consequence
+        (pd.DataFrame): Dataframe with columns for variant id, functional consequence, 
+        fin.AF,fin_AN,fin_AC, fin.homozygote_count, fet_nfsee.odds_ratio , 
+        fet_nfsee.p_value, nfsee.AC, nfsee.AN, nfsee.AF, nfsee.homozygote_count
     """
+    return_columns = ["#variant", "functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count" ]
     if (not functional_path) or df.empty:
         return pd.DataFrame(columns=["#variant"])
     if not os.path.exists(functional_path):
@@ -90,9 +93,9 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
         rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
     functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
     func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
-    func_df = func_df.dropna(axis="index")
+    #func_df = func_df.dropna(axis="index")
     func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
-    return func_df[["#variant","functional_category"]]
+    return func_df[return_columns]
 
 def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: bool, columns: Dict[str,str]) -> pd.DataFrame:
     """Annotate variants with finngen annotations
