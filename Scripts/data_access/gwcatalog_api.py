@@ -404,7 +404,7 @@ def get_rsid_alleles_ensembl(rsids: List[str]) -> List[Dict[str, Any]]:
 
                 else: #probably an error, do not retry. print request code and headers
                     retry=False
-                    print("Unhandled response. Response code: {}. Response headers: {}".format( r.status_code, r.header ) )
+                    print("Unhandled response. Response code: {}. Response headers: {}".format( r.status_code, r.headers ) )
 
         try:
             req_amount = r.header["X-RateLimit-Limit"] 
