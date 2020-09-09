@@ -58,7 +58,7 @@ class TestCompare(unittest.TestCase):
         # test one: empty dataframe, empty summary variant dataframe, should yield an empty dataframe
         cols=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls","#variant","locus_id"]
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
-        end_result_cols=["locus_id", "chrom", "start", "end", "lead_enrichment", "lead_pval","lead_beta","lead_maf","lead_maf_cases","lead_maf_controls", "lead_most_severe_gene", "lead_most_severe_consequence", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed","specific_efo_trait_associations_strict","specific_efo_trait_associations_relaxed","credible_set_min_r2_value"]
+        end_result_cols=["locus_id", "chrom", "start", "end", "lead_enrichment", "pval","lead_beta","lead_maf","lead_maf_cases","lead_maf_controls", "lead_most_severe_gene", "lead_most_severe_consequence", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed","specific_efo_trait_associations_strict","specific_efo_trait_associations_relaxed","credible_set_min_r2_value"]
         traits=[]
         columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
         df=pd.DataFrame(columns=cols)

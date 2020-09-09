@@ -110,13 +110,14 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "n_controls":"Controls"
     }
 
-    group_cols = ["locus_id", columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
+    group_cols = ["locus_id", columns["chrom"], columns["pos"], columns["ref"], columns["alt"], columns["pval"]]
     group_cols_rename = {columns["chrom"]: "chrom",
                          columns["pos"]: "pos",
                          columns["ref"]: "ref",
-                         columns["alt"]: "alt"}
+                         columns["alt"]: "alt",
+                         columns["pval"]: "pval"}
 
-    lead_var_cols = ["pval","beta_previous_release","pval_previous_release",
+    lead_var_cols = ["beta_previous_release","pval_previous_release",
                      "most_severe_consequence","most_severe_gene",
                      "GENOME_FI_enrichment_nfe_est"]+extra_cols
     lead_col_d: Dict = {k:"lead_{}".format(k) for k in lead_var_cols}
@@ -143,7 +144,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                     "chrom",
                     "pos",
                     "ref",
-                    "alt"]+\
+                    "alt",
+                    "pval"]+\
                     lead_cols+\
                     gnomad_cols+\
                     ["cs_id",
