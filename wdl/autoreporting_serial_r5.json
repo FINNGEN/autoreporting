@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://misc-analysis/r5_previous_release_test.tsv",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:abf5b38",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:2356c69",
     "autoreporting.phenos_per_worker": 5,
     "autoreporting.memory":20,
     "autoreporting.cpus":4,
