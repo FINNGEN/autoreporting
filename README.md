@@ -417,7 +417,7 @@ phenotype | phenotype name | -
 phenotype_abbreviation | phenotype code | -
 Cases | Number of cases for this phenotype | 1234
 Controls | Number of controls for this phenotype | 1234
-locus_id | The locus in question, formatted from the top SNP's chromosome, position, reference and alternate alleles. In case of credible set grouping, the top SNP is the variant with the  largest PIP in thta credible set. In case of LD and simple grouping, tthe top SNP is the variant with smallest p-value of that group/region. Most if not all release results are grouped around credible sets.| `chr1_1_C_T` for a lead variant with chromosome 1, position 1, reference allele C and alternate  allele T.
+locus_id | The locus in question, formatted from the top SNP's chromosome, position, reference and alternate alleles. In case of credible set grouping, the top SNP is the variant with the  largest PIP in that credible set. In case of LD and simple grouping, the top SNP is the variant with smallest p-value of that group/region. Most if not all release results are grouped around credible sets.| `chr1_1_C_T` for a lead variant with chromosome 1, position 1, reference allele C and alternate  allele T.
 chrom | chromosome of locus | `1`
 pos | lead variant position | `123456`
 ref | lead variant reference allele | `A`
@@ -425,7 +425,7 @@ alt | lead variant alternate allele | `C`
 pval | lead variant p-value | `5.01e-7`
 start | locus start position in basepairs | `1` for a group with positions [1,2,3,4,5]
 end | locus end position in basepairs | `5` for a group with positions [1,2,3,4,5]
-lead_enrichment | How much the lead variant is enriched in Finnish population compared to other Europe (data from Gnomad) | `4.35`
+lead_enrichment | How much the lead variant is enriched in Finnish population compared to Europe | `4.35`
 lead_$COLUMN_NAME | other columns that are grabbed for the lead variant, such as allele frequencies, effect size, variant RSIDs | -
 most_severe_gene | most severe gene of the lead variant | `APOE`
 most_severe_consequence | most severe consequence of lead variant | `missense_variant`
@@ -434,13 +434,13 @@ gnomAD_enrichment_nfsee | lead variant enrichment in Finland against NFSEE popul
 gnomAD_fin.AF | lead variant allele frequency in Finland. Exome data.| `0.123`
 gnomAD_fin.AN | lead variant allele number in Finland. Exome data.| `123`
 gnomAD_fin.AC | lead variant allele count in Finland. Exome data.| `123`
-gnomAD_fin.homozygote_count | Amount of homozygotes in Finnish population. Exome data.| `12`
+gnomAD_fin.homozygote_count | Amount of homozygote carriers in Finnish population. Exome data.| `12`
 gnomAD_fet_nfsee.odds_ratio | Fischer's exact test for enrichment FIN vs NFSEE odds ratio. Exome data.| `1.15`
 gnomAD_fet_nfsee.p_value | Fischer's exact test for enrichment FIN vs NFSEE p-value. Exome data.| `5.01e-3`
 gnomAD_nfsee.AC | lead variant NFSEE population allele count. Exome data.| `123`
 gnomAD_nfsee.AN | lead variant NFSEE population allele number. Exome data.| `123`
 gnomAD_nfsee.AF | lead variant NFSEE population allele frequency. Exome data.| `0.123`
-gnomAD_nfsee.homozygote_count | Amount of homozygotes in NFSEE population. Exome data.| `123`
+gnomAD_nfsee.homozygote_count | Amount of homozygote carriers in NFSEE population. Exome data.| `123`
 cs_id | credible set id | `chr1_123456_A_C_1`
 cs_size | credible set size | `5`
 cs_log_bayes_factor | credible set bayes factor, log10 | `5.21`
