@@ -121,13 +121,19 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         # Separate group variants from all variants
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
         # Create strict group. The definition changes based on the grouping method.
+        try:
+            locus_cs_id = loc_variants.loc[loc_variants["#variant"] == locus_id,"cs_id"].unique()[0]
+        except:
+            locus_cs_id = None
         strict_group=None
         if grouping_method == "cred":
-            strict_group = loc_variants[~loc_variants["cs_id"].isna()].copy()
+            #strict group = variants in the credible set of this locus
+            strict_group = loc_variants[loc_variants["cs_id"]==locus_cs_id].copy()
         elif grouping_method == "ld":
-            pass
+            #strict group = variants that have low enough pvalue and high enough correlation with lead variant
             strict_group = loc_variants[(loc_variants[columns["pval"]]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()
         else:
+            #variants that have low enough pvalue
             strict_group = loc_variants[loc_variants[columns["pval"]]<=significance_threshold].copy()
         
         row['locus_id']=locus_id
@@ -172,13 +178,9 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
             row["cs_log_bayes_factor"] = np.nan
             row["cs_minimum_r2"] = np.nan
             row["cs_region"] = np.nan
-        # Get credible set variants in relazed & strict group, as well as functional variants. 
+        # Get credible set variants and functional variants. 
         # Try because it is possible that functional data was skipped.
-        try:
-            locus_cs_id = loc_variants.loc[loc_variants["#variant"] == locus_id,"cs_id"].unique()[0]
-        except:
-            locus_cs_id = None
-        cred_s = loc_variants.loc[loc_variants["cs_id"]==locus_cs_id,["#variant","cs_prob","r2_to_lead"] ].drop_duplicates()
+        cred_s = strict_group.loc[:,["#variant","cs_prob","r2_to_lead"] ].drop_duplicates()
         cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  cred_s.itertuples() )
         try:
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category","r2_to_lead"] ].drop_duplicates()
