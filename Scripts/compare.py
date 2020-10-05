@@ -122,9 +122,9 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
         # Create strict group. The definition changes based on the grouping method.
         try:
-            locus_cs_id = loc_variants.loc[loc_variants["#variant"] == locus_id,"cs_id"].unique()[0]
+            locus_cs_id = loc_variants.loc[loc_variants["#variant"] == locus_id,"cs_id"].values[0]
         except:
-            locus_cs_id = None
+            raise Exception("lead variant not in group, results incorrect.")
         strict_group=None
         if grouping_method == "cred":
             #strict group = variants in the credible set of this locus
@@ -178,10 +178,12 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
             row["cs_log_bayes_factor"] = np.nan
             row["cs_minimum_r2"] = np.nan
             row["cs_region"] = np.nan
-        # Get credible set variants and functional variants. 
+        #credible set variants
+        #from whole locus so it works with simple and ld grouping as well
+        credset_vars = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob","r2_to_lead"]].drop_duplicates()
+        cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  credset_vars.itertuples() )
+        # Get functional variants. 
         # Try because it is possible that functional data was skipped.
-        cred_s = strict_group.loc[:,["#variant","cs_prob","r2_to_lead"] ].drop_duplicates()
-        cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  cred_s.itertuples() )
         try:
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category","r2_to_lead"] ].drop_duplicates()
             func_set=";".join("{}|{}|{:.3g}".format(t._1,t.functional_category,t.r2_to_lead) for t in  func_s.itertuples())
