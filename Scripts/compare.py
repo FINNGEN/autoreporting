@@ -180,7 +180,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
             row["cs_region"] = np.nan
         #credible set variants
         #from whole locus so it works with simple and ld grouping as well
-        credset_vars = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob","r2_to_lead"]].drop_duplicates()
+        credset_vars = strict_group.loc[strict_group["cs_id"]==locus_cs_id,["#variant","cs_prob","r2_to_lead"]].drop_duplicates()
         cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  credset_vars.itertuples() )
         # Get functional variants. 
         # Try because it is possible that functional data was skipped.
