@@ -7,7 +7,7 @@ import numpy as np
 from autoreporting_utils import *
 import os
 from data_access import datafactory
-from typing import Dict
+from typing import Dict, List
 
 def map_alleles(a1,a2):
     """
@@ -78,48 +78,134 @@ def solve_indels(indel_df,df,columns):
             #else, continue
     return out_df
 
+def top_report_lead_cols(top_df: pd.DataFrame, report_df: pd.DataFrame, columns: Dict[str,str], variant_col: str, lead_cols: List[str]) -> pd.DataFrame:
+    """Returns lead variant columns
+    Args:
+        top_df: Dataframe
+        report_df: Full dataframe
+        columns: column names
+        variant_col (str): Variant col name
+        lead_cols (List[str]) : Columns that are added to the top report
+        TODO
+    Returns:
+        (pd.DataFrame): dataframe with lead variant columns
+    """
+    cols=[variant_col]+lead_cols
+    annotation_df = report_df[cols]
+    out = pd.merge(top_df[variant_col], annotation_df, how="left",on=variant_col).drop_duplicates(subset=[variant_col],keep="first")
+    return out
+
 def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold, extra_cols):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
-    extra_colnames = ["lead_{}".format(c) for c in extra_cols]
-    top_level_columns=["locus_id",
-                        "chr",
-                        "start",
-                        "end",
-                        "enrichment",
-                        "lead_pval"]+extra_colnames+\
-                        ["most_severe_gene",
-                        "most_severe_consequence",
-                        "cs_id",
-                        "cs_size",
-                        "cs_log_bayes_factor",
-                        "cs_number",
-                        "cs_region",
-                        "found_associations_strict",
-                        "found_associations_relaxed",
-                        "credible_set_variants",
-                        "functional_variants_strict",
-                        "functional_variants_relaxed",
-                        "specific_efo_trait_associations_strict",
-                        "specific_efo_trait_associations_relaxed",
-                        "credible_set_min_r2_value"]
-    
+
+    pheno_cols = ["phenotype", "longname", "n_cases", "n_controls"]
+    pheno_col_rename = {
+                        "longname":"phenotype",
+                        "phenotype":"phenotype_abbreviation",
+                        "n_cases":"Cases",
+                        "n_controls":"Controls"
+    }
+
+    group_cols = ["locus_id", columns["chrom"], columns["pos"], columns["ref"], columns["alt"], columns["pval"]]
+    group_cols_rename = {columns["chrom"]: "chrom",
+                         columns["pos"]: "pos",
+                         columns["ref"]: "ref",
+                         columns["alt"]: "alt",
+                         columns["pval"]: "pval"}
+
+    lead_var_cols = ["beta_previous_release","pval_previous_release",
+                     "most_severe_consequence","most_severe_gene",
+                     "GENOME_FI_enrichment_nfe_est"]+extra_cols
+    lead_col_d: Dict = {k:"lead_{}".format(k) for k in lead_var_cols}
+    lead_col_d["GENOME_FI_enrichment_nfe_est"]="lead_enrichment"
+
+    gnomad_add_cols = ["functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count"]
+    gnomad_add_cols_rename = {k:"gnomAD_{}".format(k) for k in gnomad_add_cols}
+    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region"]
+    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor" }
+
+    aggregated_cols = ["start", "end", "found_associations_strict", "found_associations_relaxed",
+                       "credible_set_variants", "functional_variants_strict",
+                       "functional_variants_relaxed", "specific_efo_trait_associations_strict",
+                       "specific_efo_trait_associations_relaxed", "credible_set_min_r2_value"]
+
+    lead_cols=list(lead_col_d.values())
+    gnomad_cols = list(gnomad_add_cols_rename.values())
+
+    top_level_cols=["phenotype",
+                    "phenotype_abbreviation",
+                    "locus_id",
+                    "Cases",
+                    "Controls",
+                    "chrom",
+                    "pos",
+                    "ref",
+                    "alt",
+                    "pval"]+\
+                    lead_cols+\
+                    gnomad_cols+\
+                    ["cs_id",
+                     "cs_size",
+                     "cs_log_bayes_factor",
+                     "cs_number",
+                     "cs_region"]+\
+                    aggregated_cols
+
     df=report_df.copy()
-    top_level_df=pd.DataFrame(columns=top_level_columns)
 
     if df.empty:
-        return top_level_df
-    
+        return pd.DataFrame(columns=top_level_cols)
+
     list_of_loci=list(df["locus_id"].unique())
+
+    lead_var_df = df.loc[df["#variant"].isin(list_of_loci),["#variant"]]
+
+    #get the pheno_cols dataframe
+    try:
+        pheno_info_df = pd.merge(lead_var_df,df[pheno_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"]).rename(columns=pheno_col_rename)
+    except:
+        pheno_info_df = pd.DataFrame(columns=["phenotype","phenotype_abbreviation","Cases","Controls","#variant"])
+    #get the group cols dataframe
+    try:
+        group_info_df = pd.merge(lead_var_df,df[group_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"])
+        group_info_df=group_info_df.rename(columns=group_cols_rename)
+    except:
+        group_info_df = pd.DataFrame(columns = ["#variant","locus_id","chrom","pos","ref","alt"])
+
+    #get cs cols dataframe
+    try:
+        cs_info_df = pd.merge(lead_var_df,df[cs_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"])
+        cs_info_df=cs_info_df.rename(columns=cs_cols_rename)
+    except:
+        cs_info_df= pd.DataFrame(columns=["#variant", "cs_id", "cs_size", "cs_log_bayes_factor", "cs_number", "cs_region"])
+    #get lead cols dataframe
+    try:
+        lead_info_df = top_report_lead_cols(lead_var_df,df,columns,"#variant",lead_var_cols )
+        lead_info_df=lead_info_df.rename(columns= lead_col_d)
+    except:
+        lead_info_df = pd.DataFrame(columns = lead_cols+["#variant"])
+
+    #get gnomad cols
+    try:
+        gnomad_info_df = pd.merge(lead_var_df, df[gnomad_add_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"])
+        gnomad_info_df = gnomad_info_df.rename(columns=gnomad_add_cols_rename)
+    except:
+        gnomad_info_df=pd.DataFrame(columns=gnomad_cols+["#variant"])
+
+
+    top_level_df=pd.DataFrame(columns=["#variant"]+aggregated_cols)
+
     
     for locus_id in list_of_loci:
         # The row is a dict which will contain the aggregated values for a single group
         row = {}
         # Separate group variants from all variants
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
+
         # Create strict group. The definition changes based on the grouping method.
         try:
             locus_cs_id = loc_variants.loc[loc_variants["#variant"] == locus_id,"cs_id"].values[0]
@@ -136,53 +222,12 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
             #variants that have low enough pvalue
             strict_group = loc_variants[loc_variants[columns["pval"]]<=significance_threshold].copy()
         
-        row['locus_id']=locus_id
-        row["chr"]=loc_variants[columns["chrom"]].iat[0]
-        row["start"]=np.amin(loc_variants[columns["pos"]])
-        row["end"]=np.amax(loc_variants[columns["pos"]])
-        # Add annotation info. Try because it is possible that annotation step was skipped.
-        try:
-            enrichment=loc_variants.loc[loc_variants["#variant"]==locus_id,"GENOME_FI_enrichment_nfe_est"].iat[0]
-            most_severe_gene=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_gene"].iat[0]
-            most_severe_consequence=loc_variants.loc[loc_variants["#variant"]==locus_id,"most_severe_consequence"].iat[0]
-        except:
-            enrichment=""
-            most_severe_gene=""
-            most_severe_consequence=""
-        row["enrichment"]=enrichment
-        row["most_severe_consequence"]=most_severe_consequence
-        row["most_severe_gene"]=most_severe_gene
-        pvalue=loc_variants.loc[loc_variants["#variant"]==locus_id,columns["pval"]].values[0]
-        row["lead_pval"]=pvalue
-        ex_col_d = {}
-        for idx,col in enumerate(extra_cols):
-            row[extra_colnames[idx]] = loc_variants.loc[loc_variants["#variant"]==locus_id, col ].values[0]
-        lead_idx = loc_variants["#variant"]==locus_id
-        try:
-            cs_id = loc_variants.loc[lead_idx,"cs_id"].values[0]
-            cs_number = loc_variants.loc[lead_idx,"cs_number"].values[0]
-            cs_size = loc_variants.loc[lead_idx,"cs_size"].values[0]
-            cs_logbf = loc_variants.loc[lead_idx,"cs_log10bf"].values[0]
-            cs_min_r2 = loc_variants.loc[lead_idx,"cs_min_r2"].values[0]
-            cs_region = str(loc_variants.loc[lead_idx,"cs_region"].values[0])
-            row["cs_id"] = cs_id
-            row["cs_number"] = cs_number
-            row["cs_size"] = cs_size
-            row["cs_log_bayes_factor"] = cs_logbf
-            row["cs_minimum_r2"] = cs_min_r2
-            row["cs_region"] = cs_region
-        except:
-            row["cs_id"] = np.nan
-            row["cs_number"] = np.nan
-            row["cs_size"] = np.nan
-            row["cs_log_bayes_factor"] = np.nan
-            row["cs_minimum_r2"] = np.nan
-            row["cs_region"] = np.nan
-        #credible set variants
-        #from whole locus so it works with simple and ld grouping as well
+        row['#variant']=locus_id
+        row["start"]=int(np.amin(loc_variants[columns["pos"]]))
+        row["end"]=int(np.amax(loc_variants[columns["pos"]]))
         credset_vars = strict_group.loc[strict_group["cs_id"]==locus_cs_id,["#variant","cs_prob","r2_to_lead"]].drop_duplicates()
         cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  credset_vars.itertuples() )
-        # Get functional variants. 
+        # Get credible set variants in relazed & strict group, as well as functional variants. 
         # Try because it is possible that functional data was skipped.
         try:
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category","r2_to_lead"] ].drop_duplicates()
@@ -220,12 +265,18 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
         row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
         try:
-            row["credible_set_min_r2_value"] = np.nanmin(loc_variants.loc[~loc_variants["cs_id"].isna(), "r2_to_lead" ].values)
+            row["credible_set_min_r2_value"] = np.nanmin(credset_vars.loc[~credset_vars["cs_id"].isna(), "r2_to_lead" ].values)
         except:
             row["credible_set_min_r2_value"] = np.nan
         top_level_df=top_level_df.append(row,ignore_index=True)
 
-    return top_level_df
+    #merge the different dataframes to top_level_df
+    top_level_df=top_level_df.merge(pheno_info_df,on="#variant",how="left")
+    top_level_df=top_level_df.merge(group_info_df,on="#variant",how="left")
+    top_level_df=top_level_df.merge(cs_info_df,on="#variant",how="left")
+    top_level_df=top_level_df.merge(lead_info_df,on="#variant",how="left")
+    top_level_df = top_level_df.merge(gnomad_info_df,on="#variant",how="left")
+    return top_level_df[top_level_cols]
 
 
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):

@@ -413,14 +413,39 @@ The `top_report.tsv` file contains the group-level summary of an autoreporting r
  
 Column  |  Description  |  Example value/Formatting  
 --- | --- | ---
-locus_id | The locus in question, formatted from the top SNP's chromosome, position, reference and alternate alleles. In case of credible set grouping, the top SNP is the variant with the  largest PIP in thta credible set. In case of LD and simple grouping, tthe top SNP is the variant with smallest p-value of that group/region. Most if not all release results are grouped around credible sets.| `chr1_1_C_T` for a lead variant with chromosome 1, position 1, reference allele C and alternate  allele T.  
-chr | chromosome of locus | `1`  
-start | locus start position in basepairs | `1` for a group with positions [1,2,3,4,5] 
-end | locus end position in basepairs | `5` for a group with positions [1,2,3,4,5] 
-enrichment | How much the lead variant is enriched in Finnish population compared to other Europe (data from Gnomad) | `4.35` 
-lead_pval | lead variant p-value | `5.01e-7` 
-most_severe_gene | most severe gene of the lead variant | `APOE`  
-most_severe_consequence | most severe consequence of lead variant | `missense_variant` 
+phenotype | phenotype name | -
+phenotype_abbreviation | phenotype code | -
+Cases | Number of cases for this phenotype | 1234
+Controls | Number of controls for this phenotype | 1234
+locus_id | The locus in question, formatted from the top SNP's chromosome, position, reference and alternate alleles. In case of credible set grouping, the top SNP is the variant with the  largest PIP in that credible set. In case of LD and simple grouping, the top SNP is the variant with smallest p-value of that group/region. Most if not all release results are grouped around credible sets.| `chr1_1_C_T` for a lead variant with chromosome 1, position 1, reference allele C and alternate  allele T.
+chrom | chromosome of locus | `1`
+pos | lead variant position | `123456`
+ref | lead variant reference allele | `A`
+alt | lead variant alternate allele | `C`
+pval | lead variant p-value | `5.01e-7`
+start | locus start position in basepairs | `1` for a group with positions [1,2,3,4,5]
+end | locus end position in basepairs | `5` for a group with positions [1,2,3,4,5]
+lead_enrichment | How much the lead variant is enriched in Finnish population compared to Europe | `4.35`
+lead_$COLUMN_NAME | other columns that are grabbed for the lead variant, such as allele frequencies, effect size, variant RSIDs | -
+most_severe_gene | most severe gene of the lead variant | `APOE`
+most_severe_consequence | most severe consequence of lead variant | `missense_variant`
+gnomAD_functional_category | functional category for the variant Exome data. | `pLoF`
+gnomAD_enrichment_nfsee | lead variant enrichment in Finland against NFSEE population. Exome data. | `5.1`
+gnomAD_fin.AF | lead variant allele frequency in Finland. Exome data.| `0.123`
+gnomAD_fin.AN | lead variant allele number in Finland. Exome data.| `123`
+gnomAD_fin.AC | lead variant allele count in Finland. Exome data.| `123`
+gnomAD_fin.homozygote_count | Amount of homozygote carriers in Finnish population. Exome data.| `12`
+gnomAD_fet_nfsee.odds_ratio | Fischer's exact test for enrichment FIN vs NFSEE odds ratio. Exome data.| `1.15`
+gnomAD_fet_nfsee.p_value | Fischer's exact test for enrichment FIN vs NFSEE p-value. Exome data.| `5.01e-3`
+gnomAD_nfsee.AC | lead variant NFSEE population allele count. Exome data.| `123`
+gnomAD_nfsee.AN | lead variant NFSEE population allele number. Exome data.| `123`
+gnomAD_nfsee.AF | lead variant NFSEE population allele frequency. Exome data.| `0.123`
+gnomAD_nfsee.homozygote_count | Amount of homozygote carriers in NFSEE population. Exome data.| `123`
+cs_id | credible set id | `chr1_123456_A_C_1`
+cs_size | credible set size | `5`
+cs_log_bayes_factor | credible set bayes factor, log10 | `5.21`
+cs_number | credible set number in its region | `1`
+cs_region | finemapping region | `1:1-30000001`
 found_associations_strict | This column lists all of the trait associations found in GWAS Catalog for variants that are in the credible set/strict group  (strict group here means that in case of LD grouping, variants that are in higher LD than a given threshold). The trait name is followed by the amount of correlation (in R²) that association had with the lead variant. If there are multiple variants associated with that trait, the largest value is chosen. | `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All of the variants associated with a trait are guaranteed to either be part of a credible set (in the case of credible set grouping), or to have LD larger than a given threshold with the top variant (in case of LD grouping).
 found_associations_relaxed | This column lists all of the trait associations found in GWAS Catalog for variants in the group. The trait name is followed  by the R² to lead value of the variant that had the association. If there are multiple variants associated with that trait, the largest value is chosen.  |  `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All associated variants are guaranteed to be part of this group.  
 credible_set_variants | This column lists the credible set variants. The PIP and R² values are listed after the variant | `chr1_1_C_T\|0.6\|1;chr1_100_A_G\|0.2\|0.999` for variants `chr1_1_C_T` and `chr1_100_A_G`, with PIP and R² values of [0.6,0.2] and [1,0.999], respectively.

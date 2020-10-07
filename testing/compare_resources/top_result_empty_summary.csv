@@ -1,4 +1,4 @@
-locus_id	chr	start	end	enrichment	most_severe_gene	most_severe_consequence	lead_pval	found_associations_strict	found_associations_relaxed	functional_variants_strict	functional_variants_relaxed	specific_efo_trait_associations_strict	specific_efo_trait_associations_relaxed
+locus_id	chrom	start	end	lead_enrichment	lead_most_severe_gene	lead_most_severe_consequence	lead_pval	found_associations_strict	found_associations_relaxed	functional_variants_strict	functional_variants_relaxed	specific_efo_trait_associations_strict	specific_efo_trait_associations_relaxed
 chr1_1000_A_T	1	900	1250	1	TOCP	intron variant	0.1						
 chr3_750_A_T	3	750	1200	1	CT1A	frameshift variant	0.01						
 chrX_100000_A_T	X	100000	100001	1	ASDF4	missense variant	0.05						
