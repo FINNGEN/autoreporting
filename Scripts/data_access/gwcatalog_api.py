@@ -115,6 +115,8 @@ def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
     Returns:
         (pd.DataFrame): pandas DataFrame with columns for rsid, allele1, other allele(s), whether the variant is biallelic, and the synonyms for the rsid. 
     """
+    if not rsids:
+        return pd.DataFrame(columns=["rsid","ref","alt","synonyms"])
     rsids = [a for a in rsids if '  x  ' not in a] # remove cross-snp associations
     rsids=[a.split(";")[0].strip() for a in rsids]
     rsids = list(set(rsids)) #remove duplicates
@@ -171,7 +173,7 @@ class LocalDB(ExtDB):
         self.df=self.df.astype({"CHR_POS":int,"P-VALUE":float})
         self.df=self.df.loc[self.df["P-VALUE"]<=self.pval_threshold ,:] #filter the df now by pval
     
-    def __get_associations(self, chromosome: str, start: int, end: int):
+    def __get_associations(self, chromosome: str, start: int, end: int)-> List[Dict[str,Any]]:
         start=max(0,int(start)-self.pad)
         end=int(end)+self.pad
         #filter based on chromosome, start, end, pval
@@ -207,6 +209,8 @@ class LocalDB(ExtDB):
         result_df = pd.DataFrame(out)
         #TODO: add ensembl data
         #filter rsids
+        if result_df.empty:
+            return []
         rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
         #filter nonbiallelic variants out
         rsid_df=rsid_df[rsid_df["biallelic"] == True]
@@ -267,6 +271,8 @@ class GwasApi(ExtDB):
         result_df = pd.DataFrame(results)
         #TODO: add ensembl data
         #filter rsids
+        if result_df.empty:
+            return []
         rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
         #filter nonbiallelic variants out
         rsid_df=rsid_df[rsid_df["biallelic"] == True]
@@ -404,7 +410,7 @@ def get_rsid_alleles_ensembl(rsids: List[str]) -> List[Dict[str, Any]]:
 
                 else: #probably an error, do not retry. print request code and headers
                     retry=False
-                    print("Unhandled response. Response code: {}. Response headers: {}".format( r.status_code, r.header ) )
+                    print("Unhandled response. Response code: {}. Response headers: {}".format( r.status_code, r.headers ) )
 
         try:
             req_amount = r.header["X-RateLimit-Limit"] 

@@ -138,9 +138,9 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     top_level_cols=["phenotype",
                     "phenotype_abbreviation",
+                    "locus_id",
                     "Cases",
                     "Controls",
-                    "locus_id",
                     "chrom",
                     "pos",
                     "ref",
@@ -207,24 +207,28 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         loc_variants=df.loc[df["locus_id"]==locus_id,:]
 
         # Create strict group. The definition changes based on the grouping method.
+        try:
+            locus_cs_id = loc_variants.loc[loc_variants["#variant"] == locus_id,"cs_id"].values[0]
+        except:
+            raise Exception("lead variant not in group, results incorrect.")
         strict_group=None
         if grouping_method == "cred":
-            strict_group = loc_variants[~loc_variants["cs_id"].isna()].copy()
+            #strict group = variants in the credible set of this locus
+            strict_group = loc_variants[loc_variants["cs_id"]==locus_cs_id].copy()
         elif grouping_method == "ld":
-            pass
+            #strict group = variants that have low enough pvalue and high enough correlation with lead variant
             strict_group = loc_variants[(loc_variants[columns["pval"]]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()
         else:
+            #variants that have low enough pvalue
             strict_group = loc_variants[loc_variants[columns["pval"]]<=significance_threshold].copy()
         
-        #row['locus_id']=locus_id
         row['#variant']=locus_id
         row["start"]=int(np.amin(loc_variants[columns["pos"]]))
         row["end"]=int(np.amax(loc_variants[columns["pos"]]))
-
+        credset_vars = strict_group.loc[strict_group["cs_id"]==locus_cs_id,["#variant","cs_prob","r2_to_lead"]].drop_duplicates()
+        cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  credset_vars.itertuples() )
         # Get credible set variants in relazed & strict group, as well as functional variants. 
         # Try because it is possible that functional data was skipped.
-        cred_s = loc_variants.loc[~loc_variants["cs_id"].isna(),["#variant","cs_prob","r2_to_lead"] ].drop_duplicates()
-        cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  cred_s.itertuples() )
         try:
             func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category","r2_to_lead"] ].drop_duplicates()
             func_set=";".join("{}|{}|{:.3g}".format(t._1,t.functional_category,t.r2_to_lead) for t in  func_s.itertuples())
@@ -261,7 +265,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
         row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
         try:
-            row["credible_set_min_r2_value"] = np.nanmin(loc_variants.loc[~loc_variants["cs_id"].isna(), "r2_to_lead" ].values)
+            row["credible_set_min_r2_value"] = np.nanmin(credset_vars.loc[~credset_vars["cs_id"].isna(), "r2_to_lead" ].values)
         except:
             row["credible_set_min_r2_value"] = np.nan
         top_level_df=top_level_df.append(row,ignore_index=True)
@@ -272,7 +276,6 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     top_level_df=top_level_df.merge(cs_info_df,on="#variant",how="left")
     top_level_df=top_level_df.merge(lead_info_df,on="#variant",how="left")
     top_level_df = top_level_df.merge(gnomad_info_df,on="#variant",how="left")
-    
     return top_level_df[top_level_cols]
 
 
