@@ -9,6 +9,7 @@ from typing import Dict, List
 from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD
 from data_access.db import LDAccess
+import gzip
 
 def parse_region(region):
     chrom=region.split(":")[0]
@@ -96,10 +97,15 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
         "cs_size":int,
         "cs_number":int,
         "cs_region":str,
-        "low_purity":bool
+        "low_purity":bool 
     }
     cred_columns = list(cred_data_type.keys())
-    cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
+    #check for faulty header
+    with gzip.open(fname, 'rt') as f:
+        headers = f.readline().strip().split('\t')
+        if len(headers) < 7:
+            headers=['trait', 'region', 'cs', 'cs_log10bf', 'cs_avg_r2', 'cs_min_r2', 'cs_size']
+    cred_data = pd.read_csv(fname, sep="\t",compression="gzip",names=headers,skiprows=1).rename(columns={"region":"cs_region","cs":"cs_number"})
     # if the credible set data does not have a certain column, make that NaN (for older data)
     for column in cred_columns:
         if column not in cred_data.columns:
