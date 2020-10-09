@@ -1,7 +1,7 @@
 import json, requests
 import time
 import abc
-from typing import List, Text, Dict, Any, Optional
+from typing import List, Text, Dict, Any, Optional, NamedTuple
 from io import StringIO
 import pandas as pd, numpy as np
 from data_access.db import ExtDB
@@ -29,6 +29,13 @@ class ResponseFailure(RequestError):
     def __init__(self,parameters=None):
         super(RequestError,self).__init__()
         self.parameters=parameters
+
+class EnsemblData(NamedTuple):
+    rsid: str
+    ref:str
+    alt:str
+    biallelic:bool
+    synonyms: List[str]
 
 class SummaryApi(ExtDB):
     """ 
@@ -107,7 +114,7 @@ class SummaryApi(ExtDB):
         results=[i for sublist in results for i in sublist]
         return results
 
-def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
+def gwcat_get_alleles(rsids: List[str]) -> List[EnsemblData]:
     """Get alleles for Gwas Catalog results, as those don't have them.
     A common step for both the LocalDB and GwasApi, which is why it's separated into its own function.
     Args:
@@ -116,25 +123,33 @@ def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
         (pd.DataFrame): pandas DataFrame with columns for rsid, allele1, other allele(s), whether the variant is biallelic, and the synonyms for the rsid. 
     """
     if not rsids:
-        return pd.DataFrame(columns=["rsid","ref","alt","synonyms"])
+        return []
     rsids = [a for a in rsids if '  x  ' not in a] # remove cross-snp associations
     rsids=[a.split(";")[0].strip() for a in rsids]
     rsids = list(set(rsids)) #remove duplicates
     rsid_out = get_rsid_alleles_ensembl(rsids)
     #change synonyms to correct ones
-    found_data = [a for a in rsid_out if a["rsid"] in rsids]
-    leftover_data = [a for a in rsid_out if a["rsid"] not in rsids]
+    found_data = [a for a in rsid_out if a.rsid in rsids]
+    leftover_data = [a for a in rsid_out if a.rsids not in rsids]
     #for each of the leftovers, try to find the correct rsid in the synonyms
     for snip in leftover_data:
         #if a in rsids for any a in leftover_data.synonyms, 
-        yeslist = [a for a in snip["synonyms"] if a in rsids] 
-        if yeslist:
-            new_synonyms = [a for a in snip["synonyms"] if a != yeslist[0]] + [snip["rsid"]]
-            found_data.append( {"rsid": yeslist[0],"ref": snip["ref"], "alt": snip["alt"], \
-                "synonyms": new_synonyms})
-    rsid_df =  pd.DataFrame(found_data)
-
-    return rsid_df
+        matching_rsids = [a for a in snip.synonyms if a in rsids] 
+        if matching_rsids:
+            new_synonyms = [a for a in snip.synonyms if a != matching_rsids[0]] + [snip.rsid]
+            #found_data.append( {"rsid": yeslist[0],"ref": snip["ref"], "alt": snip["alt"], \
+            #    "synonyms": new_synonyms})
+            found_data.append(
+                EnsemblData(
+                    matching_rsids[0],
+                    snip.ref,
+                    snip.alt,
+                    snip.biallelic,
+                    new_synonyms
+                )
+            )
+    
+    return found_data
 
 def _gwcat_set_column_types(data: pd.DataFrame) -> pd.DataFrame:
     """Helper funtion to set the types of dataframe columns.
@@ -211,9 +226,10 @@ class LocalDB(ExtDB):
         #filter rsids
         if result_df.empty:
             return []
-        rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
+        rsid_data: List[EnsemblData] = gwcat_get_alleles(list(result_df["SNPS"]))
         #filter nonbiallelic variants out
-        rsid_df=rsid_df[rsid_df["biallelic"] == True]
+        rsid_data = [a for a in rsid_data if a.biallelic]
+        rsid_df = pd.DataFrame(rsid_data, columns = ["rsid","ref","alt","biallelic","synonyms"])
         df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
         return df_out.to_dict("records")
 
@@ -269,11 +285,13 @@ class GwasApi(ExtDB):
         results=[i for sublist in results for i in sublist]
         #TODO: get rid of this ugly format switching
         result_df = pd.DataFrame(results)
-        #TODO: add ensembl data
         #filter rsids
         if result_df.empty:
             return []
-        rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
+        rsid_data: List[EnsemblData] = gwcat_get_alleles(list(result_df["SNPS"]))
+        #filter nonbiallelic variants out
+        rsid_data = [a for a in rsid_data if a.biallelic]
+        rsid_df = pd.DataFrame(rsid_data, columns = ["rsid","ref","alt","biallelic","synonyms"])
         #filter nonbiallelic variants out
         rsid_df=rsid_df[rsid_df["biallelic"] == True]
         df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
@@ -359,7 +377,7 @@ def parse_efo(code):
 def in_chunks(lst, chunk_size):
     return (lst[pos:pos + chunk_size] for pos in range(0, len(lst), chunk_size))
 
-def parse_ensembl(json_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def parse_ensembl(json_data: Dict[str, Any]) -> List[EnsemblData]:
     out=[]
     for rsid in json_data.keys():
         alleles = json_data[rsid]["mappings"][0]["allele_string"].split("/")
@@ -367,10 +385,17 @@ def parse_ensembl(json_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         alts = ";".join(alleles[1:])
         synonyms = json_data[rsid]["synonyms"]
         biallelic = (len(alleles) == 2)
-        out.append({"rsid":rsid,"ref":reference,"alt":alts,"biallelic":biallelic,"synonyms":synonyms})
+        out.append(EnsemblData(
+            rsid,
+            reference,
+            alts,
+            biallelic,
+            synonyms
+        ))
+        #out.append({"rsid":rsid,"ref":reference,"alt":alts,"biallelic":biallelic,"synonyms":synonyms})
     return out
 
-def get_rsid_alleles_ensembl(rsids: List[str]) -> List[Dict[str, Any]]:
+def get_rsid_alleles_ensembl(rsids: List[str]) -> List[EnsemblData]:
     """
     For a list of rsids, return list of variant information (alleles). Uses the ensembl human genomic variation API.
     In: list of RSIDs
