@@ -132,7 +132,7 @@ def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
             new_synonyms = [a for a in snip["synonyms"] if a != yeslist[0]] + [snip["rsid"]]
             found_data.append( {"rsid": yeslist[0],"ref": snip["ref"], "alt": snip["alt"], \
                 "synonyms": new_synonyms,"biallelic": snip["biallelic"]})
-    rsid_df =  pd.DataFrame(found_data)
+    rsid_df =  pd.DataFrame(found_data,columns=["rsid","ref","alt","synonyms","biallelic"])
 
     return rsid_df
 
