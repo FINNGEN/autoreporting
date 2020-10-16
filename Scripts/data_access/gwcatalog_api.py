@@ -116,7 +116,7 @@ def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
         (pd.DataFrame): pandas DataFrame with columns for rsid, allele1, other allele(s), whether the variant is biallelic, and the synonyms for the rsid. 
     """
     if not rsids:
-        return pd.DataFrame(columns=["rsid","ref","alt","synonyms"])
+        return pd.DataFrame(columns=["rsid","ref","alt","biallelic","synonyms"])
     rsids = [a for a in rsids if '  x  ' not in a] # remove cross-snp associations
     rsids=[a.split(";")[0].strip() for a in rsids]
     rsids = list(set(rsids)) #remove duplicates
@@ -132,7 +132,7 @@ def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
             new_synonyms = [a for a in snip["synonyms"] if a != yeslist[0]] + [snip["rsid"]]
             found_data.append( {"rsid": yeslist[0],"ref": snip["ref"], "alt": snip["alt"], \
                 "synonyms": new_synonyms})
-    rsid_df =  pd.DataFrame(found_data)
+    rsid_df =  pd.DataFrame(found_data,columns=["rsid","ref","alt","biallelic","synonyms"])
 
     return rsid_df
 
@@ -374,7 +374,7 @@ def get_rsid_alleles_ensembl(rsids: List[str]) -> List[Dict[str, Any]]:
     """
     For a list of rsids, return list of variant information (alleles). Uses the ensembl human genomic variation API.
     In: list of RSIDs
-    Out: list of dicts, with fields ['rsid','ref','alt']
+    Out: list of dicts, with fields ['rsid','ref','alt','biallelic','synonyms']
     """
     chunksize=100
     time_to_wait=0.0
