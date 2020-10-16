@@ -362,12 +362,15 @@ def in_chunks(lst, chunk_size):
 def parse_ensembl(json_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     out=[]
     for rsid in json_data.keys():
-        alleles = json_data[rsid]["mappings"][0]["allele_string"].split("/")
-        reference = alleles[0]
-        alts = ";".join(alleles[1:])
-        synonyms = json_data[rsid]["synonyms"]
-        biallelic = (len(alleles) == 2)
-        out.append({"rsid":rsid,"ref":reference,"alt":alts,"biallelic":biallelic,"synonyms":synonyms})
+        try:
+            alleles = json_data[rsid]["mappings"][0]["allele_string"].split("/")
+            reference = alleles[0]
+            alts = ";".join(alleles[1:])
+            synonyms = json_data[rsid]["synonyms"]
+            biallelic = (len(alleles) == 2)
+            out.append({"rsid":rsid,"ref":reference,"alt":alts,"biallelic":biallelic,"synonyms":synonyms})
+        except:
+            print(f"Ensembl data: decoding error with rsid {rsid}")
     return out
 
 def get_rsid_alleles_ensembl(rsids: List[str]) -> List[Dict[str, Any]]:
