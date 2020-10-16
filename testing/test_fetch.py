@@ -7,6 +7,7 @@ sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import gws_fetch
 from Scripts import autoreporting_utils as autils
+from Scripts.data_access.db import LDData, Variant
 from io import StringIO
 
 class Arg():
@@ -87,11 +88,23 @@ class TestGws(unittest.TestCase):
         df_p2=data[data["pval"] <=sig_treshold_2].copy()
         ld_treshold=0.2
         prefix=""
-        r2_out=pd.read_csv("testing/fetch_resources/ld_grouping_report.csv",sep="\t")
+        r2_out = pd.read_csv("testing/fetch_resources/ld_grouping_report.csv",sep="\t")
+        r2_out = r2_out.to_dict('records')
+        r2_out = [LDData(Variant(a['variant_1'],
+                                 a['chrom_1'],
+                                 a['pos_1'],
+                                 a['variant_1'].split("_")[2],
+                                 a['variant_1'].split("_")[3]),
+                         Variant(a['variant_2'],
+                                 a['chrom_2'],
+                                 a['pos_2'],
+                                 a['variant_2'].split("_")[2],
+                                 a['variant_2'].split("_")[3]),
+                         a['r2']) for a in r2_out]
         #1
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
-                return pd.DataFrame(columns=["chrom_1","pos_1","variant_1","chrom_2","pos_2","variant_2","r2"])
+                return []
         emptydf=pd.DataFrame(columns=df_p1.columns)
         emptydf_2=pd.DataFrame(columns=df_p2.columns)
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
@@ -102,7 +115,7 @@ class TestGws(unittest.TestCase):
         #2
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
-                return r2_out.copy()
+                return r2_out
         
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
             retval=gws_fetch.ld_grouping(df_p1,df_p2,
@@ -173,6 +186,18 @@ class TestGws(unittest.TestCase):
         data.loc[9,"cs_id"] = "chrX_1500_A_C_1"
         data.loc[9,"cs_prob"] = 0.997
         r2_out=pd.read_csv("testing/fetch_resources/ld_report.csv",sep="\t")
+        r2_out = r2_out.to_dict('records')
+        r2_out = [LDData(Variant(a['variant_1'],
+                                 a['chrom_1'],
+                                 a['pos_1'],
+                                 a['variant_1'].split("_")[2],
+                                 a['variant_1'].split("_")[3]),
+                         Variant(a['variant_2'],
+                                 a['chrom_2'],
+                                 a['pos_2'],
+                                 a['variant_1'].split("_")[2],
+                                 a['variant_1'].split("_")[3]),
+                         a['r2']) for a in r2_out]
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):
                 return r2_out

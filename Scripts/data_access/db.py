@@ -2,7 +2,7 @@
 
 ## File that contains abstract classes for different DAOs
 import abc
-from typing import List, Text, Dict,Any, Optional
+from typing import List, Text, Dict,Any, Optional, NamedTuple
 from io import StringIO
 import pandas as pd #type: ignore
 
@@ -17,19 +17,65 @@ class ExtDB(object):
             regions (List[Dict[str, Any]]): The list of regions for which associations are queried
         """
 
+class Variant(NamedTuple):
+    """Variant class for LDAccess api
+        variant: str
+        chrom: str
+        pos: int
+        ref: str
+        alt: str
+    """
+    variant: str
+    chrom: str
+    pos: int
+    ref: str
+    alt: str
+    def __eq__(self, other): 
+        if not isinstance(other, Variant):
+            return NotImplemented
+        return self.variant == other.variant
+
+class LDData(NamedTuple):
+    """LD information class for LDAccess api
+        variant1: Variant
+        variant2: Variant
+        r2: float
+    """
+    variant1: Variant
+    variant2: Variant
+    r2: float
+    def to_flat(self) -> Dict[str,Any]:
+        """Helper method to flatten LDData
+        Returns:
+            Dict[str,Any]: Dictionary with keys (variant1,chrom1,pos1,ref1,alt1,variant2,chrom2,pos2,ref2,alt2,r2)
+        """
+        return {
+            "variant1":self.variant1.variant,
+            "chrom1":self.variant1.chrom,
+            "pos1":self.variant1.pos,
+            "ref1":self.variant1.ref,
+            "alt1":self.variant1.alt,
+            "variant2":self.variant2.variant,
+            "chrom2":self.variant2.chrom,
+            "pos2":self.variant2.pos,
+            "ref2":self.variant2.ref,
+            "alt2":self.variant2.alt,
+            "r2":self.r2
+        }
+
 class LDAccess(object):
     """
     Abstract object for getting LD
     """
 
     @abc.abstractmethod
-    def get_ranges(self, variants: pd.DataFrame, window: int, ld_threshold: Optional[float]) -> pd.DataFrame:
+    def get_ranges(self, variants: List[Variant], window: int, ld_threshold: Optional[float]) -> List[LDData]:
         """Return LD for multiple variant ranges
         Args: variant data, i.e. a dataframe with columns [chr, pos, ref, alt, #variant], a window,ld threshold
-            variants (pd.DataFrame):
+            variants (List[LDInput]): List of input variants ()
             window (int):
             ld_threshold (Optional[float]): Optional LD R^2 threshold. Only variants that are in greater correlation than the threshold are reported. 
         Returns: 
-            (pd.DataFrame):Dataframe with LD information.
+            (List[LDData]):List of variant associations
         """
         return
