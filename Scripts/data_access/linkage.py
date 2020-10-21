@@ -74,6 +74,12 @@ class PlinkLD(LDAccess):
     def get_ranges(self, variants: List[Variant], window: int, ld_threshold: Optional[float]=None) -> List[LDData]:
         if not ld_threshold:
             ld_threshold = 0.0
+        variants = [Variant(
+            a.variant.replace("chr23","chrX"),
+            a.chrom.replace("23","X"),
+            a.pos,
+            a.ref,
+            a.alt) for a in variants] 
         #remove duplicates of variants, because PLINK errors with that
         nodups = sorted(set(variants))
         #get chromosomes, order variants under them
@@ -118,13 +124,13 @@ class PlinkLD(LDAccess):
         #convert to List[LDData]
         ld_data=ld_data.to_dict('records')
         ld_data = [LDData(
-            Variant(d['SNP_A'],
-                    d['CHR_A'],
+            Variant(d['SNP_A'].replace("chrX","chr23"),
+                    str(d['CHR_A']).replace("X","23"),
                     int(d['BP_A']),
                     d['SNP_A'].split("_")[2],
                     d['SNP_A'].split("_")[3]),
-            Variant(d['SNP_B'],
-                    d['CHR_B'],
+            Variant(d['SNP_B'].replace("chrX","chr23"),
+                    str(d['CHR_B']).replace("X","23"),
                     int(d['BP_B']),
                     d['SNP_B'].split("_")[2],
                     d['SNP_B'].split("_")[3]),

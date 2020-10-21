@@ -132,7 +132,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
         lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
         ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         group = all_variants[all_variants["#variant"].isin(ld_data["#variant"]) ].copy()
-        group= pd.merge(group,ld_data,on="#variant",how="left")
+        group = pd.merge(group,ld_data,on="#variant",how="left")
         grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
         grouplead["r2_to_lead"]=1.0#the group lead is, of course, in perfect LD with the group lead
         group=pd.concat([group,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
@@ -313,6 +313,10 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         susie_cred_file = cred_set_file.replace("snp","cred")
         cs_info = load_susie_credfile(susie_cred_file)
         cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
+        #cs df X->23
+        cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
+        cs_df = df_replace_value(cs_df,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
+        cs_df = df_replace_value(cs_df,"cs_region",r'^chrX(.*)',r'chr23\1',regex=True)
         #remove ignored region if there is one
         if ignore_region:
             ign_idx=( ( cs_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( cs_df[columns["pos"]]<=ignore_region_["end"] )&( cs_df[columns["pos"]]>=ignore_region_["start"] ) )
@@ -325,8 +329,16 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width*1000
         cs_ranges["max"] = cs_ranges[columns["pos"]]+locus_width*1000
         cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
+        #make an X and 23 version of ranges
+        cs_ranges_23 = df_replace_value(cs_ranges.copy(),"chrom","X","23")
+        cs_ranges_x = df_replace_value(cs_ranges.copy(),"chrom","23","X")
         #load summary stats around credsets, add columns for data
-        summ_stat_variants = load_tb_ranges(cs_ranges,gws_fpath,"",".")
+        #use both cs_ranges objects, and choose the one that is longer
+        summ_stat_variants_x = load_tb_ranges(cs_ranges_x,gws_fpath,"",".")
+        summ_stat_variants_23 = load_tb_ranges(cs_ranges_23,gws_fpath,"",".")
+        summ_stat_variants = summ_stat_variants_x if summ_stat_variants_x.shape[0] > summ_stat_variants_23.shape[0] else summ_stat_variants_23
+        summ_stat_variants = df_replace_value(summ_stat_variants,columns["chrom"],"X","23")#finally in chrom 23 
+
         summ_stat_variants = extract_cols(summ_stat_variants,list(columns.values())+extra_cols)
         not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)\
             .sort_values(axis="index",by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"],na_position="last")
@@ -351,6 +363,7 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
 
         #data input: get genome-wide significant variants.
         temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip",extra_cols=extra_cols)
+        temp_df = df_replace_value(temp_df,columns["chrom"],"X","23")#summ stat data to 23 if not there already
         #remove ignored region if there is one
         if ignore_region:
             ign_idx=( ( temp_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region_["end"] )&( temp_df[columns["pos"]]>=ignore_region_["start"] ) )
@@ -365,7 +378,10 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         if cred_set_file != "":
             cs_df=load_credsets(cred_set_file,columns)
         else:
-            cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id"])
+            cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id","cs_region"])
+        cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
+        cs_df = df_replace_value(cs_df,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
+        cs_df = df_replace_value(cs_df,"cs_region",r'^chrX(.*)',r'chr23\1',regex=True)
         #merge with gws_df, by using chrom,pos,ref,alt
         temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
         #create necessary columns for the data
@@ -374,6 +390,8 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
         temp_df.loc[:,"pos_rmax"]=temp_df.loc[:,columns["pos"]]
         temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
+        if "r2_to_lead" in temp_df.columns: #cs r2 to lead is not useful since we don't necessarily group around cs variants
+            temp_df=temp_df.drop(columns=["r2_to_lead"])
         df_p1=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_1,: ].copy()
         df_p2=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_2,: ].copy()
         if df_p1.empty:
@@ -395,12 +413,6 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
             #take only gws hits, no groups. Therefore, use df_p1
             retval = df_p1.sort_values(["locus_id","#variant"])
             retval["r2_to_lead"]=np.nan
-        
-    ## NOTE:Change X-chromosome to 23 in chrom, cs_id, #variant and locus_id
-    retval = df_replace_value(retval,columns["chrom"],"X","23")
-    retval = df_replace_value(retval,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
-    retval = df_replace_value(retval,"#variant",r'^chrX(.*)',r'chr23\1',regex=True)# NOTE: change 23 back in variant_id
-    retval = df_replace_value(retval,"locus_id",r'^chrX(.*)',r'chr23\1',regex=True)
 
     #add phenotype name
     retval["phenotype"] = pheno_name
