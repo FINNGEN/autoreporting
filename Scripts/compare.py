@@ -125,13 +125,13 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     gnomad_add_cols = ["functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count"]
     gnomad_add_cols_rename = {k:"gnomAD_{}".format(k) for k in gnomad_add_cols}
-    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region"]
-    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor" }
+    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region","low_purity"]
+    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor","low_purity":"cs_low_purity" }
 
-    aggregated_cols = ["start", "end", "found_associations_strict", "found_associations_relaxed",
+    aggregated_cols = ["credible_set_min_r2_value","start", "end", "found_associations_strict", "found_associations_relaxed",
                        "credible_set_variants", "functional_variants_strict",
                        "functional_variants_relaxed", "specific_efo_trait_associations_strict",
-                       "specific_efo_trait_associations_relaxed", "credible_set_min_r2_value"]
+                       "specific_efo_trait_associations_relaxed"]
 
     lead_cols=list(lead_col_d.values())
     gnomad_cols = list(gnomad_add_cols_rename.values())
@@ -152,7 +152,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                      "cs_size",
                      "cs_log_bayes_factor",
                      "cs_number",
-                     "cs_region"]+\
+                     "cs_region",
+                     "cs_low_purity"]+\
                     aggregated_cols
 
     df=report_df.copy()
@@ -265,7 +266,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
         row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
         try:
-            row["credible_set_min_r2_value"] = np.nanmin(credset_vars.loc[~credset_vars["cs_id"].isna(), "r2_to_lead" ].values)
+            row["credible_set_min_r2_value"] = np.nanmin(credset_vars.loc[:, "r2_to_lead" ].values)
         except:
             row["credible_set_min_r2_value"] = np.nan
         top_level_df=top_level_df.append(row,ignore_index=True)
