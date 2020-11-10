@@ -8,6 +8,7 @@ from autoreporting_utils import *
 import os
 from data_access import datafactory
 from typing import Dict, List
+from top_report import *
 
 def map_alleles(a1,a2):
     """
@@ -77,6 +78,8 @@ def solve_indels(indel_df,df,columns):
                     break
             #else, continue
     return out_df
+
+'''
 
 def top_report_lead_cols(top_df: pd.DataFrame, report_df: pd.DataFrame, columns: Dict[str,str], variant_col: str, lead_cols: List[str]) -> pd.DataFrame:
     """Returns lead variant columns
@@ -278,6 +281,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     top_level_df=top_level_df.merge(lead_info_df,on="#variant",how="left")
     top_level_df = top_level_df.merge(gnomad_info_df,on="#variant",how="left")
     return top_level_df[top_level_cols]
+'''
 
 
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
@@ -513,7 +517,7 @@ if __name__ == "__main__":
         report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
         #top level df
         columns=columns_from_arguments(args.column_labels)
-        top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols)
-        top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
+        #top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols)
+        #top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
         ld_out_df.fillna("NA").replace("","NA").to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
