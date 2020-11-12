@@ -53,7 +53,7 @@ def previous_release_annotate(fpath: Optional[str], df: pd.DataFrame, columns: D
         if not os.path.exists("{}.tbi".format(fpath)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(fpath))
          
-        previous_df = load_tb_df(df,fpath, chrom_prefix="", na_value="", columns=columns)
+        previous_df = load_annotation_df(df,fpath,columns,columns, chrom_prefix="", na_value="")
         previous_df = previous_df.rename(columns={"beta":"beta_previous_release","pval":"pval_previous_release"})
         previous_df = previous_df[previous_cols]
     else:
@@ -81,12 +81,18 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
     """
     return_columns = ["#variant", "functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count" ]
     if (not functional_path) or df.empty:
-        return pd.DataFrame(columns=["#variant"])
+        return pd.DataFrame(columns=return_columns)
     if not os.path.exists(functional_path):
         raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(functional_path))
     if not os.path.exists("{}.tbi".format(functional_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
-    func_df = load_tb_df(df,functional_path,chrom_prefix="chr",na_value="NA",columns=columns)
+    resource_cols = {
+        "chrom":"chrom",
+        "pos":"pos",
+        "ref":"ref",
+        "alt":"alt"
+    }
+    func_df = load_annotation_df(df,functional_path,columns,resource_cols,chrom_prefix="chr",na_value="NA")
     func_df["chrom"] = func_df["chrom"].apply(lambda x:x.strip("chr"))
     func_df=df_replace_value(func_df,"chrom","X","23")
     func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).\
@@ -114,7 +120,14 @@ def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: 
         raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(finngen_path))
     if not os.path.exists("{}.tbi".format(finngen_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
-    fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+    resource_cols = {
+        "chrom":"chr",
+        "pos":"pos",
+        "ref":"ref",
+        "alt":"alt"
+    }
+    fg_df=load_annotation_df(df,finngen_path,columns,resource_cols,chrom_prefix="",na_value="NA")
+    #fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
     fg_df=fg_df.drop(labels="#variant",axis="columns")
     fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
     fg_df = fg_df.drop_duplicates(subset=["#variant"])
@@ -155,7 +168,14 @@ def gnomad_gen_annotate(df: pd.DataFrame, gnomad_path: Optional[str], columns: D
     if not os.path.exists("{}.tbi".format(gnomad_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
 
-    gnomad_genomes=load_tb_df(df,gnomad_path,columns=columns)
+    #gnomad_genomes=load_tb_df(df,gnomad_path,columns=columns)
+    resource_cols = {
+        "chrom":"#CHROM",
+        "pos":"POS",
+        "ref":"REF",
+        "alt":"ALT"
+    }
+    gnomad_genomes=load_annotation_df(df,gnomad_path,columns,resource_cols)
     gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
     gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
     gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
@@ -193,7 +213,14 @@ def gnomad_exo_annotate(df: pd.DataFrame, gnomad_path: str, columns: Dict[str, s
     if not os.path.exists("{}.tbi".format(gnomad_path)):
         raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
     
-    gnomad_exomes=load_tb_df(df,gnomad_path,columns=columns)
+    #gnomad_exomes=load_tb_df(df,gnomad_path,columns=columns)
+    resource_cols = {
+        "chrom":"#CHROM",
+        "pos":"POS",
+        "ref":"REF",
+        "alt":"ALT"
+    }
+    gnomad_exomes=load_annotation_df(df,gnomad_path,columns,resource_cols)
     gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
     gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
     gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
