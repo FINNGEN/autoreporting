@@ -60,6 +60,28 @@ def get_gzip_header(fname):
                 out.append(line.decode().strip().split("\t"))
     return out[0]
 
+def load_annotation_df(df,fpath,columns,resource_columns,chrom_prefix="",na_value="."):
+    data_to_load = df.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])
+    data_to_load = data_to_load[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]
+    data_to_load[columns["chrom"]]=data_to_load[columns["chrom"]].apply(lambda x:chrom_prefix+x)
+    dtype = {resource_columns["chrom"]:str,
+        resource_columns["pos"]:np.int32,
+        resource_columns["ref"]:str,
+        resource_columns["alt"]:str
+    }
+    chunksize = 1000*1000
+    chr_set = set(data_to_load[columns["chrom"]])
+    pos_set = set(data_to_load[columns["pos"]])
+    ref_set = set(data_to_load[columns["ref"]])
+    alt_set = set(data_to_load[columns["alt"]])
+    out=pd.DataFrame()
+    for partial_df in pd.read_csv(fpath, compression="gzip",sep="\t",engine="c",dtype=dtype,chunksize=chunksize,na_values=na_value):
+        bool_condition = partial_df[resource_columns["chrom"]].isin(chr_set) & partial_df[resource_columns["pos"]].isin(pos_set) &\
+            partial_df[resource_columns["ref"]].isin(ref_set) & partial_df[resource_columns["alt"]].isin(alt_set)
+        out = pd.concat([out,partial_df.loc[bool_condition,:]],axis="index",ignore_index=True,sort=False)
+    out[out.columns]=out[out.columns].apply(pd.to_numeric,errors="ignore")
+    return out
+
 def load_tb_df(df,fpath,columns,chrom_prefix="",na_value="."):
     tb=tabix.open(fpath)
     tbxlst=[]
