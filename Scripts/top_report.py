@@ -93,36 +93,37 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     list_of_loci=list(df["locus_id"].unique())
 
-    lead_var_df = df.loc[df["#variant"].isin(list_of_loci),["#variant"]]
+    lead_var_df = df.loc[df["locus_id"]==df["#variant"],["#variant"]].drop_duplicates()
+    lead_var_idx = lead_var_df.index
 
     #get the pheno_cols dataframe
     try:
-        pheno_info_df = pd.merge(lead_var_df,df[pheno_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"]).rename(columns=pheno_col_rename)
+        pheno_info_df = df.loc[lead_var_idx,pheno_cols+["#variant"]].rename(columns=pheno_col_rename)
     except:
         pheno_info_df = pd.DataFrame(columns=["phenotype","phenotype_abbreviation","Cases","Controls","#variant"])
     #get the group cols dataframe
     try:
-        group_info_df = pd.merge(lead_var_df,df[group_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"])
+        group_info_df = df.loc[lead_var_idx,group_cols+["#variant"]]
         group_info_df=group_info_df.rename(columns=group_cols_rename)
     except:
         group_info_df = pd.DataFrame(columns = ["#variant","locus_id","chrom","pos","ref","alt"])
 
     #get cs cols dataframe
     try:
-        cs_info_df = pd.merge(lead_var_df,df[cs_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"])
+        cs_info_df = df.loc[lead_var_idx,cs_cols+["#variant"]]
         cs_info_df=cs_info_df.rename(columns=cs_cols_rename)
     except:
-        cs_info_df= pd.DataFrame(columns=["#variant", "cs_id", "cs_size", "cs_log_bayes_factor", "cs_number", "cs_region"])
+        cs_info_df= pd.DataFrame(columns=cs_cols+["#variant"])
     #get lead cols dataframe
     try:
-        lead_info_df = top_report_lead_cols(lead_var_df,df,columns,"#variant",lead_var_cols )
+        lead_info_df = df.loc[lead_var_idx,lead_var_cols+["#variant"]]
         lead_info_df=lead_info_df.rename(columns= lead_col_d)
     except:
         lead_info_df = pd.DataFrame(columns = lead_cols+["#variant"])
 
     #get gnomad cols
     try:
-        gnomad_info_df = pd.merge(lead_var_df, df[gnomad_add_cols+["#variant"]],how="left",on="#variant").drop_duplicates(subset=["#variant"])
+        gnomad_info_df = df.loc[lead_var_idx,gnomad_add_cols+["#variant"]]
         gnomad_info_df = gnomad_info_df.rename(columns=gnomad_add_cols_rename)
     except:
         gnomad_info_df=pd.DataFrame(columns=gnomad_cols+["#variant"])
