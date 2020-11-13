@@ -125,8 +125,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     gnomad_add_cols = ["functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count"]
     gnomad_add_cols_rename = {k:"gnomAD_{}".format(k) for k in gnomad_add_cols}
-    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region","low_purity"]
-    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor","low_purity":"cs_low_purity" }
+    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region","good_cs"]
+    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor" }
 
     aggregated_cols = ["credible_set_min_r2_value","start", "end", "found_associations_strict", "found_associations_relaxed",
                        "credible_set_variants", "functional_variants_strict",
@@ -153,7 +153,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                      "cs_log_bayes_factor",
                      "cs_number",
                      "cs_region",
-                     "cs_low_purity"]+\
+                     "good_cs"]+\
                     aggregated_cols
 
     df=report_df.copy()

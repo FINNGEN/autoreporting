@@ -96,7 +96,7 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
         "cs_size":int,
         "cs_number":int,
         "cs_region":str,
-        "low_purity":bool
+        "good_cs":bool
     }
     cred_columns = list(cred_data_type.keys())
     cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
@@ -279,6 +279,99 @@ def merge_credset(gws_df,cs_df,fname,columns):
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
+def load_credset_summaries(var_file: str,group_file: str,columns:Dict[str,str])->pd.DataFrame:
+    """
+    Order of operations:
+    1. extract columns, set datatypes
+    2. join data in appropriate way
+    3. rename columns of joined data
+    4. return data
+    """
+    
+    group_datatypes = {
+        "region": str,
+        "cs": int,
+        "v": str,
+        "cs_specific_prob": float,
+        "cs_log10bf": float,
+        "cs_min_r2": float,
+        "cs_size": int,
+        "good_cs": bool
+    }
+    snp_datatypes = {
+        "region": str,
+        "cs": int,
+        "v": str,
+        "cs_specific_prob": float,
+        "lead_r2": float
+    }
+    output_rename = {
+        "region": "cs_region",
+        "cs": "cs_number",
+        "cs_specific_prob": "cs_prob",
+    }
+    output_columns = [
+        columns["chrom"],
+        columns["pos"],
+        columns["ref"],
+        columns["alt"],
+        "cs_id",
+        "cs_region",
+        "cs_number",
+        "cs_prob",
+        "cs_log10bf",
+        "cs_min_r2",
+        "cs_size",
+        "good_cs",
+        "r2_to_lead"
+    ]
+    column_rename = {
+        "region": "cs_region",
+        "cs": "cs_number",
+        "cs_specific_prob": "cs_prob",
+        "lead_r2": "r2_to_lead"
+    }
+    cpra_types = {
+        columns["chrom"]:str,
+        columns["pos"]:int,
+        columns["ref"]:str,
+        columns["alt"]:str,
+    }
+    group_cols = list(group_datatypes.keys())
+    snp_cols = list(snp_datatypes.keys())
+
+    # load data
+    snips = pd.read_csv(var_file,sep="\t")
+    groups = pd.read_csv(group_file,sep="\t")
+
+    #missing data to na
+    for col in snp_cols:
+        if col not in snips.columns:
+            print(f"NOTE: credset SNP file missing column {col}")
+            snips[col] = np.nan
+    for col in group_cols:
+        if col not in groups.columns:
+            print(f"NOTE: credset CRED file missing column {col}")
+            groups[col] = np.nan
+    snips = snips[snp_cols]
+    groups = groups[group_cols]
+    groups["lead_r2"] = 1.0 #lead variant is always in perfect LD to the lead variant...
+    #create cs_id
+    groups["cs_id"]="chr" + groups["v"].str.replace(":","_")+"_"+groups["cs"].astype(str)
+    #add the group-specific columns cs_log10bf, cs_min_r2, cs_size, good_cs to snips
+    # E.g. merge by (region,cs)
+    group_mergecols = ["region","cs","cs_log10bf","cs_min_r2","cs_size","good_cs","cs_id"]
+    snips = snips.merge(groups[group_mergecols],on=["region","cs"],how="left") 
+    complete_data = pd.concat([snips,groups],ignore_index=True,sort=False)
+    
+    complete_data = complete_data.rename(columns=column_rename)
+    #separate v to c:p:r:a
+    
+    cpra_list = [columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]
+    complete_data[cpra_list] = complete_data["v"].str.split(':',n=3,expand=True)
+    complete_data[cpra_list] = complete_data[cpra_list].astype(cpra_types)
+    return complete_data[output_columns]
+
 def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grouping_method: str, locus_width: int, sig_tresh_2: float,
                 ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess, 
                 extra_cols: List[str], pheno_name: str, pheno_data_file :str):
@@ -308,12 +401,21 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
     if group and grouping_method == "cred":
         #TODO: handling for missing credible set files, aka aborting with a good error message.
         #load credsets
-        cs_df=load_credsets(cred_set_file,columns)
-        #load credset additional information
-        susie_cred_file = cred_set_file.replace("snp","cred")
-        cs_info = load_susie_credfile(susie_cred_file)
-        cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
+        if ".bgz" in cred_set_file: #yeah, ugly, so what
+            print("READING CS .BGZ FILES")
+            cs_df=load_credsets(cred_set_file,columns)
+            #load credset additional information
+            susie_cred_file = cred_set_file.replace("snp","cred")
+            cs_info = load_susie_credfile(susie_cred_file)
+            cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
+        elif ".snp.filter.tsv" in cred_set_file:
+            print("READING CS SUMMARIES")
+            cred_filename = cred_set_file.replace(".snp.filter.tsv",".cred.summary.tsv")
+            cs_df = load_credset_summaries(cred_set_file, cred_filename,columns)
+        else:
+            raise ValueError("credsetfile format not recognized.")
         #cs df X->23
+        print(cs_df.columns)
         cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
         cs_df = df_replace_value(cs_df,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
         cs_df = df_replace_value(cs_df,"cs_region",r'^chrX(.*)',r'chr23\1',regex=True)
