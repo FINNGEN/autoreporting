@@ -36,17 +36,17 @@ class OnlineLD(LDAccess):
         ld_data=data.json()["ld"]
         ld_out=[]
         for d in ld_data:
-            v1 = d["variation1"]
-            c1 = v1.split(":")[0]
-            p1 = int(v1.split(":")[1])
-            ref1 = v1.split(":")[2]
-            alt1 = v1.split(":")[3]
+            v1 = "chr"+d["variation1"].replace(":","_")
+            c1 = d["variation1"].split(":")[0]
+            p1 = int(d["variation1"].split(":")[1])
+            ref1 = d["variation1"].split(":")[2]
+            alt1 = d["variation1"].split(":")[3]
 
-            v2 = d["variation2"]
-            c2 = v2.split(":")[0]
-            p2 = int(v2.split(":")[1])
-            ref2 = v2.split(":")[2]
-            alt2 = v2.split(":")[3]
+            v2 = "chr"+d["variation2"].replace(":","_")
+            c2 = d["variation2"].split(":")[0]
+            p2 = int(d["variation2"].split(":")[1])
+            ref2 = d["variation2"].split(":")[2]
+            alt2 = d["variation2"].split(":")[3]
 
             r2 = float(d["r2"])
 
