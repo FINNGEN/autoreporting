@@ -30,19 +30,19 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
     group_df=df_p2.copy()
     new_df=pd.DataFrame(columns=df.columns)
     while not df.empty:
-        ms_snp=df.loc[df[columns["pval"] ].idxmin(),:]#get most sig SNP
-        rowidx=(group_df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(group_df[ columns["pos"] ]>= (ms_snp[columns["pos"]]-r) )&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])#get group indexes
+        ms_snp=df.loc[df[columns.pval ].idxmin(),:]#get most sig SNP
+        rowidx=(group_df[ columns.p ]<=(ms_snp[columns.p]+r) )&(group_df[ columns.p ]>= (ms_snp[columns.p]-r) )&(group_df[ columns.c ]==ms_snp[columns.c])#get group indexes
         tmp=group_df.loc[rowidx,:].copy()
         tmp.loc[:,"locus_id"]=ms_snp["#variant"]#necessary
-        tmp.loc[:,"pos_rmin"]=tmp[columns["pos"]].min()#get group pos_rmin and pos_rmax from location of the SNPs instead of just a 
-        tmp.loc[:,"pos_rmax"]=tmp[columns["pos"]].max()
+        tmp.loc[:,"pos_rmin"]=tmp[columns.p].min()#get group pos_rmin and pos_rmax from location of the SNPs instead of just a 
+        tmp.loc[:,"pos_rmax"]=tmp[columns.p].max()
         new_df=pd.concat([new_df,tmp],ignore_index=True,axis=0,join='inner')
         #convergence: remove the indexes from result_dframe. The rowidx =\= dropidx, as they come from different dataframes (df, group_df)
-        dropidx=(df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(df[ columns["pos"] ]>= (ms_snp[columns["pos"]]-r) )&(df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
+        dropidx=(df[ columns.p ]<=(ms_snp[columns.p]+r) )&(df[ columns.p ]>= (ms_snp[columns.p]-r) )&(df[ columns.c ]==ms_snp[columns.c])
         df=df.loc[~dropidx,:]
         #if not overlap, we also delete these from the group_df, so they can't be included again in other groups.
         if not overlap:
-            t_dropidx=(group_df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(group_df[ columns["pos"] ]>=(ms_snp[columns["pos"]]-r) )&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
+            t_dropidx=(group_df[ columns.p ]<=(ms_snp[columns.p]+r) )&(group_df[ columns.p ]>=(ms_snp[columns.p]-r) )&(group_df[ columns.c ]==ms_snp[columns.c])
             group_df=group_df.loc[~t_dropidx,:]
     return new_df
 
@@ -61,21 +61,21 @@ def load_credsets(fname: str, columns: Dict[str, str]) -> pd.DataFrame:
         return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id","cs_region","cs_number","r2_to_lead"])
     input_data = input_data[input_data["cs"]!=-1]#filter to credible sets
     input_data["credsetid"]=input_data[["region","cs"]].apply(lambda x: "".join([str(y) for y in x]),axis=1)
-    data = input_data.rename(columns={"chromosome":columns["chrom"],
-                                      "position": columns["pos"],
-                                      "allele1": columns["ref"],
-                                      "allele2": columns["alt"],
+    data = input_data.rename(columns={"chromosome":columns.c,
+                                      "position": columns.p,
+                                      "allele1": columns.r,
+                                      "allele2": columns.a,
                                       "prob": "cs_prob",
                                       "region":"cs_region",
                                       "cs":"cs_number",
                                       "lead_r2":"r2_to_lead"}).copy()
-    data[columns["chrom"]] = data[columns["chrom"]].str.strip("chr")
+    data[columns.c] = data[columns.c].str.strip("chr")
     data["cs_id"]=np.NaN
     for name, group in data.groupby("credsetid"):
         rsid=group.loc[group["cs_prob"].idxmax(),"rsid"]
         idx=group.loc[group["cs_prob"].idxmax(),"cs_number"]
         data.loc[data["credsetid"]==name,"cs_id"] = "{}_{}".format(rsid,idx)
-    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id", "cs_number", "cs_region", "r2_to_lead"]
+    cols=[columns.c, columns.p, columns.r, columns.a, "cs_prob", "cs_id", "cs_number", "cs_region", "r2_to_lead"]
     for column in cols:
         if column not in data.columns:
             data[column] = np.NaN
@@ -114,7 +114,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     """
     all_variants=df_p2.copy()
     group_leads = df_p1.copy()
-    ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
+    ld_ranges = group_leads[ [columns.c, columns.p, columns.r, columns.a, "#variant"] ].rename(columns={ columns.c:"chr", columns.p:"pos", columns.r:"ref", columns.a:"alt" })
     ld_ = []
     for idx, row in ld_ranges.iterrows():
         ld_.append( Variant(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
@@ -122,14 +122,14 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     #un-nest ld data
     ld_data = [a.to_flat() for a in ld_data]
     all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','chrom1','pos1','ref1','alt1','variant2','chrom2','pos2','ref2','alt2','r2'])
-    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],all_lead_ld_data,how="inner",left_on="#variant",right_on="variant2" )
+    ld_df = pd.merge(all_variants[ ["#variant",columns.pval ] ],all_lead_ld_data,how="inner",left_on="#variant",right_on="variant2" )
     ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])
-    ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
+    ld_df = ld_df[ld_df[columns.pval] <= sig_treshold_2 ]
     out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
     #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
     #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
     while not group_leads.empty:
-        lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
+        lead_variant = group_leads.loc[group_leads[columns.pval].idxmin(),"#variant" ]
         ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         group = all_variants[all_variants["#variant"].isin(ld_data["#variant"]) ].copy()
         group = pd.merge(group,ld_data,on="#variant",how="left")
@@ -137,8 +137,8 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
         grouplead["r2_to_lead"]=1.0#the group lead is, of course, in perfect LD with the group lead
         group=pd.concat([group,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
         group["locus_id"]=lead_variant
-        group["pos_rmin"]=group[columns["pos"]].min()
-        group["pos_rmax"]=group[columns["pos"]].max()
+        group["pos_rmin"]=group[columns.p].min()
+        group["pos_rmax"]=group[columns.p].max()
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
         group_leads=group_leads[ ~group_leads["#variant"].isin( group["#variant"].unique() ) ]
@@ -171,7 +171,7 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     if len(lead_vars) == 0:
         return pd.DataFrame(columns=df.columns)
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
-    ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
+    ld_ranges=lead_df[ [columns.c, columns.p, columns.r, columns.a, "#variant"] ].rename(columns={ columns.c:"chr", columns.p:"pos", columns.r:"ref", columns.a:"alt" })
     ld_ = []
     for idx, row in ld_ranges.iterrows():
         ld_.append( Variant(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
@@ -180,15 +180,15 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     ld_data = [a.to_flat() for a in ld_data]
     all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','chrom1','pos1','ref1','alt1','variant2','chrom2','pos2','ref2','alt2','r2'])
     #join
-    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant2") #does include all of the lead variants as well
+    ld_df = pd.merge(df[["#variant",columns.c,columns.p,columns.pval]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])
     #filter by p-value
     out_df = pd.DataFrame(columns=list(data.columns))
     #create df with only lead variants
-    leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
+    leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns.pval]].copy()
     while not leads.empty:
         #get lead variant and ld data
-        lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"] #choose the lead variant with smallest p-value
+        lead_variant = leads.loc[leads[columns.pval].idxmin(),"#variant"] #choose the lead variant with smallest p-value
         ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         
         #create credible set group and ld partner group
@@ -207,8 +207,8 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
         #Though it shouldn't be possible for there to be variants that are both in the credible set and out of it. 
         group=pd.concat([group,cred_group],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
         group["locus_id"]=lead_variant
-        group["pos_rmin"]=group[columns["pos"]].min()
-        group["pos_rmax"]=group[columns["pos"]].max()
+        group["pos_rmin"]=group[columns.p].min()
+        group["pos_rmax"]=group[columns.p].max()
         
         #add the group to output
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
@@ -243,14 +243,14 @@ def get_gws_variants(fname, sign_treshold=5e-8,dtype=None,columns={},extra_cols=
     """
     chunksize=100000
     if not dtype:
-        dtype={columns["chrom"]:str,
-                columns["pos"]:np.int32,
-                columns["ref"]:str,
-                columns["alt"]:str,
-                columns["pval"]:np.float64}
+        dtype={columns.c:str,
+                columns.p:np.int32,
+                columns.r:str,
+                columns.a:str,
+                columns.pval:np.float64}
     retval=pd.DataFrame()
     for df in pd.read_csv(fname,compression=compression,sep="\t",dtype=dtype,engine="c",chunksize=chunksize):
-        retval=pd.concat( [retval,df.loc[df[columns["pval"] ] <=sign_treshold,: ] ], axis="index", ignore_index=True,sort=False )
+        retval=pd.concat( [retval,df.loc[df[columns.pval ] <=sign_treshold,: ] ], axis="index", ignore_index=True,sort=False )
     extracted_cols=list(columns.values())+extra_cols
     retval=extract_cols(retval,extracted_cols)
     return retval
@@ -263,17 +263,17 @@ def merge_credset(gws_df,cs_df,fname,columns):
     In: Dataframe containing gws variants, dataframe containing credible sets, filename for summary statistic.
     Out: Dataframe containing the gws variants + any credible set variants that are not gws. Columns 'cs_id','cs_prob' added to the dataframe. 
     """
-    join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
+    join_cols=[columns.c, columns.p, columns.r, columns.a]
     # fetch rows using tabix
     cred_row_df = load_tb_df(cs_df,fname,columns=columns)
     cols = list(gws_df.columns)
     cred_row_df = cred_row_df[ cols ].drop_duplicates(keep="first")
-    cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
-    cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
+    cred_row_df=cred_row_df.astype(dtype={columns.c:str,columns.p:np.int64,columns.r:str,columns.a:str})
+    cs_df=cs_df.astype(dtype={columns.c:str,columns.p:np.int64,columns.r:str,columns.a:str})
     # ensure only the credible sets were included
     cred_row_df = pd.merge(cred_row_df,cs_df[join_cols],how="right",on=join_cols)
     df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False)\
-        .astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})\
+        .astype(dtype={columns.c:str,columns.p:np.int64,columns.r:str,columns.a:str})\
         .drop_duplicates(subset=list( join_cols ) )
     # merge the credible set
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
@@ -314,21 +314,21 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         cs_info = load_susie_credfile(susie_cred_file)
         cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
         #cs df X->23
-        cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
+        cs_df = df_replace_value(cs_df,columns.c,"X","23")
         cs_df = df_replace_value(cs_df,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
         cs_df = df_replace_value(cs_df,"cs_region",r'^chrX(.*)',r'chr23\1',regex=True)
         #remove ignored region if there is one
         if ignore_region:
-            ign_idx=( ( cs_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( cs_df[columns["pos"]]<=ignore_region_["end"] )&( cs_df[columns["pos"]]>=ignore_region_["start"] ) )
+            ign_idx=( ( cs_df[columns.c]==ignore_region_["chrom"] ) & ( cs_df[columns.p]<=ignore_region_["end"] )&( cs_df[columns.p]>=ignore_region_["start"] ) )
             cs_df=cs_df.loc[~ign_idx,:]
         if cs_df.empty:
             print("The input file {} contains no credible sets. Aborting.".format(gws_fpath))
             return None
         cs_leads = cs_df.loc[cs_df[["cs_id","cs_prob"]].reset_index().groupby("cs_id").max()["index"],:]
-        cs_ranges = cs_leads[[columns["chrom"],columns["pos"]]].copy()
-        cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width*1000
-        cs_ranges["max"] = cs_ranges[columns["pos"]]+locus_width*1000
-        cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
+        cs_ranges = cs_leads[[columns.c,columns.p]].copy()
+        cs_ranges["min"] = cs_ranges[columns.p]-locus_width*1000
+        cs_ranges["max"] = cs_ranges[columns.p]+locus_width*1000
+        cs_ranges=cs_ranges.rename(columns={columns.c:"chrom"}).drop(columns=columns.p)
         #make an X and 23 version of ranges
         cs_ranges_23 = df_replace_value(cs_ranges.copy(),"chrom","X","23")
         cs_ranges_x = df_replace_value(cs_ranges.copy(),"chrom","23","X")
@@ -337,16 +337,16 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         summ_stat_variants_x = load_tb_ranges(cs_ranges_x,gws_fpath,"",".")
         summ_stat_variants_23 = load_tb_ranges(cs_ranges_23,gws_fpath,"",".")
         summ_stat_variants = summ_stat_variants_x if summ_stat_variants_x.shape[0] > summ_stat_variants_23.shape[0] else summ_stat_variants_23
-        summ_stat_variants = df_replace_value(summ_stat_variants,columns["chrom"],"X","23")#finally in chrom 23 
+        summ_stat_variants = df_replace_value(summ_stat_variants,columns.c,"X","23")#finally in chrom 23 
 
         summ_stat_variants = extract_cols(summ_stat_variants,list(columns.values())+extra_cols)
         not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)\
-            .sort_values(axis="index",by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"],na_position="last")
+            .sort_values(axis="index",by=[columns.c,columns.p,columns.r,columns.a,"cs_id"],na_position="last")
         not_grouped_data=not_grouped_data.reset_index(drop=True)
-        not_grouped_data.loc[:,"#variant"]=create_variant_column(not_grouped_data,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        not_grouped_data.loc[:,"#variant"]=create_variant_column(not_grouped_data,chrom=columns.c,pos=columns.p,ref=columns.r,alt=columns.a)
         not_grouped_data.loc[:,"locus_id"]=not_grouped_data.loc[:,"#variant"]
-        not_grouped_data.loc[:,"pos_rmax"]=not_grouped_data.loc[:,columns["pos"]]
-        not_grouped_data.loc[:,"pos_rmin"]=not_grouped_data.loc[:,columns["pos"]]
+        not_grouped_data.loc[:,"pos_rmax"]=not_grouped_data.loc[:,columns.p]
+        not_grouped_data.loc[:,"pos_rmin"]=not_grouped_data.loc[:,columns.p]
         #group, sort data
         grouped_data = credible_set_grouping(data=not_grouped_data,ld_threshold=ld_r2,locus_range=locus_width,
                 overlap=overlap,ld_api=ld_api,columns=columns)
@@ -355,18 +355,18 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
     else:
         sig_tresh_2=max(sig_tresh_1,sig_tresh_2)
         r=locus_width*1000#range for location width, originally in kb
-        dtype={columns["chrom"]:str,
-                    columns["pos"]:np.int32,
-                    columns["ref"]:str,
-                    columns["alt"]:str,
-                    columns["pval"]:np.float64}
+        dtype={columns.c:str,
+                    columns.p:np.int32,
+                    columns.r:str,
+                    columns.a:str,
+                    columns.pval:np.float64}
 
         #data input: get genome-wide significant variants.
         temp_df=get_gws_variants(gws_fpath,sign_treshold=sig_tresh_2,dtype=dtype,columns=columns,compression="gzip",extra_cols=extra_cols)
-        temp_df = df_replace_value(temp_df,columns["chrom"],"X","23")#summ stat data to 23 if not there already
+        temp_df = df_replace_value(temp_df,columns.c,"X","23")#summ stat data to 23 if not there already
         #remove ignored region if there is one
         if ignore_region:
-            ign_idx=( ( temp_df[columns["chrom"]]==ignore_region_["chrom"] ) & ( temp_df[columns["pos"]]<=ignore_region_["end"] )&( temp_df[columns["pos"]]>=ignore_region_["start"] ) )
+            ign_idx=( ( temp_df[columns.c]==ignore_region_["chrom"] ) & ( temp_df[columns.p]<=ignore_region_["end"] )&( temp_df[columns.p]>=ignore_region_["start"] ) )
             temp_df=temp_df.loc[~ign_idx,:]
         
         if temp_df.empty:
@@ -374,26 +374,26 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
             return None
         
         #data input: get credible set variants
-        join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
+        join_cols=[columns.c, columns.p, columns.r, columns.a]
         if cred_set_file != "":
             cs_df=load_credsets(cred_set_file,columns)
         else:
             cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id","cs_region"])
-        cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
+        cs_df = df_replace_value(cs_df,columns.c,"X","23")
         cs_df = df_replace_value(cs_df,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
         cs_df = df_replace_value(cs_df,"cs_region",r'^chrX(.*)',r'chr23\1',regex=True)
         #merge with gws_df, by using chrom,pos,ref,alt
         temp_df = merge_credset(temp_df,cs_df,gws_fpath,columns)
         #create necessary columns for the data
         temp_df=temp_df.reset_index(drop=True)
-        temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        temp_df.loc[:,"#variant"]=create_variant_column(temp_df,chrom=columns.c,pos=columns.p,ref=columns.r,alt=columns.a)
         temp_df.loc[:,"locus_id"]=temp_df.loc[:,"#variant"]
-        temp_df.loc[:,"pos_rmax"]=temp_df.loc[:,columns["pos"]]
-        temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns["pos"]]
+        temp_df.loc[:,"pos_rmax"]=temp_df.loc[:,columns.p]
+        temp_df.loc[:,"pos_rmin"]=temp_df.loc[:,columns.p]
         if "r2_to_lead" in temp_df.columns: #cs r2 to lead is not useful since we don't necessarily group around cs variants
             temp_df=temp_df.drop(columns=["r2_to_lead"])
-        df_p1=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_1,: ].copy()
-        df_p2=temp_df.loc[temp_df[columns["pval"]] <= sig_tresh_2,: ].copy()
+        df_p1=temp_df.loc[temp_df[columns.pval] <= sig_tresh_1,: ].copy()
+        df_p2=temp_df.loc[temp_df[columns.pval] <= sig_tresh_2,: ].copy()
         if df_p1.empty:
             print("The input file {} contains no gws-significant hits with signifigance treshold of {}. Aborting.".format(gws_fpath,sig_tresh_1))
             return None

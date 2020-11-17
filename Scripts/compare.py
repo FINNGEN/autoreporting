@@ -29,8 +29,8 @@ def map_column(df,col_name,columns):
         cols=list(df_.columns)
         cols.append(col_name)
         return pd.DataFrame(columns=cols)
-    df_[["temp_map_ref","temp_map_alt"]]=df_.loc[:,[columns["ref"],columns["alt"] ]].apply(lambda x: map_alleles(*x),axis=1,result_type="expand")
-    df_[col_name]=create_variant_column(df_,chrom=columns["chrom"],pos=columns["pos"],ref="temp_map_ref",alt="temp_map_alt")
+    df_[["temp_map_ref","temp_map_alt"]]=df_.loc[:,[columns.r,columns.a ]].apply(lambda x: map_alleles(*x),axis=1,result_type="expand")
+    df_[col_name]=create_variant_column(df_,chrom=columns.c,pos=columns.p,ref="temp_map_ref",alt="temp_map_alt")
     df_=df_.drop(columns=["temp_map_ref","temp_map_alt"])
     return df_
 
@@ -49,30 +49,30 @@ def solve_indels(indel_df,df,columns):
         #check if our dataframe has an exact match.
         rowpos=int(row["pos"])-1
         rowchrom=str(row["chrom"])
-        possible_matches=df.loc[(df[columns["chrom"]].astype(str) == rowchrom)&(df[columns["pos"]] == rowpos )  ,:].copy()
+        possible_matches=df.loc[(df[columns.c].astype(str) == rowchrom)&(df[columns.p] == rowpos )  ,:].copy()
         for __, row2 in possible_matches.iterrows():
             #if alleles are a match s.t. -/TCGA == T/TTCGA, add that to output df and break from the loop
             a1=row["ref"]
             a2=row["alt"]
-            b1=row2[columns["ref"]]
-            b2=row2[columns["alt"]]
+            b1=row2[columns.r]
+            b2=row2[columns.a]
             n_row=row.copy()
             if a1=="-":
                 if len(b1)==1 and b2[1:] == a2:
-                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b1,b2)
+                    n_row=indel_helper(n_row,row2[columns.c],row2[columns.p],b1,b2)
                     out_df=out_df.append(n_row,sort=True)
                     break
                 elif len(b2)==1 and b1[1:] == a2:
-                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b2,b1)
+                    n_row=indel_helper(n_row,row2[columns.c],row2[columns.p],b2,b1)
                     out_df=out_df.append(n_row,sort=True)
                     break
             elif a2=="-":
                 if len(b1)==1 and b2[1:] == a1:
-                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b2,b1)
+                    n_row=indel_helper(n_row,row2[columns.c],row2[columns.p],b2,b1)
                     out_df=out_df.append(n_row,sort=True)
                     break
                 elif len(b2)==1 and b1[1:] == a1:
-                    n_row=indel_helper(n_row,row2[columns["chrom"]],row2[columns["pos"]],b1,b2)
+                    n_row=indel_helper(n_row,row2[columns.c],row2[columns.p],b1,b2)
                     out_df=out_df.append(n_row,sort=True)
                     break
             #else, continue
@@ -110,12 +110,12 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                         "n_controls":"Controls"
     }
 
-    group_cols = ["locus_id", columns["chrom"], columns["pos"], columns["ref"], columns["alt"], columns["pval"]]
-    group_cols_rename = {columns["chrom"]: "chrom",
-                         columns["pos"]: "pos",
-                         columns["ref"]: "ref",
-                         columns["alt"]: "alt",
-                         columns["pval"]: "pval"}
+    group_cols = ["locus_id", columns.c, columns.p, columns.r, columns.a, columns.pval]
+    group_cols_rename = {columns.c: "chrom",
+                         columns.p: "pos",
+                         columns.r: "ref",
+                         columns.a: "alt",
+                         columns.pval: "pval"}
 
     lead_var_cols = ["beta_previous_release","pval_previous_release",
                      "most_severe_consequence","most_severe_gene",
@@ -218,14 +218,14 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
             strict_group = loc_variants[loc_variants["cs_id"]==locus_cs_id].copy()
         elif grouping_method == "ld":
             #strict group = variants that have low enough pvalue and high enough correlation with lead variant
-            strict_group = loc_variants[(loc_variants[columns["pval"]]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()
+            strict_group = loc_variants[(loc_variants[columns.pval]<=significance_threshold) & (loc_variants["r2_to_lead"]>=strict_ld_threshold )].copy()
         else:
             #variants that have low enough pvalue
-            strict_group = loc_variants[loc_variants[columns["pval"]]<=significance_threshold].copy()
+            strict_group = loc_variants[loc_variants[columns.pval]<=significance_threshold].copy()
         
         row['#variant']=locus_id
-        row["start"]=int(np.amin(loc_variants[columns["pos"]]))
-        row["end"]=int(np.amax(loc_variants[columns["pos"]]))
+        row["start"]=int(np.amin(loc_variants[columns.p]))
+        row["end"]=int(np.amax(loc_variants[columns.p]))
         credset_vars = strict_group.loc[strict_group["cs_id"]==locus_cs_id,["#variant","cs_prob","r2_to_lead"]].drop_duplicates()
         cred_set=";".join( "{}|{:.3g}|{:.3g}".format(t._1,t.cs_prob,t.r2_to_lead) for t in  credset_vars.itertuples() )
         # Get credible set variants in relazed & strict group, as well as functional variants. 
@@ -283,7 +283,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,columns):
     if df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]<=1:
         return
-    chromosome=df.loc[df["#variant"]==locus,columns["chrom"] ].unique()[0]
+    chromosome=df.loc[df["#variant"]==locus,columns.c ].unique()[0]
     print("Chromosome {}, group {} ld computation, variant amount {}".format(chromosome,locus,df.loc[df["locus_id"]==locus,"pos_rmax"].shape[0]))
     #get group range
     r_max=df.loc[df["locus_id"]==locus,"pos_rmax"].values[0]
@@ -310,10 +310,10 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
     if not os.path.exists("{}temp_corr.bcor".format(prefix)):
         raise FileNotFoundError("The LD correlation file {} does not exist. Check that the chromosome index is correct, e.g. 23 in both summary statistic and LD panel instead of 23 and X.".format(prefix+"temp_corr.bcor"))
     #create list of variants of interest.
-    var_cols=["#variant",columns["pos"],columns["chrom"],columns["ref"],columns["alt"]]
-    var_rename={"#variant":"RSID",columns["pos"]:"position",columns["chrom"]:"chromosome",columns["ref"]:"A_allele",columns["alt"]:"B_allele"}
+    var_cols=["#variant",columns.p,columns.c,columns.r,columns.a]
+    var_rename={"#variant":"RSID",columns.p:"position",columns.c:"chromosome",columns.r:"A_allele",columns.a:"B_allele"}
     extract_df_1=df.loc[df["locus_id"]==locus,:].copy()
-    extract_df_2=summary_df.loc[(summary_df[columns["pos"]] <=r_max) & (summary_df[columns["pos"]] >=r_min)  ,:].copy()
+    extract_df_2=summary_df.loc[(summary_df[columns.p] <=r_max) & (summary_df[columns.p] >=r_min)  ,:].copy()
     extract_df=pd.concat([extract_df_1,extract_df_2],sort=True).loc[:,var_cols].rename(columns=var_rename).drop_duplicates().sort_values(by="position")
     ### different datatypes caused drop duplicates to not recognize duplicates and ldstore failed in the next step
     extract_df = extract_df.astype(str)
@@ -336,17 +336,17 @@ def extract_ld_variants(df,summary_df,locus,ldstore_threads,ld_treshold,prefix,c
     ld_table2=ld_table.copy()
     ld_table2=ld_table2.rename(columns={"RSID1":"RSID2","RSID2":"RSID1"})
     ld=pd.concat([ld_table,ld_table2],sort=True).reset_index(drop=True)
-    ld[columns["chrom"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[0] )
-    ld[columns["pos"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[1] )
-    ld[columns["ref"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[2] )
-    ld[columns["alt"]]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[3] )
+    ld[columns.c]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[0] )
+    ld[columns.p]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[1] )
+    ld[columns.r]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[2] )
+    ld[columns.a]=ld["RSID2"].apply(lambda x:x.strip("chr").split("_")[3] )
     #filter
     ld=ld.merge(extract_df_1.loc[:,["#variant"] ].rename(columns={"#variant":"RSID1"}),how="inner",on="RSID1")
     ld=map_column(ld,"RSID2_map",columns)
     #is #variant mapped to A strand? maybe, but this should be checked.
     ld=ld.merge(extract_df_2.loc[:,["#variant"] ].rename(columns={"#variant":"RSID2_map"}),how="inner",on="RSID2_map")
     ld.loc[:,"r2"]=ld["correlation"]*ld["correlation"]
-    ld=ld.drop(columns=["correlation",columns["chrom"],columns["pos"],columns["ref"],columns["alt"] ])
+    ld=ld.drop(columns=["correlation",columns.c,columns.p,columns.r,columns.a ])
     #remove temporary files
     corr_files=glob.glob("{}temp_corr.*".format(prefix))
     rmcmd="rm {}ld_table.table {}var_lst".format(prefix, prefix, prefix)
@@ -362,8 +362,8 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
         pd.DataFrame: dataframe with invalid variants removed 
     """
     mset='^[acgtACGT-]+$'
-    matchset1=df[columns["ref"]].apply(lambda x:bool(re.match(mset,x)))
-    matchset2=df[columns["alt"]].apply(lambda x:bool(re.match(mset,x)))
+    matchset1=df[columns.r].apply(lambda x:bool(re.match(mset,x)))
+    matchset2=df[columns.a].apply(lambda x:bool(re.match(mset,x)))
     retval = df[matchset1 & matchset2].copy()
     return retval
 
@@ -383,14 +383,14 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
     if df.empty:
         #print("No variants, {} and {} will not be produced".format(report_out, ld_report_out))
         return (None, None)
-    necessary_columns=[ columns["chrom"],columns["pos"],columns["ref"],columns["alt"],columns["pval"],"#variant","locus_id","pos_rmin","pos_rmax"]
+    necessary_columns=[ columns.c,columns.p,columns.r,columns.a,columns.pval,"#variant","locus_id","pos_rmin","pos_rmax"]
     df_cols=df.columns.to_list()
     if not all(nec_col in df_cols for nec_col in necessary_columns):
         Exception("GWS variant file {} did not contain all of the necessary columns:\n{} ".format(compare_fname,necessary_columns))
     if os.path.exists("{}gwas_out_mapping.tsv".format(prefix)) and cache_gwas:
         summary_df = pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
     else:
-        range_df = df.loc[:,[columns["chrom"],"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
+        range_df = df.loc[:,[columns.c,"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
         regions = prune_regions(range_df).to_dict("records")
         assoc_records = association_db.associations_for_regions(regions)
         assoc_df = pd.DataFrame(assoc_records)
@@ -400,9 +400,9 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
             indels=solve_indels(assoc_df.loc[indel_idx,:],df,columns)
             assoc_df=assoc_df.loc[~indel_idx,:]
             assoc_df=pd.concat([assoc_df,indels],sort=False).reset_index(drop=True)
-            rename_dict={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"pval":columns["pval"]}
+            rename_dict={"chrom":columns.c,"pos":columns.p,"ref":columns.r,"alt":columns.a,"pval":columns.pval}
             assoc_df=assoc_df.rename(columns=rename_dict)
-            assoc_df.loc[:,"#variant"]=create_variant_column(assoc_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+            assoc_df.loc[:,"#variant"]=create_variant_column(assoc_df,chrom=columns.c,pos=columns.p,ref=columns.r,alt=columns.a)
         summary_df=assoc_df
         if cache_gwas:
             summary_df.to_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t",index=False)
@@ -419,11 +419,11 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         summary_df.fillna("NA").replace("","NA").to_csv("{}summary_df.tsv".format(prefix),sep="\t",index=False)
         summary_df=map_column(summary_df,"map_variant",columns)
         df=map_column(df,"map_variant",columns)
-        necessary_columns=[columns["pval"],"#variant","map_variant","trait","trait_name","study_link"]
+        necessary_columns=[columns.pval,"#variant","map_variant","trait","trait_name","study_link"]
         report_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
         report_out_df=report_out_df.drop(columns=["map_variant"])
-        report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait"})
-        report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+        report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","{}_x".format(columns.pval):columns.pval,"{}_y".format(columns.pval):"pval_trait"})
+        report_out_df=report_out_df.sort_values(by=[columns.c,columns.p,columns.r,columns.a,"#variant"])
     #Calculate ld between our variants and external variants
     ld_out=None
     if ld_check and (not summary_df.empty):
@@ -437,7 +437,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         chrom_lst=  sorted([*{*[s.split("_")[0].strip("chr") for s in unique_locus_list]}])
         for chrom in chrom_lst:
             print("------------LD for groups in chromosome {}------------".format(chrom))
-            groups=df[df[columns["chrom"]].astype(str) == chrom ].loc[:,"locus_id"].unique()
+            groups=df[df[columns.c].astype(str) == chrom ].loc[:,"locus_id"].unique()
             plink_cmd="plink --bfile {} --output-chr M --chr {} --make-bed --out {}temp_chrom --memory {}".format( ld_panel_path, chrom , prefix, plink_mem)
             pr=subprocess.run(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT)
             if pr.returncode!=0:
@@ -456,7 +456,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
             ld_df=ld_df.drop_duplicates(subset=["RSID1","RSID2"],keep="first")
             ld_df=ld_df.merge(summary_df.loc[:,["map_variant","trait","trait_name"]].rename(columns={"map_variant":"RSID2_map"}),how="inner",on="RSID2_map")
             ld_out=df.merge(ld_df,how="inner",left_on="#variant",right_on="RSID1")
-            ld_out=ld_out.drop(columns=["RSID1","map_variant","RSID2_map"]).rename(columns={"{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait","RSID2":"#variant_hit"})
+            ld_out=ld_out.drop(columns=["RSID1","map_variant","RSID2_map"]).rename(columns={"{}_x".format(columns.pval):columns.pval,"{}_y".format(columns.pval):"pval_trait","RSID2":"#variant_hit"})
         else:
             print("No variants in ld found, no LD output file produced.")
     return (report_out_df, ld_out)

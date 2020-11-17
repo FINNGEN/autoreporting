@@ -2,10 +2,20 @@ import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
 import tabix
+from typing import NamedTuple, List
 
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
 """
+
+class Columns(NamedTuple):
+    c:str
+    p:str
+    r:str
+    a:str
+    pval:str
+    def values(self):
+        return [self.c,self.p,self.r,self.a,self.pval]
 
 def filebasename(s):
     if s != "":
@@ -64,7 +74,7 @@ def load_tb_df(df,fpath,columns,chrom_prefix="",na_value="."):
     tb=tabix.open(fpath)
     tbxlst=[]
     for _,row in df.iterrows():
-        tbxlst=tbxlst+pytabix( tb,"{}{}".format(chrom_prefix,row[columns["chrom"] ]),int(row[columns["pos"] ]),int(row[columns["pos"]]) )
+        tbxlst=tbxlst+pytabix( tb,"{}{}".format(chrom_prefix,row[columns.c ]),int(row[columns.p ]),int(row[columns.p]) )
     header=get_gzip_header(fpath)
     out_df=pd.DataFrame(tbxlst,columns=header )
     out_df=out_df.replace(na_value,np.nan)
@@ -110,15 +120,15 @@ def prune_regions(df):
             regions.append({"chrom":str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
     return pd.DataFrame(regions)
 
-def columns_from_arguments(column_labels):
+def columns_from_arguments(column_labels: List[str])-> Columns:
     """
-    Return a dict of columns (used pervasively throughout the script) from the argument column_labels
+    Return a Columns object (used pervasively throughout the script for idnetifying columns) from list of column labels
     In: column labels, as a list
-    Out: Dictionary with the members 'chrom','pos','ref','alt','pval'
+    Out: Columns object with data column names
     """
-    return {
-        "chrom":column_labels[0],
-        "pos":column_labels[1],
-        "ref":column_labels[2],
-        "alt":column_labels[3],
-        "pval":column_labels[4]}
+    return Columns(
+        column_labels[0],
+        column_labels[1],
+        column_labels[2],
+        column_labels[3],
+        column_labels[4])

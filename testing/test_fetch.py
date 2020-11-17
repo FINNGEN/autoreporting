@@ -7,6 +7,7 @@ sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import gws_fetch
 from Scripts import autoreporting_utils as autils
+from Scripts.autoreporting_utils import Columns
 from Scripts.data_access.db import LDData, Variant
 from io import StringIO
 
@@ -27,24 +28,23 @@ class TestGws(unittest.TestCase):
         #test simple filtering
         ##NOTE: We can test only filtering by using get_gws_variants instead of fetch_gws
         input_="testing/fetch_resources/filter_test.tsv.gz"
-        args=Arg()
-        args.gws_fpath=input_
-        args.sig_treshold=0.10
-        args.columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf"}
+        gws_fpath=input_
+        sig_treshold=0.10
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         #output = gws_fetch.fetch_gws(args)
-        output = gws_fetch.get_gws_variants(fname=args.gws_fpath, sign_treshold=args.sig_treshold, columns=args.columns)
+        output = gws_fetch.get_gws_variants(fname=gws_fpath, sign_treshold=sig_treshold, columns=columns)
         validation=pd.read_csv("testing/fetch_resources/filter_test.tsv.gz",compression="gzip",sep="\t")
-        validation=validation.loc[validation["pval"]<=args.sig_treshold,:]
+        validation=validation.loc[validation["pval"]<=sig_treshold,:]
         validation=validation.reset_index(drop=True)
         output=output.reset_index(drop=True)
-        for col in validation.columns:
+        for col in output.columns:
             self.assertEqual( list(output[col].astype(str)) , list(validation[col].astype(str)) )
 
     def test_simple_grouping(self):
         #test simple grouping function
         #set up data and parameters
         input_="testing/fetch_resources/test_grouping.tsv.gz"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         data=pd.read_csv(input_,compression="gzip",sep="\t")
         data["#variant"]=autils.create_variant_column(data)
         data["locus_id"]=data["#variant"]
@@ -74,7 +74,7 @@ class TestGws(unittest.TestCase):
         and those should be tested in their own tests)
         """
         input_="testing/fetch_resources/test_grouping.tsv.gz"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval","beta":"beta","af":"maf","af_cases":"maf_cases","af_controls":"maf_controls"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         data=pd.read_csv(input_,compression="gzip",sep="\t")
         data["#variant"]=autils.create_variant_column(data)
         data["locus_id"]=data["#variant"]
@@ -132,7 +132,7 @@ class TestGws(unittest.TestCase):
         #test the get_gws_variants function
         #case 1: empty data, should return empty dataframe.
         empty_read=[pd.DataFrame(columns=["#chrom", "pos", "ref", "alt", "pval"])]
-        columns=autils.columns_from_arguments(["#chrom", "pos", "ref", "alt", "pval"])
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         extra_columns = ["beta","maf","maf_cases","maf_controls"]
         with mock.patch("Scripts.gws_fetch.pd.read_csv",return_value=empty_read):
             retval=gws_fetch.get_gws_variants("",columns=columns)
@@ -156,7 +156,7 @@ class TestGws(unittest.TestCase):
     def test_cred_grouping(self):
         #test credible grouping. Test at least two test cases: with empty credible sets, as well as when using proper data.
         input_ = "testing/fetch_resources/test_grouping.tsv.gz"
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         data=pd.read_csv(input_,compression="gzip",sep="\t")
         data["#variant"]=autils.create_variant_column(data)
         data["locus_id"]=data["#variant"]
@@ -212,7 +212,7 @@ class TestGws(unittest.TestCase):
     def test_cred_merge(self):
         # test merging of data
         # mock: tabix, load_tb_df
-        columns={"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        columns = Columns("chrom", "pos", "ref", "alt", "pval")
 
         df={"chrom":["1","1","1","1"],"pos":[1,2,3,4],"ref":["A","G","C","T"],"alt":["G","C","T","A"],"pval":[0.01,0.001,0.0001,0.00001]}
         df=pd.DataFrame(df)

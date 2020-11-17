@@ -66,8 +66,8 @@ class TestUtils(unittest.TestCase):
         collabs2 = ["1","2","3","4","5"]
         columns= autoreporting_utils.columns_from_arguments(collabs)
         columns2= autoreporting_utils.columns_from_arguments(collabs2)
-        validate= {"chrom":"chrom","pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval"}
-        validate2= {"chrom":"1","pos":"2", "ref":"3", "alt":"4", "pval":"5"}
+        validate= autoreporting_utils.Columns("chrom","pos","ref","alt","pval")
+        validate2= autoreporting_utils.Columns("1","2","3","4","5")
         self.assertEqual(columns, validate)
         self.assertEqual(columns2, validate2)
 

@@ -48,7 +48,7 @@ def previous_release_annotate(fpath: Optional[str], df: pd.DataFrame, columns: D
     Returns:
         (pd.DataFrame): Dataframe with columns [#variant, beta_previous_release, pval_previous_release]
     """
-    previous_cols = [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "beta_previous_release", "pval_previous_release"]
+    previous_cols = [columns.c, columns.p, columns.r, columns.a, "beta_previous_release", "pval_previous_release"]
     if fpath:
         if not os.path.exists("{}.tbi".format(fpath)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(fpath))
@@ -60,9 +60,9 @@ def previous_release_annotate(fpath: Optional[str], df: pd.DataFrame, columns: D
         return pd.DataFrame(columns = ["#variant","beta_previous_release", "pval_previous_release"])
     
     if not previous_df.empty:
-        previous_df = previous_df.drop_duplicates(subset=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]])
-        previous_df = df_replace_value(previous_df,columns["chrom"],"X","23")
-        previous_df["#variant"] = create_variant_column(previous_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+        previous_df = previous_df.drop_duplicates(subset=[columns.c, columns.p, columns.r, columns.a])
+        previous_df = df_replace_value(previous_df,columns.c,"X","23")
+        previous_df["#variant"] = create_variant_column(previous_df,chrom=columns.c,pos=columns.p,ref=columns.r,alt=columns.a)
     else:
         previous_df["#variant"] = None
     previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]]
@@ -90,11 +90,11 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
     func_df["chrom"] = func_df["chrom"].apply(lambda x:x.strip("chr"))
     func_df=df_replace_value(func_df,"chrom","X","23")
     func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).\
-        rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
+        rename(columns={"chrom":columns.c,"pos":columns.p,"ref":columns.r,"alt":columns.a,"consequence":"functional_category"})
     functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
     func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
     #func_df = func_df.dropna(axis="index")
-    func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    func_df["#variant"] = create_variant_column(func_df,chrom=columns.c,pos=columns.p,ref=columns.r,alt=columns.a)
     return func_df[return_columns]
 
 def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: bool, columns: Dict[str,str]) -> pd.DataFrame:
@@ -157,8 +157,8 @@ def gnomad_gen_annotate(df: pd.DataFrame, gnomad_path: Optional[str], columns: D
 
     gnomad_genomes=load_tb_df(df,gnomad_path,columns=columns)
     gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
-    gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
-    gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns.c,"POS":columns.p,"REF":columns.r,"ALT":columns.a})
+    gnomad_genomes["#variant"]=create_variant_column(gnomad_genomes,chrom=columns.c,pos=columns.p,ref=columns.r,alt=columns.a)
     #calculate enrichment for gnomad genomes, nfe, nfe without est
     gn_gen_nfe_counts=["AC_nfe_est","AC_nfe_nwe","AC_nfe_onf","AC_nfe_seu"]
     gn_gen_nfe_nums=["AN_nfe_est","AN_nfe_nwe","AN_nfe_onf","AN_nfe_seu"]
@@ -195,8 +195,8 @@ def gnomad_exo_annotate(df: pd.DataFrame, gnomad_path: str, columns: Dict[str, s
     
     gnomad_exomes=load_tb_df(df,gnomad_path,columns=columns)
     gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
-    gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
-    gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+    gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns.c,"POS":columns.p,"REF":columns.r,"ALT":columns.a})
+    gnomad_exomes["#variant"]=create_variant_column(gnomad_exomes,chrom=columns.c,pos=columns.p,ref=columns.r,alt=columns.a)
     #calculate enrichment for gnomax exomes, nfe, nfe without est, nfe without swe, nfe without est, swe?
     gn_exo_nfe_counts=["AC_nfe_bgr","AC_nfe_est","AC_nfe_onf","AC_nfe_seu","AC_nfe_swe"]
     gn_exo_nfe_nums=["AN_nfe_bgr","AN_nfe_est","AN_nfe_onf","AN_nfe_seu","AN_nfe_swe"]
@@ -242,8 +242,8 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     #create chr 23->X calling df
     #needs chromosome 23 as X
     call_df_x = df.copy()
-    call_df_x[columns["chrom"]]=call_df_x[columns["chrom"]].astype(str)
-    call_df_x = df_replace_value(call_df_x,columns["chrom"],"23","X") #TODO: IF/WHEN GNOMAD RESOURCES USE CHR 23, THIS NEEDS TO BE REMOVED
+    call_df_x[columns.c]=call_df_x[columns.c].astype(str)
+    call_df_x = df_replace_value(call_df_x,columns.c,"23","X") #TODO: IF/WHEN GNOMAD RESOURCES USE CHR 23, THIS NEEDS TO BE REMOVED
     
     #load annotation dataframes
     #load previous release annotations

@@ -6,6 +6,7 @@ sys.path.append("./")
 sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 from Scripts import annotate
+from Scripts.autoreporting_utils import Columns
 
 class Arg():
     def __init__(self):
@@ -42,7 +43,7 @@ class TestAnnotate(unittest.TestCase):
             Missing tabix file
             Data available
         """
-        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         #empty data
         input_data = pd.DataFrame()
         retval = annotate.functional_annotate(input_data,None,columns)
@@ -100,7 +101,7 @@ class TestAnnotate(unittest.TestCase):
             Missing tabix file
             Data available
         """
-        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         #empty data
         input_data = pd.DataFrame()
         retval = annotate.finngen_annotate(input_data,None,False,columns)
@@ -135,7 +136,7 @@ class TestAnnotate(unittest.TestCase):
             Data available
         """
         #Empty data
-        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         #empty data
         input_data = pd.DataFrame()
         retval = annotate.gnomad_gen_annotate(input_data,None,columns)
@@ -167,7 +168,7 @@ class TestAnnotate(unittest.TestCase):
             Data available
         """
         #Empty data
-        columns={"chrom":"#chrom", "pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval", "beta":"beta", "af":"af"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         #empty data
         input_data = pd.DataFrame()
         retval = annotate.gnomad_exo_annotate(input_data,None,columns)

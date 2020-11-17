@@ -7,6 +7,7 @@ sys.path.insert(0, './Scripts')
 import pandas as pd,numpy as np
 import Scripts.compare as compare
 import Scripts.autoreporting_utils as autils
+from Scripts.autoreporting_utils import Columns
 
 def top_merge(df,summary_df,columns):
     summary_df=compare.map_column(summary_df,"map_variant",columns)
@@ -14,8 +15,8 @@ def top_merge(df,summary_df,columns):
     necessary_columns=["pval","#variant","map_variant","trait","trait_name"]
     report_out_df=pd.merge(df,summary_df.loc[:,necessary_columns],how="left",on="map_variant")
     report_out_df=report_out_df.drop(columns=["map_variant"])
-    report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns["pval"],"pval_y":"pval_trait"})
-    report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+    report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","pval_x":columns.pval,"pval_y":"pval_trait"})
+    report_out_df=report_out_df.sort_values(by=[columns.c,columns.p,columns.r,columns.a,"#variant"])
     return report_out_df
 
 class TestCompare(unittest.TestCase):
@@ -23,7 +24,7 @@ class TestCompare(unittest.TestCase):
     def test_solve_indels(self):
         #test: test only chrom, pos, ref alt. Other columns need not be tested.
         #Necessary data: df which contains our versions of indels, indels
-        columns={"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        columns = Columns("chrom", "pos", "ref", "alt", "pval")
         indels_={"chrom":["1","1","X"], "pos":[2,3,4],"ref":["-","TATA","-"],"alt":["CGTACGTA","-","-"],"pval":[0.4,0.2,0.1],"code":[10,10,10],"trait":["1","2","3"]}
         df_={"chrom":["1","1"],"pos":[1,2],"ref":["A","TTATA"],"alt":["ACGTACGTA","T"]}
         indels=pd.DataFrame(indels_)
@@ -43,7 +44,7 @@ class TestCompare(unittest.TestCase):
         ref=["A","T","C","T"]
         alt=["C","G","G","A"]
         df=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":ref,"alt":alt})
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         res_ref=["A","A","C","A"]
         res_alt=["C","C","G","T"]
         df2=pd.DataFrame({"#chrom":chrom,"pos":pos,"ref":res_ref,"alt":res_alt})
@@ -60,7 +61,7 @@ class TestCompare(unittest.TestCase):
         summary_cols=["#chrom","pos","ref","alt","pval","#variant","trait","trait_name"]
         end_result_cols=["locus_id", "chrom", "start", "end", "lead_enrichment", "pval","lead_beta","lead_maf","lead_maf_cases","lead_maf_controls", "lead_most_severe_gene", "lead_most_severe_consequence", "found_associations_strict", "found_associations_relaxed", "credible_set_variants", "functional_variants_strict", "functional_variants_relaxed","specific_efo_trait_associations_strict","specific_efo_trait_associations_relaxed","credible_set_min_r2_value"]
         traits=[]
-        columns={"chrom":"#chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
+        columns = Columns("#chrom", "pos", "ref", "alt", "pval")
         df=pd.DataFrame(columns=cols)
         summary_df=pd.DataFrame(columns=summary_cols)
         raport_df = top_merge(df,summary_df,columns)
