@@ -25,14 +25,17 @@ def calculate_enrichment(gnomad_df,fi_af_col,count_nfe_lst,number_nfe_lst):
     enrichment=enrichment.clip(lower=0.0,upper=1e6)
     return enrichment
 
-def create_rename_dict(list_of_names, prefix):
+def create_rename_dict(list_of_names: List[str], prefix: str) -> Dict[str,str]:
     """
     Create a dictionary for renaming columns from different annotation files
-    For eaxmple, given column names ["AF_1","AF_2","AF_3"] and a prefix "GNOMAD_",
+    For example, given column names ["AF_1","AF_2","AF_3"] and a prefix "GNOMAD_",
     return rename_dict={"AF_1":"GNOMAD_AF1","AF_2":"GNOMAD_AF2","AF_3":"GNOMAD_AF3"}
     This can then be used as df.rename(columns=rename_dict)
-    In: list of column names, prefix
-    Out: dictionary with entries "oldname":"prefixoldname"
+    Args:
+        list_of_names (List[str]): list of names to prefix
+        prefix (str): prefix string
+    Returns:
+        (pd.DataFrame): Dict with items name:prefixname
     """
     d={}
     for value in list_of_names:
@@ -48,24 +51,34 @@ def previous_release_annotate(fpath: Optional[str], df: pd.DataFrame, columns: D
     Returns:
         (pd.DataFrame): Dataframe with columns [#variant, beta_previous_release, pval_previous_release]
     """
-    previous_cols = [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "beta_previous_release", "pval_previous_release"]
+    out_columns = ["#variant",
+        "beta_previous_release",
+        "pval_previous_release"]
+    previous_cols = [columns["chrom"],
+        columns["pos"],
+        columns["ref"],
+        columns["alt"],
+        "beta_previous_release",
+        "pval_previous_release"]
+
     if fpath:
         if not os.path.exists("{}.tbi".format(fpath)):
             raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(fpath))
-         
         previous_df = load_annotation_df(df,fpath,columns,columns, chrom_prefix="", na_value="")
-        previous_df = previous_df.rename(columns={"beta":"beta_previous_release","pval":"pval_previous_release"})
-        previous_df = previous_df[previous_cols]
     else:
-        return pd.DataFrame(columns = ["#variant","beta_previous_release", "pval_previous_release"])
-    
+        return pd.DataFrame(columns = out_columns)
+
+    previous_df = previous_df.rename(columns={"beta":"beta_previous_release","pval":"pval_previous_release"})
+    previous_df = previous_df[previous_cols]    
+
     if not previous_df.empty:
         previous_df = previous_df.drop_duplicates(subset=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]])
         previous_df = df_replace_value(previous_df,columns["chrom"],"X","23")
         previous_df["#variant"] = create_variant_column(previous_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
     else:
-        previous_df["#variant"] = None
-    previous_df = previous_df[["#variant", "beta_previous_release", "pval_previous_release"]]
+        previous_df["#variant"] = np.nan
+    
+    previous_df = previous_df[out_columns]
     return previous_df
 
 def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], columns: Dict[str,str]) -> pd.DataFrame:
@@ -79,28 +92,59 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
         fin.AF,fin_AN,fin_AC, fin.homozygote_count, fet_nfsee.odds_ratio , 
         fet_nfsee.p_value, nfsee.AC, nfsee.AN, nfsee.AF, nfsee.homozygote_count
     """
-    return_columns = ["#variant", "functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count" ]
-    if (not functional_path) or df.empty:
-        return pd.DataFrame(columns=return_columns)
-    if not os.path.exists(functional_path):
-        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(functional_path))
-    if not os.path.exists("{}.tbi".format(functional_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
+    return_columns = ["#variant", 
+        "functional_category",
+        "enrichment_nfsee",
+        "fin.AF",
+        "fin.AN",
+        "fin.AC",
+        "fin.homozygote_count",
+        "fet_nfsee.odds_ratio",
+        "fet_nfsee.p_value",
+        "nfsee.AC",
+        "nfsee.AN",
+        "nfsee.AF",
+        "nfsee.homozygote_count"]
+
     resource_cols = {
         "chrom":"chrom",
         "pos":"pos",
         "ref":"ref",
         "alt":"alt"
     }
+
+    functional_categories = ["pLoF",
+        "LC",
+        "start_lost",
+        "stop_lost",
+        "stop_gained",
+        "inframe_indel",
+        "missense_variant"]
+
+    col_rename_dict = {
+        "chrom":columns["chrom"],
+        "pos":columns["pos"],
+        "ref":columns["ref"],
+        "alt":columns["alt"],
+        "consequence":"functional_category"
+    }
+
+    if (not functional_path) or df.empty:
+        return pd.DataFrame(columns=return_columns)
+    if not os.path.exists(functional_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(functional_path))
+    if not os.path.exists("{}.tbi".format(functional_path)): #should really be handled by the tabix loader
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(functional_path))
+    
     func_df = load_annotation_df(df,functional_path,columns,resource_cols,chrom_prefix="chr",na_value="NA")
     func_df["chrom"] = func_df["chrom"].apply(lambda x:x.strip("chr"))
     func_df=df_replace_value(func_df,"chrom","X","23")
-    func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).\
-        rename(columns={"chrom":columns["chrom"],"pos":columns["pos"],"ref":columns["ref"],"alt":columns["alt"],"consequence":"functional_category"})
-    functional_categories = ["pLoF","LC","start_lost","stop_lost","stop_gained","inframe_indel","missense_variant"]
+    func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).rename(columns=col_rename_dict)
+    
     func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
-    #func_df = func_df.dropna(axis="index")
+
     func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
+
     return func_df[return_columns]
 
 def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: bool, columns: Dict[str,str]) -> pd.DataFrame:
@@ -114,37 +158,38 @@ def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: 
         (pd.DataFrame): Dataframe with columns for variant id, finngen annotation columns prefixed with 'FG_'
     """
     finngen_cols=["most_severe_gene","most_severe_consequence"]
-    if (not finngen_path) or df.empty:
-        return pd.DataFrame(columns=["#variant"])
-    if not os.path.exists(finngen_path):
-        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(finngen_path))
-    if not os.path.exists("{}.tbi".format(finngen_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
     resource_cols = {
         "chrom":"chr",
         "pos":"pos",
         "ref":"ref",
         "alt":"alt"
     }
+
+    if (not finngen_path) or df.empty:
+        return pd.DataFrame(columns=["#variant"])
+    if not os.path.exists(finngen_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(finngen_path))
+    if not os.path.exists("{}.tbi".format(finngen_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(finngen_path))
+
     fg_df=load_annotation_df(df,finngen_path,columns,resource_cols,chrom_prefix="",na_value="NA")
-    #fg_df=load_tb_df(df,finngen_path,chrom_prefix="",na_value="NA",columns=columns)
+
     fg_df=fg_df.drop(labels="#variant",axis="columns")
     fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
     fg_df = fg_df.drop_duplicates(subset=["#variant"])
-    #sanity check: if number of variants is >0 and FG annotations are smaller, emit a warning message.
+    #file version check: if number of variants is >0 and FG annotations are smaller, emit a warning message.
     if df.shape[0]>0 and all(fg_df["INFO"].isna()):
         print("Warning: FG annotation does not have any hits but the input data has. Check that you are using a recent version of the finngen annotation file (R3_v1 or above)")
     fg_df=fg_df.rename(columns={"gene":"most_severe_gene","most_severe":"most_severe_consequence"})
     fg_cols=fg_df.columns.values.tolist()
-    info=list(filter(lambda s: "INFO" in s,fg_cols))
-    imp=list(filter(lambda s: "IMP" in s,fg_cols))
-    af=list(filter(lambda s: "AF" in s,fg_cols))
-
-    fg_batch_lst=info+imp+af
-    fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
-    fg_df=fg_df.rename(columns=fg_batch_rename)
-    fg_batch_lst=["FG_{}".format(x) for x in fg_batch_lst]
     if batch_freq:
+        info=list(filter(lambda s: "INFO" in s,fg_cols))
+        imp=list(filter(lambda s: "IMP" in s,fg_cols))
+        af=list(filter(lambda s: "AF" in s,fg_cols))
+        fg_batch_lst=info+imp+af
+        fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
+        fg_df=fg_df.rename(columns=fg_batch_rename)
+        fg_batch_lst=list(fg_batch_rename.values())
         finngen_cols=finngen_cols+fg_batch_lst
     fg_df=fg_df.loc[:,["#variant"]+finngen_cols]
     return fg_df
@@ -159,22 +204,31 @@ def gnomad_gen_annotate(df: pd.DataFrame, gnomad_path: Optional[str], columns: D
         (pd.DataFrame): dataframe with columns for variant id, allele frequencies, enrichment
     """
     #gnomad out columns
-    gnomad_gen_cols=["AF_fin","AF_nfe","AF_nfe_est","AF_nfe_nwe","AF_nfe_onf","AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est"]
+    gnomad_gen_cols=["AF_fin",
+        "AF_nfe",
+        "AF_nfe_est",
+        "AF_nfe_nwe",
+        "AF_nfe_onf",
+        "AF_nfe_seu",
+        "FI_enrichment_nfe",
+        "FI_enrichment_nfe_est"]
 
-    if (not gnomad_path) or df.empty:
-        return pd.DataFrame(columns=["#variant"])
-    if not os.path.exists(gnomad_path):
-        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(gnomad_path))
-    if not os.path.exists("{}.tbi".format(gnomad_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
-
-    #gnomad_genomes=load_tb_df(df,gnomad_path,columns=columns)
     resource_cols = {
         "chrom":"#CHROM",
         "pos":"POS",
         "ref":"REF",
         "alt":"ALT"
     }
+    gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
+    out_columns = list(gn_gen_rename_d.values())
+
+    if (not gnomad_path) or df.empty:
+        return pd.DataFrame(columns=["#variant"]+out_columns)
+    if not os.path.exists(gnomad_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(gnomad_path))
+    if not os.path.exists("{}.tbi".format(gnomad_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
+
     gnomad_genomes=load_annotation_df(df,gnomad_path,columns,resource_cols)
     gnomad_genomes = df_replace_value(gnomad_genomes,"#CHROM","X","23")
     gnomad_genomes=gnomad_genomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
@@ -189,7 +243,6 @@ def gnomad_gen_annotate(df: pd.DataFrame, gnomad_path: Optional[str], columns: D
     gnomad_genomes.loc[:,"FI_enrichment_nfe_est"]=calculate_enrichment(gnomad_genomes,"AF_fin",gn_gen_nfe_est_counts,gn_gen_nfe_est_nums)
 
     gnomad_genomes=gnomad_genomes.loc[:,["#variant"]+gnomad_gen_cols]
-    gn_gen_rename_d=create_rename_dict(gnomad_gen_cols,"GENOME_")
     gnomad_genomes=gnomad_genomes.rename(columns=gn_gen_rename_d)
     return gnomad_genomes
 
@@ -203,23 +256,35 @@ def gnomad_exo_annotate(df: pd.DataFrame, gnomad_path: str, columns: Dict[str, s
         (pd.DataFrame): dataframe with columns for variant id, allele frequencies, enrichment
     """
     #gnomad out columns
-    gnomad_exo_cols=["AF_nfe_bgr","AF_fin","AF_nfe","AF_nfe_est","AF_nfe_swe","AF_nfe_nwe","AF_nfe_onf",\
-        "AF_nfe_seu","FI_enrichment_nfe","FI_enrichment_nfe_est","FI_enrichment_nfe_swe","FI_enrichment_nfe_est_swe"]
+    gnomad_exo_cols=["AF_nfe_bgr",
+        "AF_fin",
+        "AF_nfe",
+        "AF_nfe_est",
+        "AF_nfe_swe",
+        "AF_nfe_nwe",
+        "AF_nfe_onf",
+        "AF_nfe_seu",
+        "FI_enrichment_nfe",
+        "FI_enrichment_nfe_est",
+        "FI_enrichment_nfe_swe",
+        "FI_enrichment_nfe_est_swe"]
 
-    if (not gnomad_path) or df.empty:
-        return pd.DataFrame(columns=["#variant"])
-    if not os.path.exists(gnomad_path):
-        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(gnomad_path))
-    if not os.path.exists("{}.tbi".format(gnomad_path)):
-        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
-    
-    #gnomad_exomes=load_tb_df(df,gnomad_path,columns=columns)
     resource_cols = {
         "chrom":"#CHROM",
         "pos":"POS",
         "ref":"REF",
         "alt":"ALT"
     }
+    gn_exo_rename_d=create_rename_dict(gnomad_exo_cols,"EXOME_")
+    out_columns = list(gn_exo_rename_d.values())
+
+    if (not gnomad_path) or df.empty:
+        return pd.DataFrame(columns=["#variant"]+out_columns)
+    if not os.path.exists(gnomad_path):
+        raise FileNotFoundError("File {} not found. Make sure that the file exists.".format(gnomad_path))
+    if not os.path.exists("{}.tbi".format(gnomad_path)):
+        raise FileNotFoundError("Tabix index for file {} not found. Make sure that the file is properly indexed.".format(gnomad_path))
+    
     gnomad_exomes=load_annotation_df(df,gnomad_path,columns,resource_cols)
     gnomad_exomes = df_replace_value(gnomad_exomes,"#CHROM","X","23")
     gnomad_exomes=gnomad_exomes.drop_duplicates(subset=["#CHROM","POS","REF","ALT"]).rename(columns={"#CHROM":columns["chrom"],"POS":columns["pos"],"REF":columns["ref"],"ALT":columns["alt"]})
@@ -240,7 +305,6 @@ def gnomad_exo_annotate(df: pd.DataFrame, gnomad_path: str, columns: Dict[str, s
     gnomad_exomes.loc[:,"FI_enrichment_nfe_est_swe"]=calculate_enrichment(gnomad_exomes,"AF_fin",gn_exo_nfe_est_swe_counts,gn_exo_nfe_est_swe_nums)
 
     gnomad_exomes=gnomad_exomes.loc[:,["#variant"]+gnomad_exo_cols]
-    gn_exo_rename_d=create_rename_dict(gnomad_exo_cols,"EXOME_")
     gnomad_exomes=gnomad_exomes.rename(columns=gn_exo_rename_d)
     return gnomad_exomes
 
@@ -273,7 +337,6 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     call_df_x = df_replace_value(call_df_x,columns["chrom"],"23","X") #TODO: IF/WHEN GNOMAD RESOURCES USE CHR 23, THIS NEEDS TO BE REMOVED
     
     #load annotation dataframes
-    #load previous release annotations
     previous_df = previous_release_annotate(previous_release_path,call_df_x,columns)
     func_df = functional_annotate(call_df_x, functional_path, columns)
     gnomad_genomes = gnomad_gen_annotate(call_df_x,gnomad_genome_path,columns)

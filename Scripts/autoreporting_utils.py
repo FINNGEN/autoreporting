@@ -2,7 +2,7 @@ import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
 import tabix
-
+from typing import List, Dict
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
 """
@@ -60,9 +60,14 @@ def get_gzip_header(fname):
                 out.append(line.decode().strip().split("\t"))
     return out[0]
 
-def load_annotation_df(df,fpath,columns,resource_columns,chrom_prefix="",na_value="."):
-    data_to_load = df.drop_duplicates(subset=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]])
-    data_to_load = data_to_load[[columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]]
+def load_annotation_df(df: pd.DataFrame, fpath: str, columns: Dict[str,str], resource_columns: Dict[str,str], chrom_prefix: str="", na_value: str=".") -> pd.DataFrame:
+    """Load annotation data by reading the whole annotation file
+    This is slower than load_tb_df for phenotypes with little results, but massively faster for phenotypes with a lot of results (>40k rows)
+    Also, the time is not that dependent on input size, which is a nice bonus. 
+    """
+    df_colsubset = [columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]
+    data_to_load = df.drop_duplicates(subset=df_colsubset)
+    data_to_load = data_to_load[df_colsubset]
     data_to_load[columns["chrom"]]=data_to_load[columns["chrom"]].apply(lambda x:chrom_prefix+x)
     dtype = {resource_columns["chrom"]:str,
         resource_columns["pos"]:np.int32,
@@ -76,8 +81,10 @@ def load_annotation_df(df,fpath,columns,resource_columns,chrom_prefix="",na_valu
     alt_set = set(data_to_load[columns["alt"]])
     out=pd.DataFrame()
     for partial_df in pd.read_csv(fpath, compression="gzip",sep="\t",engine="c",dtype=dtype,chunksize=chunksize,na_values=na_value):
-        bool_condition = partial_df[resource_columns["chrom"]].isin(chr_set) & partial_df[resource_columns["pos"]].isin(pos_set) &\
-            partial_df[resource_columns["ref"]].isin(ref_set) & partial_df[resource_columns["alt"]].isin(alt_set)
+        bool_condition = partial_df[resource_columns["chrom"]].isin(chr_set) &\
+            partial_df[resource_columns["pos"]].isin(pos_set) &\
+            partial_df[resource_columns["ref"]].isin(ref_set) &\
+            partial_df[resource_columns["alt"]].isin(alt_set)
         out = pd.concat([out,partial_df.loc[bool_condition,:]],axis="index",ignore_index=True,sort=False)
     out[out.columns]=out[out.columns].apply(pd.to_numeric,errors="ignore")
     return out
