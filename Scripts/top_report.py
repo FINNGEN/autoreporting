@@ -55,8 +55,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     gnomad_add_cols = ["functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count"]
     gnomad_add_cols_rename = {k:"gnomAD_{}".format(k) for k in gnomad_add_cols}
-    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region","low_purity"]
-    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor","low_purity":"cs_low_purity" }
+    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region","good_cs"]
+    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor" }
 
     aggregated_cols = ["credible_set_min_r2_value","start", "end", "found_associations_strict", "found_associations_relaxed",
                        "credible_set_variants", "functional_variants_strict",
@@ -83,7 +83,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                      "cs_log_bayes_factor",
                      "cs_number",
                      "cs_region",
-                     "cs_low_purity"]+\
+                     "good_cs"]+\
                     aggregated_cols
 
     df=report_df.copy()
@@ -107,27 +107,25 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         group_info_df=group_info_df.rename(columns=group_cols_rename)
     except:
         group_info_df = pd.DataFrame(columns = ["#variant","locus_id","chrom","pos","ref","alt"])
-
+    
     #get cs cols dataframe
     try:
         cs_info_df = df.loc[lead_var_idx,cs_cols+["#variant"]]
         cs_info_df=cs_info_df.rename(columns=cs_cols_rename)
     except:
-        cs_info_df= pd.DataFrame(columns=cs_cols+["#variant"])
+        cs_info_df= pd.DataFrame(columns=cs_cols+["#variant"]).rename(columns=cs_cols_rename)
     #get lead cols dataframe
     try:
         lead_info_df = df.loc[lead_var_idx,lead_var_cols+["#variant"]]
         lead_info_df=lead_info_df.rename(columns= lead_col_d)
     except:
         lead_info_df = pd.DataFrame(columns = lead_cols+["#variant"])
-
     #get gnomad cols
     try:
         gnomad_info_df = df.loc[lead_var_idx,gnomad_add_cols+["#variant"]]
         gnomad_info_df = gnomad_info_df.rename(columns=gnomad_add_cols_rename)
     except:
         gnomad_info_df=pd.DataFrame(columns=gnomad_cols+["#variant"])
-
 
     top_level_df=pd.DataFrame(columns=["#variant"]+aggregated_cols)
 

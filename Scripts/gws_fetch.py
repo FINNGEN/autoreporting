@@ -96,7 +96,7 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
         "cs_size":int,
         "cs_number":int,
         "cs_region":str,
-        "low_purity":bool
+        "good_cs":bool
     }
     cred_columns = list(cred_data_type.keys())
     cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
@@ -164,17 +164,18 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     """
     df=data.copy()
     lead_vars=[]
-    #determine group leads. Group leads are 'the variants with largest cs_prob in that credible set'.
-    for credible_set in df.loc[~df["cs_id"].isna(),"cs_id"].unique():
-        group_lead =  df.loc[ df.loc[df["cs_id"]==credible_set,"cs_prob"].idxmax(),:]
-        lead_vars.append(group_lead["#variant"])
+    #determine group leads. Group leads are 'the variants where cs_id == #variant+"_"+cs_number'.
+    #for credible_set in df.loc[~df["cs_id"].isna(),"cs_id"].unique():
+    for name, group in df.groupby(["cs_id"]):
+        loc_id = "_".join(name.split("_")[:-1])#remove cs_number from cs_id
+        group_lead =  group.loc[group["#variant"]==loc_id,"#variant"].iat[0]
+        lead_vars.append(group_lead)
     if len(lead_vars) == 0:
         return pd.DataFrame(columns=df.columns)
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
-    ld_ranges=lead_df[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_ = []
-    for idx, row in ld_ranges.iterrows():
-        ld_.append( Variant(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
+    for idx, row in lead_df.iterrows():
+        ld_.append( Variant(row["#variant"], row[columns["chrom"]], row[columns["pos"]], row[columns["ref"]], row[columns["alt"]] ) )
     ld_data=ld_api.get_ranges(ld_,locus_range*1000)
     #un-nest ld data
     ld_data = [a.to_flat() for a in ld_data]
@@ -199,13 +200,23 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
         cred_group = cred_group.drop(columns=["r2_to_lead_right"])
 
         ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=ld_threshold].copy() #filter ld
-        group = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
-        group = pd.merge(group,ld_data_filtered,on="#variant",how="left", suffixes = ("","_right"))
-        group["r2_to_lead"] = group["r2_to_lead"].fillna(group["r2_to_lead_right"])
-        group = group.drop(columns=["r2_to_lead_right"])
+        ld_partners = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
+        ld_partners = pd.merge(ld_partners,ld_data_filtered,on="#variant",how="left", suffixes = ("","_right"))
+        ld_partners["r2_to_lead"] = ld_partners["r2_to_lead_right"]
+        ld_partners = ld_partners.drop(columns=["r2_to_lead_right"])
+        #remove credset data from LD partner variants
+        wipe_credset_data = ["cs_prob",
+            "cs_min_r2",
+            "cs_log10bf",
+            "good_cs",
+            "cs_region",
+            "cs_size",
+            "cs_id"]
+        for col in wipe_credset_data:
+            ld_partners[col] = np.nan
         #concat the two, remove duplicate entries. Entries with cs_id are preferred over entries without cs_id.
         #Though it shouldn't be possible for there to be variants that are both in the credible set and out of it. 
-        group=pd.concat([group,cred_group],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
+        group=pd.concat([cred_group,ld_partners],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
@@ -279,6 +290,94 @@ def merge_credset(gws_df,cs_df,fname,columns):
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
+def load_credset_summaries(var_file: str,group_file: str,columns:Dict[str,str])->pd.DataFrame:
+    """
+    Order of operations:
+    1. extract columns, set datatypes
+    2. join data in appropriate way
+    3. rename columns of joined data
+    4. return data
+    """
+    
+    group_datatypes = {
+        "region": str,
+        "cs": int,
+        "v": str,
+        "cs_specific_prob": float,
+        "cs_log10bf": float,
+        "cs_min_r2": float,
+        "cs_size": int,
+        "good_cs": bool
+    }
+    snp_datatypes = {
+        "region": str,
+        "cs": int,
+        "v": str,
+        "cs_specific_prob": float,
+        "lead_r2": float
+    }
+    output_columns = [
+        columns["chrom"],
+        columns["pos"],
+        columns["ref"],
+        columns["alt"],
+        "cs_id",
+        "cs_region",
+        "cs_number",
+        "cs_prob",
+        "cs_log10bf",
+        "cs_min_r2",
+        "cs_size",
+        "good_cs",
+        "r2_to_lead"
+    ]
+    column_rename = {
+        "region": "cs_region",
+        "cs": "cs_number",
+        "cs_specific_prob": "cs_prob",
+        "lead_r2": "r2_to_lead"
+    }
+    cpra_types = {
+        columns["chrom"]:str,
+        columns["pos"]:int,
+        columns["ref"]:str,
+        columns["alt"]:str,
+    }
+    group_cols = list(group_datatypes.keys())
+    snp_cols = list(snp_datatypes.keys())
+
+    # load data
+    snips = pd.read_csv(var_file,sep="\t")
+    groups = pd.read_csv(group_file,sep="\t")
+
+    #missing data to na
+    for col in snp_cols:
+        if col not in snips.columns:
+            print(f"NOTE: credset SNP file missing column {col}")
+            snips[col] = np.nan
+    for col in group_cols:
+        if col not in groups.columns:
+            print(f"NOTE: credset CRED file missing column {col}")
+            groups[col] = np.nan
+    snips = snips[snp_cols]
+    groups = groups[group_cols]
+    groups["lead_r2"] = 1.0 #lead variant is always in perfect LD to the lead variant...
+    #create cs_id
+    groups["cs_id"]="chr" + groups["v"].str.replace(":","_")+"_"+groups["cs"].astype(str)
+    #add the group-specific columns cs_log10bf, cs_min_r2, cs_size, good_cs to snips
+    # E.g. merge by (region,cs)
+    group_mergecols = ["region","cs","cs_log10bf","cs_min_r2","cs_size","good_cs","cs_id"]
+    snips = snips.merge(groups[group_mergecols],on=["region","cs"],how="left") 
+    complete_data = pd.concat([snips,groups],ignore_index=True,sort=False)
+    
+    complete_data = complete_data.rename(columns=column_rename)
+    #separate v to c:p:r:a
+    
+    cpra_list = [columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]
+    complete_data[cpra_list] = complete_data["v"].str.split(':',n=3,expand=True)
+    complete_data[cpra_list] = complete_data[cpra_list].astype(cpra_types)
+    return complete_data[output_columns]
+
 def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grouping_method: str, locus_width: int, sig_tresh_2: float,
                 ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess, 
                 extra_cols: List[str], pheno_name: str, pheno_data_file :str):
@@ -308,11 +407,19 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
     if group and grouping_method == "cred":
         #TODO: handling for missing credible set files, aka aborting with a good error message.
         #load credsets
-        cs_df=load_credsets(cred_set_file,columns)
-        #load credset additional information
-        susie_cred_file = cred_set_file.replace("snp","cred")
-        cs_info = load_susie_credfile(susie_cred_file)
-        cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
+        if ".bgz" in cred_set_file: #yeah, ugly, so what
+            print("READING CS .BGZ FILES")
+            cs_df=load_credsets(cred_set_file,columns)
+            #load credset additional information
+            susie_cred_file = cred_set_file.replace("snp","cred")
+            cs_info = load_susie_credfile(susie_cred_file)
+            cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
+        elif ".snp.filter.tsv" in cred_set_file:
+            print("READING CS SUMMARIES")
+            cred_filename = cred_set_file.replace(".snp.filter.tsv",".cred.summary.tsv")
+            cs_df = load_credset_summaries(cred_set_file, cred_filename,columns)
+        else:
+            raise ValueError("credsetfile format not recognized.")
         #cs df X->23
         cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
         cs_df = df_replace_value(cs_df,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
