@@ -395,6 +395,7 @@ compare_fname: genome-wide significant variants that are filtered & grouped by g
 ld_panel_path (optional): a plink .bed-file, without the suffix, that will be used by LDstore to calculate linkage disequilibrium between genome-wide significant variants and variants from other summary statistics (or GWAScatalog). Same file that's used in gws_fetch.  
 summary_fpath (optional): A file containing the summary file paths. List one file path per line. Actual summary statistics must be tab-separated value files and in build 38.  
 endpoint_fpath (optional):  A file containing endpoints for the summary files listed in summary_fpath. List one endpoint per line.  
+custom_dataresource (optional): A tab-separated values file containing variants that you want to compare against, with one variant per row. Will be used in similar way to GWAS Catalog. Your file should have columns `chrom, pos, ref, alt, pval, beta, se, study_doi, trait, rsid, gene, notes, af, snp`. Fill missing data with `NA`.
 __Output__:  
 report_out: a tsv report of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also reported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
 ld_report_out: A tsv report of those variants that are in LD with external summary statistic/gwascatalog variants.  
