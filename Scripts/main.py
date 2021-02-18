@@ -24,7 +24,8 @@ def main(args):
                                                     args.localdb_path,
                                                     args.gwascatalog_pad,
                                                     args.gwascatalog_pval,
-                                                    args.gwascatalog_threads)
+                                                    args.gwascatalog_threads,
+                                                    args.allele_db_file)
 
     ld_api=None
     if args.grouping_method != "simple":
@@ -133,7 +134,8 @@ if __name__=="__main__":
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,choices=['local','gwas','summary_stats'],default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
-    
+    parser.add_argument("--gwascatalog-allele-file",dest="allele_db_file",help="GWAS Catalog alleles taken from here. Use FinnGen annotation file.")
+
     #top report creation
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")

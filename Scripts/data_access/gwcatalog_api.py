@@ -1,10 +1,11 @@
 import json, requests
 import time
 import abc
+import os
 from typing import List, Text, Dict, Any, Optional
 from io import StringIO
 import pandas as pd, numpy as np
-from data_access.db import ExtDB
+from data_access.db import ExtDB, AlleleDB, Location, VariantData
 from multiprocessing.dummy import Pool as ThreadPool
 
 class RequestError(Exception):
@@ -155,14 +156,14 @@ def _gwcat_set_column_types(data: pd.DataFrame) -> pd.DataFrame:
 
 class LocalDB(ExtDB):
 
-    def __init__(self, db_path: str, pval_threshold: float, padding: int):
-        self.__get_trait=get_trait_name
+    def __init__(self, db_path: str, pval_threshold: float, padding: int, alleledb: AlleleDB):
         self.pad = int(padding)
         self.pval_threshold = float(pval_threshold)
         try:
             self.df=pd.read_csv(db_path,sep="\t",low_memory=False)
         except FileNotFoundError as err:
             raise FileNotFoundError("argument {} to flag '--local-gwascatalog' not found: Does the file exist?".format(db_path))
+        self.alleledb = alleledb
         self.df=self.df.astype(str)
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains(";") ,:]
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains("x") ,:]
@@ -207,26 +208,42 @@ class LocalDB(ExtDB):
                 pass
         #TODO: get rid of this ugly format switching
         result_df = pd.DataFrame(out)
-        #TODO: add ensembl data
-        #filter rsids
         if result_df.empty:
             return []
-        rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
-        #filter nonbiallelic variants out
-        rsid_df=rsid_df[rsid_df["biallelic"] == True]
-        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
+        df_out = _alleles(result_df,self.alleledb)
         return df_out.to_dict("records")
+
+def add_alleles(gwasdata: pd.DataFrame, alleledb : AlleleDB):
+    """Add allele data for variants
+    Args:
+        gwasdata (pd.DataFrame): 
+        alleledb (AlleleDB): Allele DAO
+    Returns:
+        (pd.DataFrame): Dataframe with alleles
+    """
+    #get the Locations
+    data = gwasdata[["chrom","pos"]]
+    locs = []
+    for t in data[["chrom","pos"]].itertuples:
+        locs.append(Location(t.chrom,int(t.pos)))
+    #get allele lst
+    variantlst = alleledb.get_alleles(locs)
+    # combine the allele lst with the data
+    variant_tuples = [(a.chrom, a.pos, a.ref, a.alt[0]) for a in variantlst if a.biallelic]
+    variants = pd.DataFrame(variant_tuples, columns = ["chrom","pos","ref","alt"])
+    out = data.merge(variants,how="left", on=["chrom","pos"])
+    return out
 
 class GwasApi(ExtDB):
     """ 
     Gwas Catalog + ensembl api, returning values identical to the gwas catalog website.
     """
 
-    def __init__(self, pval_threshold, padding, threads):
-        self.__get_trait=get_trait_name
+    def __init__(self, pval_threshold, padding, threads, alleledb):
         self.pval_threshold = float(pval_threshold)
         self.pad = int(padding)
         self.threads = threads
+        self.alleledb=alleledb
 
     def __get_associations(self,chromosome,start,end):
         pval=self.pval_threshold
@@ -269,14 +286,9 @@ class GwasApi(ExtDB):
         results=[i for sublist in results for i in sublist]
         #TODO: get rid of this ugly format switching
         result_df = pd.DataFrame(results)
-        #TODO: add ensembl data
-        #filter rsids
         if result_df.empty:
             return []
-        rsid_df = gwcat_get_alleles(list(result_df["SNPS"]))
-        #filter nonbiallelic variants out
-        rsid_df=rsid_df[rsid_df["biallelic"] == True]
-        df_out = result_df.merge(rsid_df,how="inner",left_on="SNPS",right_on="rsid").drop(columns=["rsid","biallelic"])
+        df_out = add_alleles(result_df,self.alleledb)
         return df_out.to_dict("records")
 
 def parse_output(dumplst):

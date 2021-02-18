@@ -79,3 +79,32 @@ class LDAccess(object):
             (List[LDData]):List of variant associations
         """
         return
+
+class Location(NamedTuple):
+    """Chromosomal position
+    """
+    chromosome: str
+    position: int
+
+class VariantData(NamedTuple):
+    """Potentially multiallelic variant
+    """
+    chrom: str
+    pos: int
+    ref: str
+    alt: List[str]
+    biallelic: bool
+
+class AlleleDB(object):
+    """
+    Abstract object for getting alleles for c:p
+    """
+    @abc.abstractmethod
+    def get_alleles(self, positions: List[Location]) -> List[VariantData]:
+        """Get alleles for chromosomal positions
+        Args:
+            positions (List[Location]): List of genetic locations
+        Returns:
+            (List[VariantData]): As many of those locations 
+        """
+        return
