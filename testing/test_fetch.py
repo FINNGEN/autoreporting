@@ -225,7 +225,7 @@ class TestGws(unittest.TestCase):
         validate=pd.DataFrame(validate)
         fname="test_fname"
         with mock.patch("Scripts.gws_fetch.tabix.open") as mock_tabix:
-            with mock.patch("Scripts.gws_fetch.load_tb_df",return_value=load_retval) as mock_load_df:
+            with mock.patch("Scripts.gws_fetch.load_pysam_df",return_value=load_retval) as mock_load_df:
                 outdf = gws_fetch.merge_credset(df,cs_df,fname,columns)
         self.assertTrue(mock_tabix.called_once_with(fname))
         self.assertTrue(outdf.equals(validate))

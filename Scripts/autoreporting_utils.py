@@ -63,7 +63,7 @@ def get_gzip_header(fname):
 
 def load_annotation_df(df: pd.DataFrame, fpath: str, columns: Dict[str,str], resource_columns: Dict[str,str], chrom_prefix: str="", na_value: str=".") -> pd.DataFrame:
     """Load annotation data by reading the whole annotation file
-    This is slower than load_tb_df for phenotypes with little results, but massively faster for phenotypes with a lot of results (>40k rows)
+    This is slower than load_pysam_df for phenotypes with little results, but massively faster for phenotypes with a lot of results (>40k rows)
     Also, the time is not that dependent on input size, which is a nice bonus. 
     """
     df_colsubset = [columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]
@@ -104,7 +104,10 @@ def load_pysam_df(df,fpath,columns,chrom_prefix="",na_value=".") -> pd.DataFrame
     tbxlst = []
     for t in chrompos_df.itertuples():
         #get rows
-        rows = tb.fetch("{}{}".format(chrom_prefix,t.chrom), int(t.pos)-1,int(t.pos))
+        try:
+            rows = tb.fetch("{}{}".format(chrom_prefix,t.chrom), int(t.pos)-1,int(t.pos))
+        except:
+            rows = []
         data = [a.strip('\n').split('\t') for a in rows]
         tbxlst.extend(data)
     header = tb.header[0].split('\t')
@@ -114,6 +117,24 @@ def load_pysam_df(df,fpath,columns,chrom_prefix="",na_value=".") -> pd.DataFrame
     tb.close()
     return out_df
 
+def load_pysam_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_value: str = ".") -> pd.DataFrame:
+    tb = pysam.TabixFile(fpath)
+    tbxlst=[]
+    for _,row in df.iterrows():
+        try:
+            rows = tb.fetch("{}{}".format(chrom_prefix,row["chrom"]),int(row["min"])-1,int(row["max"]))
+        except:
+            rows = []
+        data = [a.strip('\n').split('\t') for a in rows]
+        tbxlst.extend(data)
+    header = tb.header[0].split('\t')
+    out_df = pd.DataFrame(tbxlst, columns = header)
+    out_df=out_df.replace(na_value,np.nan)
+    out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
+    tb.close()
+    return out_df
+
+"""
 def load_tb_df(df,fpath,columns,chrom_prefix="",na_value="."):
     tb=tabix.open(fpath)
     tbxlst=[]
@@ -135,7 +156,7 @@ def load_tb_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_valu
     out_df=out_df.replace(na_value,np.nan)
     out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
     return out_df
-
+"""
 def prune_regions(df):
     """Prune overlapping tabix regions so that no duplicate calls are made
     In: dataframe with the regions

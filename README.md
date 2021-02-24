@@ -60,6 +60,7 @@ requests
 numpy
 pandas
 pytabix 
+pysam 
 ```
 
 ##  2.2. <a name='Installationprocess'></a>Installation process
