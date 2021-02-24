@@ -4,7 +4,6 @@ import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 import sys,os,io
 import pandas as pd, numpy as np
-import tabix
 from typing import Dict, List
 from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD, Variant, LDData
@@ -270,12 +269,12 @@ def merge_credset(gws_df,cs_df,fname,columns):
     """
     Merge credible set to the genome-wide significant variants. 
     In case variants in the credible set are not included in the gws variants, 
-    the rows corresponding to them are fetched using tabix.
+    the rows corresponding to them are fetched using pysam.
     In: Dataframe containing gws variants, dataframe containing credible sets, filename for summary statistic.
     Out: Dataframe containing the gws variants + any credible set variants that are not gws. Columns 'cs_id','cs_prob' added to the dataframe. 
     """
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
-    # fetch rows using tabix
+    # fetch rows using pysam
     cred_row_df = load_pysam_df(cs_df,fname,columns)
     cols = list(gws_df.columns)
     cred_row_df = cred_row_df[ cols ].drop_duplicates(keep="first")

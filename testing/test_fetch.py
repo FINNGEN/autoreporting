@@ -211,7 +211,7 @@ class TestGws(unittest.TestCase):
 
     def test_cred_merge(self):
         # test merging of data
-        # mock: tabix, load_tb_df
+        # mock: load_pysam_df
         columns={"chrom":"chrom","pos":"pos","ref":"ref","alt":"alt","pval":"pval"}
 
         df={"chrom":["1","1","1","1"],"pos":[1,2,3,4],"ref":["A","G","C","T"],"alt":["G","C","T","A"],"pval":[0.01,0.001,0.0001,0.00001]}
@@ -224,10 +224,8 @@ class TestGws(unittest.TestCase):
         "alt":["G","C","T","A","T","A"],"pval":[0.01,0.001,0.0001,0.00001,0.1,0.2],"cs_id":[np.nan,np.nan,np.nan,np.nan,"CS_ID_1","CS_ID_2"],"cs_prob":[np.nan,np.nan,np.nan,np.nan,0.9,0.8]}
         validate=pd.DataFrame(validate)
         fname="test_fname"
-        with mock.patch("Scripts.gws_fetch.tabix.open") as mock_tabix:
-            with mock.patch("Scripts.gws_fetch.load_pysam_df",return_value=load_retval) as mock_load_df:
-                outdf = gws_fetch.merge_credset(df,cs_df,fname,columns)
-        self.assertTrue(mock_tabix.called_once_with(fname))
+        with mock.patch("Scripts.gws_fetch.load_pysam_df",return_value=load_retval) as mock_load_df:
+            outdf = gws_fetch.merge_credset(df,cs_df,fname,columns)
         self.assertTrue(outdf.equals(validate))
         pass
         
