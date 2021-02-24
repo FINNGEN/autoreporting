@@ -25,8 +25,6 @@ class TestUtils(unittest.TestCase):
         reg=pd.DataFrame({"chrom":"1","min":10,"max":20},index=[0])
         df=pd.DataFrame({"#chrom":"1", "pos_rmin":10,"pos_rmax":20},index=[0])
         reg2=autoreporting_utils.prune_regions(df)
-        print(reg)
-        print(reg2)
         self.assertTrue(reg.equals(reg2))
         #case two regions: no overlap by position
         reg=pd.DataFrame({"chrom":["1","1"],"min":[10,30],"max":[20,40] })
@@ -71,5 +69,26 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(columns, validate)
         self.assertEqual(columns2, validate2)
 
+    def test_pysam_df(self):
+        import gzip
+        annotate_fpath = "testing/annotate_resources/gnomad_genomes.tsv.gz"
+        data = {"chr":["1","1"],"position":[1,10],"otherdata":[1,2]}
+        data=pd.DataFrame(data)
+        columns = {
+            "chrom":"chr",
+            "pos":"position",
+            "ref":"ref",
+            "alt":"alt",
+            "pval":"pval"
+        }
+        #validation data
+        with gzip.open(annotate_fpath,"rt") as f:
+            vlines= f.readlines()
+            vheader = vlines[0].strip('\n').split("\t")
+            vdata = [a.strip('\n').split("\t") for a in vlines[1:]]
+            vdata = pd.DataFrame(vdata,columns=vheader)
+            vdata[vdata.columns]=vdata[vdata.columns].apply(pd.to_numeric,errors="ignore")
+        annotation_data = autoreporting_utils.load_pysam_df(data,annotate_fpath,columns)
+        self.assertTrue(vdata.equals(annotation_data))
 if __name__=="__main__":
     unittest.main()

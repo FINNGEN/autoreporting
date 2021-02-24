@@ -2,6 +2,7 @@ import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
 import tabix
+import pysam
 from typing import List, Dict
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
@@ -88,6 +89,30 @@ def load_annotation_df(df: pd.DataFrame, fpath: str, columns: Dict[str,str], res
         out = pd.concat([out,partial_df.loc[bool_condition,:]],axis="index",ignore_index=True,sort=False)
     out[out.columns]=out[out.columns].apply(pd.to_numeric,errors="ignore")
     return out
+
+def load_pysam_df(df,fpath,columns,chrom_prefix="",na_value=".") -> pd.DataFrame:
+    """Load variants using pysam from tabix-indexed file
+    Args:
+
+    Returns:
+        (pd.DataFrame): DataFrame with same columns as the annotation file
+    """
+    tb = pysam.TabixFile(fpath)
+    #generate chrom-position df
+    chrompos_df = df[[columns["chrom"], columns["pos"]]].copy()
+    chrompos_df = chrompos_df.rename(columns = {columns["chrom"]:"chrom",columns["pos"]:"pos"}).drop_duplicates(keep="first")
+    tbxlst = []
+    for t in chrompos_df.itertuples():
+        #get rows
+        rows = tb.fetch("{}{}".format(chrom_prefix,t.chrom), int(t.pos)-1,int(t.pos))
+        data = [a.strip('\n').split('\t') for a in rows]
+        tbxlst.extend(data)
+    header = tb.header[0].split('\t')
+    out_df = pd.DataFrame(tbxlst, columns = header)
+    out_df=out_df.replace(na_value,np.nan)
+    out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
+    tb.close()
+    return out_df
 
 def load_tb_df(df,fpath,columns,chrom_prefix="",na_value="."):
     tb=tabix.open(fpath)
