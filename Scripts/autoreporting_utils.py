@@ -1,7 +1,6 @@
 import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
-import tabix
 import pysam
 from typing import List, Dict
 """
