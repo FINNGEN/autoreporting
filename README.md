@@ -58,8 +58,7 @@ Python 3 libraries:
 ``` 
 requests
 numpy
-pandas
-pytabix 
+pandas 
 pysam 
 ```
 
