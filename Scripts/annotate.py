@@ -4,7 +4,6 @@ import argparse,shlex,subprocess,os
 from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
-import tabix
 from typing import Dict, List, Optional
 from autoreporting_utils import *
 #TODO: make a system for making sure we can calculate all necessary fields,

@@ -58,8 +58,8 @@ Python 3 libraries:
 ``` 
 requests
 numpy
-pandas
-pytabix 
+pandas 
+pysam 
 ```
 
 ##  2.2. <a name='Installationprocess'></a>Installation process

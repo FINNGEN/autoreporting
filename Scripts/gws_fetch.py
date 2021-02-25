@@ -4,7 +4,6 @@ import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 import sys,os,io
 import pandas as pd, numpy as np
-import tabix
 from typing import Dict, List
 from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD, Variant, LDData
@@ -270,13 +269,13 @@ def merge_credset(gws_df,cs_df,fname,columns):
     """
     Merge credible set to the genome-wide significant variants. 
     In case variants in the credible set are not included in the gws variants, 
-    the rows corresponding to them are fetched using tabix.
+    the rows corresponding to them are fetched using pysam.
     In: Dataframe containing gws variants, dataframe containing credible sets, filename for summary statistic.
     Out: Dataframe containing the gws variants + any credible set variants that are not gws. Columns 'cs_id','cs_prob' added to the dataframe. 
     """
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
-    # fetch rows using tabix
-    cred_row_df = load_tb_df(cs_df,fname,columns=columns)
+    # fetch rows using pysam
+    cred_row_df = load_pysam_df(cs_df,fname,columns)
     cols = list(gws_df.columns)
     cred_row_df = cred_row_df[ cols ].drop_duplicates(keep="first")
     cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
@@ -441,8 +440,8 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         cs_ranges_x = df_replace_value(cs_ranges.copy(),"chrom","23","X")
         #load summary stats around credsets, add columns for data
         #use both cs_ranges objects, and choose the one that is longer
-        summ_stat_variants_x = load_tb_ranges(cs_ranges_x,gws_fpath,"",".")
-        summ_stat_variants_23 = load_tb_ranges(cs_ranges_23,gws_fpath,"",".")
+        summ_stat_variants_x = load_pysam_ranges(cs_ranges_x,gws_fpath,"",".")
+        summ_stat_variants_23 = load_pysam_ranges(cs_ranges_23,gws_fpath,"",".")
         summ_stat_variants = summ_stat_variants_x if summ_stat_variants_x.shape[0] > summ_stat_variants_23.shape[0] else summ_stat_variants_23
         summ_stat_variants = df_replace_value(summ_stat_variants,columns["chrom"],"X","23")#finally in chrom 23 
 
