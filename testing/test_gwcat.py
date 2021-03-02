@@ -172,33 +172,6 @@ class TestGwcat(unittest.TestCase):
                 return_value=gwcatalog_api.get_trait_name(trait)
         self.assertEqual("NA",return_value)
         #TODO: handle unhandled exception
-    '''
-    def test_parse_float(self):
-        """
-        Test parse_float
-        Test cases:
-            number: 5e-8    => '5e-8'
-            number: 1.2e-8  => '12e-9'
-            number: 0       => '0e0'
-            number: 12 => '1'
-        """
-        num=5e-8
-        validate='5e-8'
-        retval=gwcatalog_api.parse_float(num)
-        self.assertEqual(retval,validate)
-        num=1.2e-8
-        validate='12e-9'
-        retval=gwcatalog_api.parse_float(num)
-        self.assertEqual(retval,validate)
-        num=0.0
-        validate='0'
-        retval=gwcatalog_api.parse_float(num)
-        self.assertEqual(retval,validate)
-        num=12.0
-        validate='1'
-        retval=gwcatalog_api.parse_float(num)
-        self.assertEqual(retval,validate)
-    '''
 
     def test_parse_efo(self):
         """

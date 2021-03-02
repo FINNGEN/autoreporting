@@ -288,25 +288,6 @@ def parse_output(dumplst):
             rows.append(d[k])
     return rows
 
-'''
-def parse_float(number):
-    """
-    Parse number so that it only consists of a whole number part and an exponent, i.e. 5.1e-8 -> 51e-9
-    In: any floating point number (though for the purposes of this project positive values do not make sense. Should still work.)
-    Out: a string representation of that float with no dots.
-    Range of operation: 0 < value < 1
-    Values smaller than 0 will be '0', and values larger than 1 will be '1'
-    """
-    if number <= 0.0:
-        return '0'
-    elif number >= 1.0:
-        return '1'
-    numpart="".join("{:e}".format(number).split("e")[0].strip("0").split("."))
-    exponent=int("{:e}".format(number).split("e")[1])-len(numpart)+1
-    retval="{}e{}".format(numpart,exponent)
-    return retval
-'''
-
 def get_trait_name(trait):
     base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
     try:
