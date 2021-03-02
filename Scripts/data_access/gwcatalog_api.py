@@ -4,6 +4,7 @@ import abc
 import os
 from typing import List, Text, Dict, Any, Optional
 from io import StringIO
+from itertools import groupby
 import pandas as pd, numpy as np
 from data_access.db import ExtDB, AlleleDB, Location, VariantData
 from multiprocessing.dummy import Pool as ThreadPool
@@ -108,34 +109,6 @@ class SummaryApi(ExtDB):
         results=[i for sublist in results for i in sublist]
         return results
 
-def gwcat_get_alleles(rsids: List[str]) -> pd.DataFrame:
-    """Get alleles for Gwas Catalog results, as those don't have them.
-    A common step for both the LocalDB and GwasApi, which is why it's separated into its own function.
-    Args:
-        rsids (List[str]): List of rsids
-    Returns:
-        (pd.DataFrame): pandas DataFrame with columns for rsid, allele1, other allele(s), whether the variant is biallelic, and the synonyms for the rsid. 
-    """
-    if not rsids:
-        return pd.DataFrame(columns=["rsid","ref","alt","biallelic","synonyms"])
-    rsids = [a for a in rsids if '  x  ' not in a] # remove cross-snp associations
-    rsids=[a.split(";")[0].strip() for a in rsids]
-    rsids = list(set(rsids)) #remove duplicates
-    rsid_out = get_rsid_alleles_ensembl(rsids)
-    #change synonyms to correct ones
-    found_data = [a for a in rsid_out if a["rsid"] in rsids]
-    leftover_data = [a for a in rsid_out if a["rsid"] not in rsids]
-    #for each of the leftovers, try to find the correct rsid in the synonyms
-    for snip in leftover_data:
-        #if a in rsids for any a in leftover_data.synonyms, 
-        yeslist = [a for a in snip["synonyms"] if a in rsids] 
-        if yeslist:
-            new_synonyms = [a for a in snip["synonyms"] if a != yeslist[0]] + [snip["rsid"]]
-            found_data.append( {"rsid": yeslist[0],"ref": snip["ref"], "alt": snip["alt"], \
-                "synonyms": new_synonyms})
-    rsid_df =  pd.DataFrame(found_data,columns=["rsid","ref","alt","biallelic","synonyms"])
-
-    return rsid_df
 
 def _gwcat_set_column_types(data: pd.DataFrame) -> pd.DataFrame:
     """Helper funtion to set the types of dataframe columns.
@@ -145,13 +118,13 @@ def _gwcat_set_column_types(data: pd.DataFrame) -> pd.DataFrame:
     Returns:
         (pd.DataFrame): The same dataframe with columns set correctly
     """
-    rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link"}
+    rename={"CHR_ID":"chrom","CHR_POS":"pos","P-VALUE":"pval","PVALUE_MLOG":"pval_mlog","MAPPED_TRAIT":"trait_name","STUDY":"study","LINK":"study_link","SNP_ID_CURRENT":"rsid"}
     data=data.rename(columns=rename)
     data=data.astype(dtype={"chrom":str,"pval":float,"trait":str})
     data["pos"] = pd.to_numeric(data["pos"],errors="coerce")
     data = data.dropna(subset={"pos"})
     data=data.astype(dtype={"pos":int}) 
-    retcols=["chrom","pos","SNPS","pval","pval_mlog","trait","trait_name","study","study_link"]
+    retcols=["chrom","pos","rsid","pval","pval_mlog","trait","trait_name","study","study_link"]
     return data.loc[:,retcols]
 
 class LocalDB(ExtDB):
@@ -168,10 +141,11 @@ class LocalDB(ExtDB):
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains(";") ,:]
         self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains("x") ,:]
         self.df["CHR_POS"]=pd.to_numeric(self.df["CHR_POS"],errors="coerce")
+        self.df["SNP_ID_CURRENT"]=pd.to_numeric(self.df["SNP_ID_CURRENT"],errors="coerce")
         self.df["P-VALUE"]=pd.to_numeric(self.df["P-VALUE"],errors="coerce")
         self.df["PVALUE_MLOG"]=pd.to_numeric(self.df["PVALUE_MLOG"],errors="coerce")
-        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE","PVALUE_MLOG"])
-        self.df=self.df.astype({"CHR_POS":int,"P-VALUE":float})
+        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE","PVALUE_MLOG","SNP_ID_CURRENT"])
+        self.df=self.df.astype({"CHR_POS":int,"P-VALUE":float,"SNP_ID_CURRENT": int})
         self.df=self.df.loc[self.df["P-VALUE"]<=self.pval_threshold ,:] #filter the df now by pval
     
     def __get_associations(self, chromosome: str, start: int, end: int)-> List[Dict[str,Any]]:
@@ -182,7 +156,7 @@ class LocalDB(ExtDB):
         df=df.loc[ (df["CHR_POS"] >=start)& (df["CHR_POS"] <=end ) ,:]
         if df.empty:
             return []
-        cols=["SNPS","CHR_ID","CHR_POS","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
+        cols=["SNP_ID_CURRENT","CHR_ID","CHR_POS","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
         tmpdf=df.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
@@ -210,29 +184,44 @@ class LocalDB(ExtDB):
         result_df = pd.DataFrame(out)
         if result_df.empty:
             return []
-        df_out = _alleles(result_df,self.alleledb)
+        df_out = add_alleles(result_df,self.alleledb)
         return df_out.to_dict("records")
 
 def add_alleles(gwasdata: pd.DataFrame, alleledb : AlleleDB):
     """Add allele data for variants
     Args:
-        gwasdata (pd.DataFrame): 
+        gwasdata (pd.DataFrame): Input dataframe with at least columns (chrom, pos, rsid)
         alleledb (AlleleDB): Allele DAO
     Returns:
-        (pd.DataFrame): Dataframe with alleles
+        (pd.DataFrame): Dataframe with added columns (ref, alt)
     """
     #get the Locations
     data = gwasdata[["chrom","pos"]]
     locs = []
-    for t in data[["chrom","pos"]].itertuples:
+    for t in data[["chrom","pos"]].itertuples():
         locs.append(Location(t.chrom,int(t.pos)))
     #get allele lst
     variantlst = alleledb.get_alleles(locs)
-    # combine the allele lst with the data
-    variant_tuples = [(a.chrom, a.pos, a.ref, a.alt[0]) for a in variantlst if a.biallelic]
-    variants = pd.DataFrame(variant_tuples, columns = ["chrom","pos","ref","alt"])
-    out = data.merge(variants,how="left", on=["chrom","pos"])
+    variantlst = [a for a in variantlst if a.biallelic]
+    variant_df = _resolve_alleles(gwasdata[["chrom","pos","rsid"]],variantlst)
+    out = gwasdata.merge(variant_df,how="inner",on=["chrom","pos"]).drop_duplicates(keep="first")
     return out
+
+def _resolve_alleles(df: pd.DataFrame, variantdata: List[VariantData])->pd.DataFrame:
+    """Resolve alleles from a list of VariantData and a pd.dataframe
+    Args:
+        df (pd.DataFrame): dataframe with columns (chrom, pos, rsid)
+        variantdata (List[VariantData]): List of VariantData objects
+    Returns:
+        (pd.DataFrame): dataframe with columns (chrom,pos,ref,alt)
+    """
+    #form dataframe
+    vardf = [(a.chrom, a.pos, a.ref, ','.join(a.alt), a.rsid) for a in variantdata]
+    vardf = pd.DataFrame(vardf,columns=["chrom","pos","ref","alt","rsid"])
+    #ensure both have same types
+    vardf = vardf.astype({"pos":int,"rsid":int})
+    df = df.astype({"pos":int,"rsid":int})
+    return df.merge(vardf, how="inner",on=["chrom","pos","rsid"]).drop(columns=["rsid"])
 
 class GwasApi(ExtDB):
     """ 
@@ -264,7 +253,7 @@ class GwasApi(ExtDB):
         df=pd.read_csv(s_io,sep="\t")
         if df.empty:
             return []
-        cols=["SNPS","CHR_ID","CHR_POS","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
+        cols=["SNP_ID_CURRENT","CHR_ID","CHR_POS","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
         tmpdf=df.loc[:,cols].copy()
         #deal with multiple efo codes in retval trait uri column
         retval = split_traits(tmpdf)
@@ -273,6 +262,7 @@ class GwasApi(ExtDB):
         retval=retval.reset_index()
         retval.loc[:,"trait"]=retval.loc[:,"MAPPED_TRAIT_URI"].apply(lambda x: parse_efo(x))
         retval=_gwcat_set_column_types(retval)
+        retval = retval[retval["pval"]<=pval]
         return retval.to_dict("records")
 
     def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -298,6 +288,7 @@ def parse_output(dumplst):
             rows.append(d[k])
     return rows
 
+'''
 def parse_float(number):
     """
     Parse number so that it only consists of a whole number part and an exponent, i.e. 5.1e-8 -> 51e-9
@@ -314,6 +305,7 @@ def parse_float(number):
     exponent=int("{:e}".format(number).split("e")[1])-len(numpart)+1
     retval="{}e{}".format(numpart,exponent)
     return retval
+'''
 
 def get_trait_name(trait):
     base_url="https://www.ebi.ac.uk/gwas/rest/api/efoTraits/"
@@ -368,78 +360,6 @@ def parse_efo(code):
     else: 
         return code.split("/").pop()
 
-def in_chunks(lst, chunk_size):
-    return (lst[pos:pos + chunk_size] for pos in range(0, len(lst), chunk_size))
-
-def parse_ensembl(json_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    out=[]
-    for rsid in json_data.keys():
-        try:
-            alleles = json_data[rsid]["mappings"][0]["allele_string"].split("/")
-            reference = alleles[0]
-            alts = ";".join(alleles[1:])
-            synonyms = json_data[rsid]["synonyms"]
-            biallelic = (len(alleles) == 2)
-            out.append({"rsid":rsid,"ref":reference,"alt":alts,"biallelic":biallelic,"synonyms":synonyms})
-        except:
-            print(f"Ensembl data: decoding error with rsid {rsid}")
-    return out
-
-def get_rsid_alleles_ensembl(rsids: List[str]) -> List[Dict[str, Any]]:
-    """
-    For a list of rsids, return list of variant information (alleles). Uses the ensembl human genomic variation API.
-    In: list of RSIDs
-    Out: list of dicts, with fields ['rsid','ref','alt','biallelic','synonyms']
-    """
-    chunksize=100
-    time_to_wait=0.0
-    current_time = time.time()
-
-    ensembl_url="https://rest.ensembl.org/variation/human"
-    headers={ "Content-Type" : "application/json", "Accept" : "application/json"}
-    
-    out=[]
-    for idx, rsid_chunk in enumerate(in_chunks(rsids,chunksize)):
-
-        rsid_str='["{}"]'.format('", "'.join(rsid_chunk))
-        data='{{ "ids":{} }}'.format(rsid_str)
-
-        retry=True
-        if time_to_wait > 0.0:
-            time.sleep(time_to_wait)
-        while retry: #back-off timing if necessary
-            try:
-                r = requests.request(method="POST",url=ensembl_url,headers=headers,data=data)
-                current_time = time.time()
-            except Exception as e: # exception in the calling of the API. Do not retry.
-                print(e) 
-                retry = False
-            else:
-                if r.status_code == 200:
-                    out=out + parse_ensembl(r.json())
-                    retry=False
-
-                elif r.status_code == 429: #rate limits hit. Wait for allotted time. The time to wait is retry_after - (time now - time when request arrived).
-                    cooldowntime = current_time + float(r.header["Retry-After"]) - time.time()
-                    time.sleep(cooldowntime)
-
-                else: #probably an error, do not retry. print request code and headers
-                    retry=False
-                    print("Unhandled response. Response code: {}. Response headers: {}".format( r.status_code, r.headers ) )
-
-        try:
-            req_amount = r.header["X-RateLimit-Limit"] 
-            req_num = r.header["X-RateLimit-Remaining"]
-            rate_reset = r.header["X-RateLimit-Reset"]
-            rate_period = r.header["X-RateLimit-Period"]
-            #time to wait between requests is the max of (time if we use all requests in the time period), (time if we use all available requests until quota reset)
-            wait_limit = float(rate_period)/float(req_amount)
-            wait_reset = float(rate_reset)/float(req_num)
-            time_to_wait = max(wait_limit,wait_reset)
-        except:
-            pass
-
-    return out
 
 def split_traits(df,traitname="MAPPED_TRAIT",traituriname="MAPPED_TRAIT_URI"):
     """

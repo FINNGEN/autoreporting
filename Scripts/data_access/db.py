@@ -94,6 +94,7 @@ class VariantData(NamedTuple):
     ref: str
     alt: List[str]
     biallelic: bool
+    rsid: int
 
 class AlleleDB(object):
     """

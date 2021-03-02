@@ -9,7 +9,7 @@ from Scripts.data_access import alleledb
 from Scripts.data_access.db import Location, VariantData
 
 class TestAlleleDB(unittest.TestCase):
-    def test_init(self):
+    def test_vcf_init(self):
         """Test initialization
 
         Cases:
@@ -18,15 +18,15 @@ class TestAlleleDB(unittest.TestCase):
             Proper file
         """
         nonexistent_file = ""
-        proper_file = "testing/db_resources/allele_db.gz"
+        proper_file = "testing/db_resources/test_vcf.vcf.gz"
         invalid_file = "testing/db_resources/invalid_file.gz"
         with self.assertRaises(FileNotFoundError) as ass:
-            alleledb.FGAlleleDB(nonexistent_file)
+            alleledb.VCFAlleleDB(nonexistent_file)
         with self.assertRaises(Exception) as ass:
-            alleledb.FGAlleleDB(invalid_file)
-        alleledb.FGAlleleDB(proper_file)
+            alleledb.VCFAlleleDB(invalid_file)
+        alleledb.VCFAlleleDB(proper_file)
 
-    def test_get_alleles(self):
+    def test_vcf_get_alleles(self):
         """Test getting alleles for positions
 
         Cases:
@@ -34,16 +34,16 @@ class TestAlleleDB(unittest.TestCase):
             biallelic position
             Multiallelic position
         """
-        filename = "testing/db_resources/allele_db.gz"
-        db = alleledb.FGAlleleDB(filename)
+        filename = "testing/db_resources/test_vcf.vcf.gz"
+        db = alleledb.VCFAlleleDB(filename)
         #magic knowledge!
-        no_alleles_loc = [Location("1",1)]
-        biallelic_loc = [Location("1",12)]
-        multiallelic_loc = [Location("2",15)]
+        no_alleles_loc = [Location("1",10)]
+        biallelic_loc = [Location("1",10039)]
+        multiallelic_loc = [Location("1",10169)]
         manylocs = [
-            Location("1",1),
-            Location("1",12),
-            Location("2",15)
+            Location("1",10),
+            Location("1",10039),
+            Location("1",10169)
         ]
 
         no_alleles = db.get_alleles(no_alleles_loc)
@@ -53,18 +53,20 @@ class TestAlleleDB(unittest.TestCase):
         no_all_ver = []
         biallelic_ver = [VariantData(
             "1",
-            12,
+            10039,
             "A",
             ["C"],
-            True
+            True,
+            978760828
         )]
         multiallelic_ver = [
             VariantData(
-            "2",
-            15,
-            "A",
-            ["T","CT"],
-            False
+            "1",
+            10169,
+            "T",
+            ["C","G"],
+            False,
+            1456517851
         )
         ]
         manyvar_ver = biallelic_ver + multiallelic_ver

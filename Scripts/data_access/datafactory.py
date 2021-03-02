@@ -4,8 +4,8 @@
 
 #How about just an object that has e.g. a dict for those
 from typing import List, Dict, Any
-from data_access.db import ExtDB
-from data_access import custom_catalog, gwcatalog_api, alleledb
+from Scripts.data_access.db import ExtDB
+from Scripts.data_access import custom_catalog, gwcatalog_api, alleledb
 
 #TODO: change into ExtDB because it kinda already is
 class CompoundDB(ExtDB):
@@ -28,7 +28,7 @@ def db_factory(use_gwascatalog, custom_dataresource, database_choice, localdb_pa
     customresource=None
     if use_gwascatalog:
         #alleledb
-        allele_database = alleledb.FGAlleleDB(allele_filepath)
+        allele_database = alleledb.VCFAlleleDB(allele_filepath)
         if database_choice=="local":
             gwapi=gwcatalog_api.LocalDB(localdb_path,gwas_pval,gwas_width,allele_database)
         elif database_choice=="summary_stats":

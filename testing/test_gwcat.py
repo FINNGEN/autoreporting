@@ -2,12 +2,19 @@ import unittest
 import unittest.mock as mock
 import sys,os,json, requests
 import pandas as pd
+from typing import List
 sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
 from Scripts.data_access import gwcatalog_api
+from Scripts.data_access.db import AlleleDB, Location, VariantData
+import itertools
+from io import StringIO
 
-class TestGwcat(unittest.TestCase):
+class TestRequest(unittest.TestCase):
+    """Test request wrappers
+    """
+
     @mock.patch("Scripts.data_access.gwcatalog_api.time.sleep")
     def test_get(self,mock_time):
         """
@@ -113,6 +120,35 @@ class TestGwcat(unittest.TestCase):
                     retval=gwcatalog_api.try_request("POST",url,headers=headers, data=data)
         pass 
 
+
+class MockAlleleDB(AlleleDB):
+    """Mock class for functions that use alleledb
+    """
+    def get_alleles(self,positions:List[Location]):
+        return [
+            VariantData(
+                "1",
+                1,
+                "A",
+                ["C"],
+                True,
+                12345,
+            ),
+            VariantData(
+                "2",
+                10,
+                "A",
+                ["C","G"],
+                False,
+                54321,
+            )
+        ]
+
+class TestGwcat(unittest.TestCase):
+    """Test gwcatalog api functions not relevant to a single db
+    """
+    
+
     def test_get_trait_name(self):
         """
         Test get_trait_name
@@ -136,7 +172,7 @@ class TestGwcat(unittest.TestCase):
                 return_value=gwcatalog_api.get_trait_name(trait)
         self.assertEqual("NA",return_value)
         #TODO: handle unhandled exception
-
+    '''
     def test_parse_float(self):
         """
         Test parse_float
@@ -162,6 +198,7 @@ class TestGwcat(unittest.TestCase):
         validate='1'
         retval=gwcatalog_api.parse_float(num)
         self.assertEqual(retval,validate)
+    '''
 
     def test_parse_efo(self):
         """
@@ -205,6 +242,158 @@ class TestGwcat(unittest.TestCase):
         data2=gwcatalog_api.split_traits(data)
         self.assertEqual(type(data2),type(None))
 
+    def test_add_alleles(self):
+        """Test that add_alleles function works
+        Three data items: exists in alleledb (1:1:A:C), is multiallelic (2:10:A:C,G), is not in alleledb (3:100:whatever)
+        """
+        
+        data={
+            "chrom":["1","2","3"],
+            "pos":[1,10,100],
+            "rsid":[12345,54321,90001],
+            "datacol":["a","b","c"]
+        }
+        data=pd.DataFrame(data)
+        alleledb = MockAlleleDB()
+        output = gwcatalog_api.add_alleles(data,alleledb)
+        validationdata = {
+            "chrom":["1"],
+            "pos":[1],
+            "rsid":[12345],
+            "datacol":["a"],
+            "ref":["A"],
+            "alt":["C"]
+        } 
+        validationdata = pd.DataFrame(validationdata)
+        self.assertTrue(output.equals(validationdata))
+
+    def test_resolve_alleles(self):
+        alldb = MockAlleleDB()
+        variantdata = alldb.get_alleles([])
+        df={
+            "chrom":["1","2","3"],
+            "pos":[1,10,100],
+            "rsid":[12345,54321,90001]
+        }
+        df=pd.DataFrame(df)
+        out = gwcatalog_api._resolve_alleles(df,variantdata)
+        validationdata = {
+            "chrom":["1","2"],
+            "pos":[1,10],
+            "ref":["A","A"],
+            "alt":["C","C,G"]
+        }
+        validationdata = pd.DataFrame(validationdata)
+        print(out)
+        print(validationdata)
+        self.assertTrue(out.equals(validationdata))
+
+class TestLocalDB(unittest.TestCase):
+    """Test LocalDB
+    """
+
+    def test_init(self):
+        col_data = ["1","2","3","4","5","6"]
+        cols = ["SNP_ID_CURRENT","CHR_ID","CHR_POS","P-VALUE","PVALUE_MLOG","MAPPED_TRAIT","MAPPED_TRAIT_URI","LINK","STUDY"]
+        transforms = [int,str,int,float,float,str,str,str,str]
+        data = {a:list(map(b,col_data)) for (a,b) in itertools.zip_longest(cols,transforms) }
+        data=pd.DataFrame(data)
+        buf = StringIO()
+        data.to_csv(buf,index=False,sep="\t")
+        buf.seek(0)
+        alldb = MockAlleleDB()
+        db = gwcatalog_api.LocalDB(buf,10.0,100,alldb)
+
+    def test_associations_for_regions(self):
+        data = {
+            "SNP_ID_CURRENT": [12345,54321,90001],
+            "CHR_ID":["1","2","3"],
+            "CHR_POS":[1,10,100],
+            "P-VALUE":[0.1,0.1,0.1],
+            "PVALUE_MLOG":[2.,2.,2.],
+            "MAPPED_TRAIT":["A1","B1","C1"],
+            "MAPPED_TRAIT_URI":["1","2","3"],
+            "LINK":["link","link","link"],
+            "STUDY":["study1","study2","study3"]
+        }
+        data=pd.DataFrame(data)
+        buf = StringIO()
+        data.to_csv(buf,index=False,sep="\t")
+        buf.seek(0)
+        alldb = MockAlleleDB()
+        db = gwcatalog_api.LocalDB(buf,1.0,100,alldb)
+        regions = [
+            {"chrom":"1","min":1,"max":2},
+            {"chrom":"2","min":10,"max":12},
+            {"chrom":"3","min":100,"max":102},
+        ]
+        assocs = db.associations_for_regions(regions)
+        validationdata = [{
+            "rsid": 12345,
+            "chrom":"1",
+            "pos":1,
+            "ref":"A",
+            "alt":"C",
+            "pval":0.1,
+            "pval_mlog":2.,
+            "trait_name":"A1",
+            "trait":"1",
+            "study_link":"link",
+            "study":"study1"
+            }
+        ]
+        self.assertEqual(assocs,validationdata)
+
+
+class testGWASDB(unittest.TestCase):
+    def test_init(self):
+        mockdb = MockAlleleDB()
+        db = gwcatalog_api.GwasApi(0.1,100,1,mockdb)
+
+    def test_associations_for_regions(self):
+        mockdb = MockAlleleDB()
+        db = gwcatalog_api.GwasApi(1.0,100,1,mockdb)
+        ranges = [
+            {"chrom":"1","min":1,"max":2},
+            {"chrom":"2","min":10,"max":12},
+            {"chrom":"3","min":100,"max":102},
+        ]
+        
+        request_val = mock.Mock() 
+        data = data = {
+            "SNP_ID_CURRENT": [12345,54321,90001],
+            "CHR_ID":["1","2","3"],
+            "CHR_POS":[1,10,100],
+            "P-VALUE":[0.1,0.1,0.1],
+            "PVALUE_MLOG":[2.,2.,2.],
+            "MAPPED_TRAIT":["A1","B1","C1"],
+            "MAPPED_TRAIT_URI":["A1","B2","C3"],
+            "LINK":["link","link","link"],
+            "STUDY":["study1","study2","study3"]
+        }
+        data=pd.DataFrame(data)
+        buf = StringIO()
+        data.to_csv(buf,index=False,sep="\t")
+        buf.seek(0)
+        request_val.text = buf.getvalue()
+        
+        with mock.patch("Scripts.data_access.gwcatalog_api.try_request",return_value=request_val) as mock_request:
+            assocs = db.associations_for_regions(ranges)
+        validationdata = [{
+            "rsid": 12345,
+            "chrom":"1",
+            "pos":1,
+            "ref":"A",
+            "alt":"C",
+            "pval":0.1,
+            "pval_mlog":2.,
+            "trait_name":"A1",
+            "trait":"A1",
+            "study_link":"link",
+            "study":"study1"
+            }
+        ]
+        self.assertEqual(assocs,validationdata)
 
 if __name__=="__main__":
     unittest.main()

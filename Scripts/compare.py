@@ -288,7 +288,7 @@ if __name__ == "__main__":
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog DB.")
     parser.add_argument("--db",dest="database_choice",type=str,choices=['local','gwas','summary_stats'],default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
-    parser.add_argument("--gwascatalog-allele-file",dest="allele_db_file",help="GWAS Catalog alleles taken from here. Use FinnGen annotation file.")
+    parser.add_argument("--gwascatalog-allele-file",dest="allele_db_file",help="GWAS Catalog alleles taken from here. Use dbSNP variation VCF file (current gwcat build hg38p13, b153).")
     args=parser.parse_args()
     columns=columns_from_arguments(args.column_labels)
     if args.prefix!="":

@@ -14,7 +14,7 @@ def remdups(lst):
     seen = set()
     seen_add = seen.add
     return [x for x in lst if not (x in seen or seen_add(x))]
-
+"""
 class FGAlleleDB(AlleleDB):
     def __init__(self, fg_annotation_file):
         if not os.path.exists(fg_annotation_file):
@@ -28,7 +28,7 @@ class FGAlleleDB(AlleleDB):
             self.header = f.readline().strip("\n").split("\t")
             self.variant_idx = self.header.index("#variant")
 
-    def __delete__(self):
+    def __del__(self):
         self.handle.close()
 
     def get_alleles(self, positions: List[Location])-> List[VariantData]:
@@ -70,7 +70,7 @@ class FGAlleleDB(AlleleDB):
                 filtered_variants = list(filter(partial(_partial_filter, c, p), variants))
                 ref_alleles = remdups([a[2] for a in filtered_variants])
                 alt_alleles = remdups([a[3] for a in filtered_variants])
-                #if there are multiple reference alleles for a single variant then things are bad
+                #if there are multiple reference alleles for a single variant then things are bad, since we can't identify the variants
                 if len(ref_alleles) > 1:
                     continue
                 output.append(
@@ -79,8 +79,53 @@ class FGAlleleDB(AlleleDB):
                         int(filtered_variants[0][1]),
                         ref_alleles[0],
                         alt_alleles,
-                        len(alt_alleles) == 1
+                        len(alt_alleles) == 1,
+                        ""
+                    )
+                )
+        return output
+"""
+
+class VCFAlleleDB(AlleleDB):
+    """Allele db based on vcf file from dbsnp. NOTE: File can be on ftp server, IF the index file exists. 
+    E.g. https://ftp.ncbi.nih.gov/snp/organisms/human_9606_b151_GRCh37p13/VCF/00-All.vcf.gz
+    """
+
+    def __init__(self, vcf_file):
+        if not os.path.exists(vcf_file):
+            raise FileNotFoundError("File {} not found".format(vcf_file))
+        self.handle = None
+        try:
+            self.handle = pysam.TabixFile(vcf_file)
+        except:
+            print("Error with pysam handle creation:")
+            raise
+        self.file = vcf_file
+        self.header = self.handle.header[-1].strip('\n').split('\t')
+
+
+    def get_alleles(self, positions: List[Location])-> List[VariantData]:
+        output = []
+        for pos in positions:
+            #vcf is numeric
+            chrom = pos.chromosome.replace("X","23").replace("Y","24").replace("MT","25").replace("M","25")
+            rows = self.handle.fetch(chrom, pos.position-1,pos.position)
+            rows = [a.strip('\n').split('\t') for a in rows]
+            rows = [a for a in rows if int(a[1]) == pos.position]#indels behave weirdly when using tabix
+
+            #get alleles from rows
+            for r in rows:
+                output.append(
+                    VariantData(
+                        r[0],
+                        int(r[1]),
+                        r[3],
+                        r[4].split(','),
+                        len(r[4].split(',')) == 1,
+                        int(r[2].replace('rs',''))
                     )
                 )
         return output
 
+    def __del__(self):
+        self.handle.close()
