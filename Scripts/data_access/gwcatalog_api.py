@@ -6,7 +6,7 @@ from typing import List, Text, Dict, Any, Optional
 from io import StringIO
 from itertools import groupby
 import pandas as pd, numpy as np
-from data_access.db import ExtDB, AlleleDB, Location, VariantData
+from data_access.db import ExtDB, AlleleDB, Location, VariantData, Variant
 from multiprocessing.dummy import Pool as ThreadPool
 
 class RequestError(Exception):
@@ -202,7 +202,7 @@ def add_alleles(gwasdata: pd.DataFrame, alleledb : AlleleDB):
         locs.append(Location(t.chrom,int(t.pos)))
     #get allele lst
     variantlst = alleledb.get_alleles(locs)
-    variantlst = [a for a in variantlst if a.biallelic]
+    variantlst = [a for a in variantlst if a.biallelic()]
     variant_df = _resolve_alleles(gwasdata[["chrom","pos","rsid"]],variantlst)
     out = gwasdata.merge(variant_df,how="inner",on=["chrom","pos"]).drop_duplicates(keep="first")
     return out
@@ -216,7 +216,7 @@ def _resolve_alleles(df: pd.DataFrame, variantdata: List[VariantData])->pd.DataF
         (pd.DataFrame): dataframe with columns (chrom,pos,ref,alt)
     """
     #form dataframe
-    vardf = [(a.chrom, a.pos, a.ref, ','.join(a.alt), a.rsid) for a in variantdata]
+    vardf = [(a.variant.chrom, a.variant.pos, a.variant.ref, ','.join([a.variant.alt]+a.other_alts), a.rsid) for a in variantdata]
     vardf = pd.DataFrame(vardf,columns=["chrom","pos","ref","alt","rsid"])
     #ensure both have same types
     vardf = vardf.astype({"pos":int,"rsid":int})

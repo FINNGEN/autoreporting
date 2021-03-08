@@ -5,7 +5,7 @@ import gzip
 import pysam
 from typing import List, Dict
 from functools import partial
-from data_access.db import AlleleDB, Location, VariantData
+from data_access.db import AlleleDB, Location, VariantData, Variant
 
 #NOTE: Is this used anywhere?
 def _partial_filter(chrom: str, pos: int, cpra: List[str]):
@@ -45,13 +45,17 @@ class VCFAlleleDB(AlleleDB):
 
             #get alleles from rows
             for r in rows:
+                alt = r[4].split(',')[0]
+                other_alts = r[4].split(',')[1:]
                 output.append(
                     VariantData(
-                        r[0],
-                        int(r[1]),
-                        r[3],
-                        r[4].split(','),
-                        len(r[4].split(',')) == 1,
+                        Variant(
+                            r[0],
+                            int(r[1]),
+                            r[3],
+                            alt,
+                        ),
+                        other_alts,
                         int(r[2].replace('rs',''))
                     )
                 )

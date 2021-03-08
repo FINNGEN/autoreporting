@@ -6,7 +6,7 @@ sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
 from Scripts.data_access import alleledb
-from Scripts.data_access.db import Location, VariantData
+from Scripts.data_access.db import Location, VariantData, Variant
 
 class TestAlleleDB(unittest.TestCase):
     def test_vcf_init(self):
@@ -52,20 +52,20 @@ class TestAlleleDB(unittest.TestCase):
         manyvars = db.get_alleles(manylocs)
         no_all_ver = []
         biallelic_ver = [VariantData(
-            "1",
+            Variant("1",
             10039,
             "A",
-            ["C"],
-            True,
+            "C"),
+            [],
             978760828
         )]
         multiallelic_ver = [
             VariantData(
-            "1",
+            Variant("1",
             10169,
             "T",
-            ["C","G"],
-            False,
+            "C"),
+            ["G"],
             1456517851
         )
         ]

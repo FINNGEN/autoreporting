@@ -7,7 +7,7 @@ sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
 from Scripts.data_access import gwcatalog_api
-from Scripts.data_access.db import AlleleDB, Location, VariantData
+from Scripts.data_access.db import AlleleDB, Location, VariantData, Variant
 import itertools
 from io import StringIO
 
@@ -127,19 +127,20 @@ class MockAlleleDB(AlleleDB):
     def get_alleles(self,positions:List[Location]):
         return [
             VariantData(
+                Variant(
                 "1",
                 1,
                 "A",
-                ["C"],
-                True,
+                "C"),
+                [],
                 12345,
             ),
             VariantData(
-                "2",
+                Variant("2",
                 10,
                 "A",
-                ["C","G"],
-                False,
+                "C"),
+                ["G"],
                 54321,
             )
         ]
@@ -257,8 +258,6 @@ class TestGwcat(unittest.TestCase):
             "alt":["C","C,G"]
         }
         validationdata = pd.DataFrame(validationdata)
-        print(out)
-        print(validationdata)
         self.assertTrue(out.equals(validationdata))
 
 class TestLocalDB(unittest.TestCase):

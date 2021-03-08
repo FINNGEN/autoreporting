@@ -90,12 +90,12 @@ class TestGws(unittest.TestCase):
         prefix=""
         r2_out = pd.read_csv("testing/fetch_resources/ld_grouping_report.csv",sep="\t")
         r2_out = r2_out.to_dict('records')
-        r2_out = [LDData(Variant(a['variant_1'],
+        r2_out = [LDData(Variant(
                                  a['chrom_1'],
                                  a['pos_1'],
                                  a['variant_1'].split("_")[2],
                                  a['variant_1'].split("_")[3]),
-                         Variant(a['variant_2'],
+                         Variant(
                                  a['chrom_2'],
                                  a['pos_2'],
                                  a['variant_2'].split("_")[2],
@@ -187,16 +187,16 @@ class TestGws(unittest.TestCase):
         data.loc[9,"cs_prob"] = 0.997
         r2_out=pd.read_csv("testing/fetch_resources/ld_report.csv",sep="\t")
         r2_out = r2_out.to_dict('records')
-        r2_out = [LDData(Variant(a['variant_1'],
+        r2_out = [LDData(Variant(
                                  a['chrom_1'],
                                  a['pos_1'],
                                  a['variant_1'].split("_")[2],
                                  a['variant_1'].split("_")[3]),
-                         Variant(a['variant_2'],
+                         Variant(
                                  a['chrom_2'],
                                  a['pos_2'],
-                                 a['variant_1'].split("_")[2],
-                                 a['variant_1'].split("_")[3]),
+                                 a['variant_2'].split("_")[2],
+                                 a['variant_2'].split("_")[3]),
                          a['r2']) for a in r2_out]
         class AugmentedMock(mock.Mock):
             def get_ranges(*args):

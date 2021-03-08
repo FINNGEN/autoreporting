@@ -18,22 +18,17 @@ class ExtDB(object):
         """
 
 class Variant(NamedTuple):
-    """Variant class for LDAccess api
-        variant: str
+    """Variant class
         chrom: str
         pos: int
         ref: str
         alt: str
     """
-    variant: str
     chrom: str
     pos: int
     ref: str
     alt: str
-    def __eq__(self, other): 
-        if not isinstance(other, Variant):
-            return NotImplemented
-        return self.variant == other.variant
+
 
 class LDData(NamedTuple):
     """LD information class for LDAccess api
@@ -50,12 +45,10 @@ class LDData(NamedTuple):
             Dict[str,Any]: Dictionary with keys (variant1,chrom1,pos1,ref1,alt1,variant2,chrom2,pos2,ref2,alt2,r2)
         """
         return {
-            "variant1":self.variant1.variant,
             "chrom1":self.variant1.chrom,
             "pos1":self.variant1.pos,
             "ref1":self.variant1.ref,
             "alt1":self.variant1.alt,
-            "variant2":self.variant2.variant,
             "chrom2":self.variant2.chrom,
             "pos2":self.variant2.pos,
             "ref2":self.variant2.ref,
@@ -89,12 +82,12 @@ class Location(NamedTuple):
 class VariantData(NamedTuple):
     """Potentially multiallelic variant
     """
-    chrom: str
-    pos: int
-    ref: str
-    alt: List[str]
-    biallelic: bool
+    variant: Variant
+    other_alts: List[str] #posibly empty
     rsid: int
+
+    def biallelic(self) -> bool:
+        return len(self.other_alts) == 0
 
 class AlleleDB(object):
     """
