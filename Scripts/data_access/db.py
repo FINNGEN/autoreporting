@@ -18,22 +18,17 @@ class ExtDB(object):
         """
 
 class Variant(NamedTuple):
-    """Variant class for LDAccess api
-        variant: str
+    """Variant class
         chrom: str
         pos: int
         ref: str
         alt: str
     """
-    variant: str
     chrom: str
     pos: int
     ref: str
     alt: str
-    def __eq__(self, other): 
-        if not isinstance(other, Variant):
-            return NotImplemented
-        return self.variant == other.variant
+
 
 class LDData(NamedTuple):
     """LD information class for LDAccess api
@@ -50,12 +45,10 @@ class LDData(NamedTuple):
             Dict[str,Any]: Dictionary with keys (variant1,chrom1,pos1,ref1,alt1,variant2,chrom2,pos2,ref2,alt2,r2)
         """
         return {
-            "variant1":self.variant1.variant,
             "chrom1":self.variant1.chrom,
             "pos1":self.variant1.pos,
             "ref1":self.variant1.ref,
             "alt1":self.variant1.alt,
-            "variant2":self.variant2.variant,
             "chrom2":self.variant2.chrom,
             "pos2":self.variant2.pos,
             "ref2":self.variant2.ref,
@@ -77,5 +70,35 @@ class LDAccess(object):
             ld_threshold (Optional[float]): Optional LD R^2 threshold. Only variants that are in greater correlation than the threshold are reported. 
         Returns: 
             (List[LDData]):List of variant associations
+        """
+        return
+
+class Location(NamedTuple):
+    """Chromosomal position
+    """
+    chromosome: str
+    position: int
+
+class VariantData(NamedTuple):
+    """Potentially multiallelic variant
+    """
+    variant: Variant
+    other_alts: List[str] #posibly empty
+    rsid: int
+
+    def biallelic(self) -> bool:
+        return len(self.other_alts) == 0
+
+class AlleleDB(object):
+    """
+    Abstract object for getting alleles for c:p
+    """
+    @abc.abstractmethod
+    def get_alleles(self, positions: List[Location]) -> List[VariantData]:
+        """Get alleles for chromosomal positions
+        Args:
+            positions (List[Location]): List of genetic locations
+        Returns:
+            (List[VariantData]): As many of those locations 
         """
         return

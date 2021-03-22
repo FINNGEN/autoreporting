@@ -116,11 +116,13 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_ = []
     for idx, row in ld_ranges.iterrows():
-        ld_.append( Variant(row["#variant"], row["chr"], row["pos"], row["ref"], row["alt"] ) )
+        ld_.append( Variant(row["chr"], row["pos"], row["ref"], row["alt"] ) )
     ld_data=ld_api.get_ranges(ld_,locus_width*1000, ld_treshold)
     #un-nest ld data
     ld_data = [a.to_flat() for a in ld_data]
-    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','chrom1','pos1','ref1','alt1','variant2','chrom2','pos2','ref2','alt2','r2'])
+    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
+    all_lead_ld_data['variant1']=create_variant_column(all_lead_ld_data,'chrom1','pos1','ref1','alt1')
+    all_lead_ld_data['variant2']=create_variant_column(all_lead_ld_data,'chrom2','pos2','ref2','alt2')
     ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],all_lead_ld_data,how="inner",left_on="#variant",right_on="variant2" )
     ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])
     ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
@@ -174,11 +176,13 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
     lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
     ld_ = []
     for idx, row in lead_df.iterrows():
-        ld_.append( Variant(row["#variant"], row[columns["chrom"]], row[columns["pos"]], row[columns["ref"]], row[columns["alt"]] ) )
+        ld_.append( Variant( row[columns["chrom"]], row[columns["pos"]], row[columns["ref"]], row[columns["alt"]] ) )
     ld_data=ld_api.get_ranges(ld_,locus_range*1000)
     #un-nest ld data
     ld_data = [a.to_flat() for a in ld_data]
-    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['variant1','chrom1','pos1','ref1','alt1','variant2','chrom2','pos2','ref2','alt2','r2'])
+    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
+    all_lead_ld_data['variant1']=create_variant_column(all_lead_ld_data,'chrom1','pos1','ref1','alt1')
+    all_lead_ld_data['variant2']=create_variant_column(all_lead_ld_data,'chrom2','pos2','ref2','alt2')
     #join
     ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant2") #does include all of the lead variants as well
     ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])

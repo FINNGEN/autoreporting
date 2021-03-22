@@ -55,6 +55,9 @@ task report {
     File dummy_file
     File phenotype_info_file
 
+    File allele_vcf_file
+    File allele_vcf_tbi = allele_vcf_file+".tbi"
+
     command <<<
         python3 <<CODE
         import subprocess, shlex, sys
@@ -91,6 +94,8 @@ task report {
         column_names = "${sep=" " column_names}"
         extra_columns = "${extra_columns}"
         phenotype_info = "${phenotype_info_file}"
+
+        alleledb_file = "${allele_vcf_file}"
 
         #changing variables
         #summ stat
@@ -134,6 +139,7 @@ task report {
                     "--column-labels {} "
                     "--extra-cols {} "
                     "--pheno-info-file {} "
+                    "--gwascatalog-allele-file {}"
                     "{} " #local gwascatalog
                     "{} " #efo
                     "{} " #ignore
@@ -167,6 +173,7 @@ task report {
                         column_names,
                         extra_columns,
                         phenotype_info,
+                        alleledb_file,
                         local_gwascatalog,
                         efo_cmd,
                         ignore_cmd,

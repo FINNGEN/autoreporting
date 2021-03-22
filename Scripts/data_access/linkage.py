@@ -5,15 +5,12 @@ from typing import List, Text, Dict,Any, Optional
 import pandas as pd, numpy as np
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 from data_access.db import LDAccess, LDData, Variant
+from Scripts.autoreporting_utils import create_variant_column
 
 
 class OnlineLD(LDAccess):
     def __init__(self,url):
         self.url=url
-    
-    def __parse_variant(self,variant):
-        parsed_variant="chr{}".format( variant.replace(":","_"))
-        return parsed_variant
 
     def __get_range(self, chrom, pos, ref, alt, window, ld_threshold=None) -> List[LDData]:
         """Get LD data for a range around one variant
@@ -36,13 +33,11 @@ class OnlineLD(LDAccess):
         ld_data=data.json()["ld"]
         ld_out=[]
         for d in ld_data:
-            v1 = "chr"+d["variation1"].replace(":","_")
             c1 = d["variation1"].split(":")[0]
             p1 = int(d["variation1"].split(":")[1])
             ref1 = d["variation1"].split(":")[2]
             alt1 = d["variation1"].split(":")[3]
 
-            v2 = "chr"+d["variation2"].replace(":","_")
             c2 = d["variation2"].split(":")[0]
             p2 = int(d["variation2"].split(":")[1])
             ref2 = d["variation2"].split(":")[2]
@@ -52,8 +47,8 @@ class OnlineLD(LDAccess):
 
             ld_out.append(
                 LDData(
-                    Variant(v1, c1, p1, ref1, alt1),
-                    Variant(v2, c2, p2, ref2, alt2),
+                    Variant(c1, p1, ref1, alt1),
+                    Variant(c2, p2, ref2, alt2),
                     r2)
                 )
         return ld_out
@@ -75,7 +70,6 @@ class PlinkLD(LDAccess):
         if not ld_threshold:
             ld_threshold = 0.0
         variants = [Variant(
-            a.variant.replace("chr23","chrX"),
             a.chrom.replace("23","X"),
             a.pos,
             a.ref,
@@ -91,6 +85,7 @@ class PlinkLD(LDAccess):
         r_kb=window//1000
         for chromosome, variants in chromdict.items():
             var_df = pd.DataFrame(variants)
+            var_df["variant"] = create_variant_column(var_df,"chrom","pos","ref","alt")
             var_df=var_df["variant"]
             plink_prefix = "plink{}{}".format(chromosome,len(variants))
             plink_name="{}_variants".format(plink_prefix)
@@ -124,16 +119,18 @@ class PlinkLD(LDAccess):
         #convert to List[LDData]
         ld_data=ld_data.to_dict('records')
         ld_data = [LDData(
-            Variant(d['SNP_A'].replace("chrX","chr23"),
-                    str(d['CHR_A']).replace("X","23"),
-                    int(d['BP_A']),
-                    d['SNP_A'].split("_")[2],
-                    d['SNP_A'].split("_")[3]),
-            Variant(d['SNP_B'].replace("chrX","chr23"),
-                    str(d['CHR_B']).replace("X","23"),
-                    int(d['BP_B']),
-                    d['SNP_B'].split("_")[2],
-                    d['SNP_B'].split("_")[3]),
+            Variant(
+                str(d['CHR_A']).replace("X","23"),
+                int(d['BP_A']),
+                d['SNP_A'].split("_")[2],
+                d['SNP_A'].split("_")[3]
+            ),
+            Variant(
+                str(d['CHR_B']).replace("X","23"),
+                int(d['BP_B']),
+                d['SNP_B'].split("_")[2],
+                d['SNP_B'].split("_")[3]
+            ),
             d['R2'])
-                   for d in ld_data]
+            for d in ld_data]
         return ld_data
