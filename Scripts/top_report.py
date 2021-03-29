@@ -61,7 +61,7 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     aggregated_cols = ["credible_set_min_r2_value","start", "end", "found_associations_strict", "found_associations_relaxed",
                        "credible_set_variants", "functional_variants_strict",
                        "functional_variants_relaxed", "specific_efo_trait_associations_strict",
-                       "specific_efo_trait_associations_relaxed"]
+                       "specific_efo_trait_associations_relaxed","n_ld_partners_0_8"]
 
     lead_cols=list(lead_col_d.values())
     gnomad_cols = list(gnomad_add_cols_rename.values())
@@ -198,6 +198,11 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
             row["credible_set_min_r2_value"] = np.nanmin(credset_vars.loc[:, "r2_to_lead" ].values)
         except:
             row["credible_set_min_r2_value"] = np.nan
+
+        #N ld partners with LD >0.8
+        r2_thresh_0_8 = 0.8
+        n_ld_gt_0_8 = loc_variants[((loc_variants["r2_to_lead"]>r2_thresh_0_8) & (loc_variants["cs_id"]!=locus_cs_id)),"r2_to_lead"].count()
+        row["n_ld_partners_0_8"] = n_ld_gt_0_8
         top_level_df=top_level_df.append(row,ignore_index=True)
 
     #merge the different dataframes to top_level_df
