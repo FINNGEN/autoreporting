@@ -4,8 +4,9 @@
 
 #How about just an object that has e.g. a dict for those
 from typing import List, Dict, Any
-from Scripts.data_access.db import ExtDB
-from Scripts.data_access import custom_catalog, gwcatalog_api, alleledb
+from data_access.db import ExtDB
+from data_access import custom_catalog, gwcatalog_api, alleledb
+from autoreporting_utils import *
 
 #TODO: change into ExtDB because it kinda already is
 class CompoundDB(ExtDB):
@@ -33,9 +34,9 @@ def db_factory(use_gwascatalog, custom_dataresource, database_choice, localdb_pa
             gwapi=gwcatalog_api.LocalDB(localdb_path,gwas_pval,gwas_width,allele_database)
         elif database_choice=="summary_stats":
             raise Exception("gwcatalog choice summary_stats DEPRECATED")
-            gwapi=gwcatalog_api.SummaryApi(gwas_pval, gwas_width,gwas_threads,allele_database)
+            gwapi=gwcatalog_api.SummaryApi(gwas_pval, gwas_width,gwas_threads)
         else:
-            gwapi=gwcatalog_api.GwasApi(gwas_pval, gwas_width,gwas_threads)
+            gwapi=gwcatalog_api.GwasApi(gwas_pval, gwas_width,gwas_threads,allele_database)
     if custom_dataresource != "":
         customresource = custom_catalog.CustomCatalog(custom_dataresource,gwas_pval,gwas_width)
     dataresources = [a for a in [gwapi, customresource] if a != None]

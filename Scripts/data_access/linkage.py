@@ -5,7 +5,7 @@ from typing import List, Text, Dict,Any, Optional
 import pandas as pd, numpy as np
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 from data_access.db import LDAccess, LDData, Variant
-from Scripts.autoreporting_utils import create_variant_column
+from autoreporting_utils import create_variant_column
 
 
 class OnlineLD(LDAccess):
