@@ -29,7 +29,7 @@ task report {
     Float sign_treshold
     Float alt_sign_treshold
     Int grouping_locus_width
-    Float ld_r2
+    String ld_opts
     Int plink_memory
     Float gwascatalog_pval
     Int gwascatalog_width_kb
@@ -77,7 +77,7 @@ task report {
         sign_treshold=${sign_treshold}
         alt_sign_treshold=${alt_sign_treshold}
         grouping_locus_width=${grouping_locus_width}
-        ld_r2=${ld_r2}
+        ld_opts=${ld_opts}
         plink_memory=${plink_memory}
         gwascatalog_pval=${gwascatalog_pval}
         gwascatalog_width_kb=${gwascatalog_width_kb}
@@ -121,9 +121,9 @@ task report {
                     "--grouping-method {} "
                     "--locus-width-kb {} "
                     "--ld-panel-path {} "
-                    "--ld-r2 {} "
+                    "{} "#ld opts
                     "--plink-memory {} "
-                    "{} "
+                    "{} " #include batch freq
                     "--finngen-path {} "
                     "--functional-path {} "
                     "--gnomad-genome-path {} "
@@ -156,7 +156,7 @@ task report {
                         grouping_method,
                         grouping_locus_width,
                         plink_path,
-                        ld_r2,
+                        ld_opts,
                         plink_memory,
                         include_batch_freq,
                         finngen_annotation,
@@ -228,7 +228,7 @@ workflow autoreporting{
     Float sign_treshold
     Float alt_sign_treshold
     Int grouping_locus_width
-    Float ld_r2
+    String ld_opts
     Int plink_memory
     Float gwascatalog_pval
     Int gwascatalog_width_kb
@@ -266,7 +266,7 @@ workflow autoreporting{
             sign_treshold=sign_treshold,
             alt_sign_treshold=alt_sign_treshold,
             grouping_locus_width=grouping_locus_width,
-            ld_r2=ld_r2,
+            ld_opts=ld_opts,
             plink_memory=plink_memory,
             gwascatalog_pval=gwascatalog_pval,
             gwascatalog_width_kb=gwascatalog_width_kb,
