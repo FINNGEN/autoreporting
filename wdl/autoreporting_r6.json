@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r6_data/autoreporting/inputs/r6_summary_cred_rerun_autorep",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:0199d14",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:25de83a",
     "autoreporting.memory":30,
     "autoreporting.cpus":4,
     "autoreporting.gnomad_exome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",

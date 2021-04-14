@@ -7,7 +7,7 @@ task report {
     File summ_stat = input_file_list[1]
     File summ_stat_tb=summ_stat+".tbi"
     File credible_set = input_file_list[2]
-    File credible_set_cred = sub(input_file_list[2],".snp",".cred") 
+    File credible_set_cred = sub(sub(input_file_list[2],".snp.filter",".cred.summary"),".snp",".cred") #if there is snp.filter, it gets subbed to .cred.summary, and the latter sub doesn't do anything, otherwise the latter sub does the sub. clunky but should work.
     File previous_release = input_file_list[3]
     File previous_release_tbi =previous_release+".tbi" 
 
