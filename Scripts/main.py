@@ -36,15 +36,38 @@ def main(args):
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     
+    #parse r2 
+    if args.dynamic_r2_chisq != None:
+        dynamic_r2 = True
+        r2_thresh =  args.dynamic_r2_chisq
+    else:
+        dynamic_r2 = False
+        r2_thresh = args.ld_r2
     ###########################
     ###Filter and Group SNPs###
     ###########################
     print("filter & group SNPs")
     args.annotate_fpath=args.fetch_out
     args.compare_fname=args.annotate_out
-    fetch_df = gws_fetch.fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols, pheno_name=args.pheno_name, pheno_data_file =args.pheno_info_file)
+    fetch_df = gws_fetch.fetch_gws(
+        gws_fpath=args.gws_fpath,
+        sig_tresh_1=args.sig_treshold,
+        prefix=args.prefix,
+        group=args.grouping,
+        grouping_method=args.grouping_method,
+        locus_width=args.loc_width,
+        sig_tresh_2=args.sig_treshold_2,
+        dynamic_r2=dynamic_r2,
+        ld_r2=r2_thresh,
+        overlap=args.overlap,
+        columns=columns,
+        ignore_region=args.ignore_region,
+        cred_set_file=args.cred_set_file,
+        ld_api=ld_api,
+        extra_cols=args.extra_cols,
+        pheno_name=args.pheno_name,
+        pheno_data_file =args.pheno_info_file
+    )
     
     #write fetch_df as a file, so that other parts of the script work
     if type(fetch_df) != type(None):
@@ -73,7 +96,7 @@ def main(args):
     print("Compare results to previous findings")
     [report_df,ld_out_df] = compare.compare(annotate_df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
-                                    ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
+                                    ldstore_threads=args.ldstore_threads, ld_threshold=args.ld_threshold, cache_gwas=args.cache_gwas, columns=columns,
                                     association_db=assoc_db)
 
     if type(report_df) != type(None):
@@ -100,7 +123,12 @@ if __name__=="__main__":
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
     parser.add_argument("--alt-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
-    parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
+    
+    #r2 static bound or dynamic per peak
+    r2_group = parser.add_mutually_exclusive_group()
+    r2_group.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
+    r2_group.add_argument("--dynamic-r2-chisq",type=float,nargs="?",const=5.0,default=None,help="If flag is passed, r2 threshold is set per peak so that leadvar_chisq*r2=value (default 5).")
+    
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
@@ -130,7 +158,7 @@ if __name__=="__main__":
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=0,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
-    parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
+    parser.add_argument("--ld-threshold",type=float,default=0.9,help="ld threshold for including ld associations in ld report")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog file.")
     parser.add_argument("--db",dest="database_choice",type=str,choices=['local','gwas','summary_stats'],default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")

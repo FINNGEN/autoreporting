@@ -109,7 +109,7 @@ class TestGws(unittest.TestCase):
         emptydf_2=pd.DataFrame(columns=df_p2.columns)
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
             retval=gws_fetch.ld_grouping(emptydf,emptydf_2,
-            sig_treshold_2, loc_width, ld_treshold,
+            sig_treshold_2, loc_width, False,ld_treshold,
             overlap,prefix,ld_api,columns)
         self.assertTrue(retval.empty)
         #2
@@ -119,7 +119,7 @@ class TestGws(unittest.TestCase):
         
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
             retval=gws_fetch.ld_grouping(df_p1,df_p2,
-            sig_treshold_2, loc_width, ld_treshold,
+            sig_treshold_2, loc_width, False, ld_treshold,
             overlap,prefix,ld_api,columns)
         retval=retval.sort_values(by=["#variant"]).astype(object).reset_index(drop=True)
         validate=pd.read_csv("testing/fetch_resources/ld_grouping_validate.csv",sep="\t").astype(object).reset_index(drop=True)
@@ -176,7 +176,7 @@ class TestGws(unittest.TestCase):
             def get_ranges(*args):
                 return r2_out
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
-                retval = gws_fetch.credible_set_grouping(data ,ld_treshold ,loc_width,overlap,ld_api,columns)
+                retval = gws_fetch.credible_set_grouping(data, False, ld_treshold ,loc_width,overlap,ld_api,columns)
         #return value should be empty, have same columns as data 
         self.assertTrue(retval.empty)
         self.assertEqual(data.columns.all(), retval.columns.all())
@@ -202,7 +202,7 @@ class TestGws(unittest.TestCase):
             def get_ranges(*args):
                 return r2_out
         with mock.patch("Scripts.gws_fetch.PlinkLD",new_callable=AugmentedMock) as ld_api:
-            retval = gws_fetch.credible_set_grouping(data,ld_treshold,loc_width,overlap,ld_api,columns)
+            retval = gws_fetch.credible_set_grouping(data,False,ld_treshold,loc_width,overlap,ld_api,columns)
         #validate
         validate=pd.read_csv("testing/fetch_resources/validate_cred.csv",sep="\t").fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)
         retval=retval.astype(dtype={"pos":np.int64,"pos_rmax":np.int64,"pos_rmin":np.int64}).fillna(-1).sort_values(by=["locus_id","#variant"]).reset_index(drop=True).astype(object)

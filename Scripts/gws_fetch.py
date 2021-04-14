@@ -4,6 +4,7 @@ import argparse,shlex,subprocess, glob
 from subprocess import Popen, PIPE
 import sys,os,io
 import pandas as pd, numpy as np
+import scipy.stats as stats
 from typing import Dict, List
 from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD, Variant, LDData
@@ -106,7 +107,17 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
             print("NOTE: CS .cred file {} does not contain data for column {}. Setting it to NA".format(fname, column))
     return cred_data[cred_columns].astype(cred_data_type)
 
-def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,prefix, ld_api, columns):
+def ld_grouping(
+    df_p1,
+    df_p2,
+    sig_treshold_2,
+    locus_width,
+    dynamic_r2,
+    ld_threshold,
+    overlap,
+    prefix,
+    ld_api,
+    columns):
     """
     Create groups based on the LD between variants.
     In: df filtered with p1, df filtered with p2, 
@@ -117,7 +128,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     ld_ = []
     for idx, row in ld_ranges.iterrows():
         ld_.append( Variant(row["chr"], row["pos"], row["ref"], row["alt"] ) )
-    ld_data=ld_api.get_ranges(ld_,locus_width*1000, ld_treshold)
+    ld_data=ld_api.get_ranges(ld_,locus_width*1000)
     #un-nest ld data
     ld_data = [a.to_flat() for a in ld_data]
     all_lead_ld_data=pd.DataFrame(ld_data ,columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
@@ -132,7 +143,12 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     while not group_leads.empty:
         lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
         ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
-        group = all_variants[all_variants["#variant"].isin(ld_data["#variant"]) ].copy()
+        group_ld_threshold = ld_threshold
+        if dynamic_r2:
+            lead_pval = leads.loc[leads["#variant"]==lead_variant,"pval"].iat[0]
+            group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
+        ld_data_filtered = ld_data[ld_data["r2_to_lead"] >= group_ld_threshold]
+        group = all_variants[all_variants["#variant"].isin(ld_data_filtered["#variant"]) ].copy()
         group = pd.merge(group,ld_data,on="#variant",how="left")
         grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
         grouplead["r2_to_lead"]=1.0#the group lead is, of course, in perfect LD with the group lead
@@ -149,7 +165,7 @@ def ld_grouping(df_p1,df_p2, sig_treshold_2,locus_width,ld_treshold, overlap,pre
     return out_df
 
 
-def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
+def credible_set_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
 
     """Group variants using credible sets
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
@@ -201,8 +217,11 @@ def credible_set_grouping(data: pd.DataFrame, ld_threshold: float, locus_range: 
         cred_group = credible_set.merge(ld_data,on="#variant",how="left",suffixes = ("","_right"))#contains all variants of this CS, even though LD might be smaller than ld threshold
         cred_group["r2_to_lead"]=cred_group["r2_to_lead"].fillna(cred_group["r2_to_lead_right"])
         cred_group = cred_group.drop(columns=["r2_to_lead_right"])
-
-        ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=ld_threshold].copy() #filter ld
+        group_ld_threshold = ld_threshold
+        if dynamic_r2:
+            lead_pval = leads.loc[leads["#variant"]==lead_variant,"pval"].iat[0]
+            group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
+        ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=group_ld_threshold].copy() #filter ld
         ld_partners = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
         ld_partners = pd.merge(ld_partners,ld_data_filtered,on="#variant",how="left", suffixes = ("","_right"))
         ld_partners["r2_to_lead"] = ld_partners["r2_to_lead_right"]
@@ -381,9 +400,23 @@ def load_credset_summaries(var_file: str,group_file: str,columns:Dict[str,str])-
     complete_data[cpra_list] = complete_data[cpra_list].astype(cpra_types)
     return complete_data[output_columns]
 
-def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grouping_method: str, locus_width: int, sig_tresh_2: float,
-                ld_r2: float, overlap: bool,columns: Dict[str,str], ignore_region: str, cred_set_file: str, ld_api: LDAccess, 
-                extra_cols: List[str], pheno_name: str, pheno_data_file :str):
+def fetch_gws(gws_fpath: str, 
+                sig_tresh_1: float,
+                prefix: str,
+                group: bool,
+                grouping_method: str,
+                locus_width: int,
+                sig_tresh_2: float,
+                dynamic_r2: bool,
+                ld_r2: float,
+                overlap: bool,
+                columns: Dict[str,str],
+                ignore_region: str,
+                cred_set_file: str,
+                ld_api: LDAccess, 
+                extra_cols: List[str],
+                pheno_name: str,
+                pheno_data_file :str):
     """Filter and group variants.
     Args:
         gws_fpath (str): summary statistic filename
@@ -393,7 +426,7 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         grouping_method (str): grouping method
         locus_width (int): grouping width in kb
         sig_tresh_2 (float): alternate significance threshold
-        ld_r2 (float): LD correlation threshold for including variants in groups (for cred and ld grouping only)
+        ld_r2 (float): LD correlation threshold for including variants in groups (for cred   and ld grouping only)
         overlap (bool): Whether groups are allowed to overlap, i.e. same variant can be in multiple groups or not
         columns (Dict[str,str]): column name dictionary
         ignore_region (str): Region to be ignored in the analysis
@@ -458,8 +491,14 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         not_grouped_data.loc[:,"pos_rmax"]=not_grouped_data.loc[:,columns["pos"]]
         not_grouped_data.loc[:,"pos_rmin"]=not_grouped_data.loc[:,columns["pos"]]
         #group, sort data
-        grouped_data = credible_set_grouping(data=not_grouped_data,ld_threshold=ld_r2,locus_range=locus_width,
-                overlap=overlap,ld_api=ld_api,columns=columns)
+        grouped_data = credible_set_grouping(
+            data=not_grouped_data,
+            dynamic_r2=dynamic_r2,
+            ld_threshold=ld_r2,
+            locus_range=locus_width,
+            overlap=overlap,
+            ld_api=ld_api,
+            columns=columns)
         retval = grouped_data.sort_values(["locus_id","#variant"])
         
     else:
@@ -510,10 +549,18 @@ def fetch_gws(gws_fpath: str, sig_tresh_1: float, prefix: str, group: bool, grou
         #grouping
         if group:
             if grouping_method=="ld":
-                new_df=ld_grouping(df_p1=df_p1,df_p2=df_p2,
-                sig_treshold_2=sig_tresh_2,locus_width=locus_width,ld_treshold=ld_r2,
-                overlap=overlap,
-                prefix=prefix,ld_api=ld_api,columns=columns)
+                new_df=ld_grouping(
+                    df_p1=df_p1,
+                    df_p2=df_p2,
+                    sig_treshold_2=sig_tresh_2,
+                    locus_width=locus_width,
+                    dynamic_r2 = dynamic_r2,
+                    ld_threshold=ld_r2,
+                    overlap=overlap,
+                    prefix=prefix,
+                    ld_api=ld_api,
+                    columns=columns
+                )
             else :
                 new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
                 new_df["r2_to_lead"]=np.nan
@@ -554,7 +601,11 @@ if __name__=="__main__":
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
     parser.add_argument("--alt-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
-    parser.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
+    #r2 static bound or dynamic per peak
+    r2_group = parser.add_mutually_exclusive_group()
+    r2_group.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.4, help="r2 cutoff for ld clumping")
+    r2_group.add_argument("--dynamic-r2-chisq",type=float,nargs="?",const=5.0,default=None,help="If flag is passed, r2 threshold is set per peak so that leadvar_chisq*r2=value (default 5).")
+    
     parser.add_argument("--plink-memory", dest="plink_mem", type=int, default=12000, help="plink memory for ld clumping, in MB")
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
@@ -576,7 +627,31 @@ if __name__=="__main__":
         ld_api = OnlineLD("http://api.finngen.fi/api/ld")
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
-    fetch_df = fetch_gws(gws_fpath=args.gws_fpath, sig_tresh_1=args.sig_treshold, prefix=args.prefix, group=args.grouping, grouping_method=args.grouping_method, locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2, ld_r2=args.ld_r2, overlap=args.overlap, columns=columns,
-        ignore_region=args.ignore_region, cred_set_file=args.cred_set_file,ld_api=ld_api, extra_cols=args.extra_cols, pheno_name=args.pheno_name,pheno_data_file =args.pheno_info_file)
+    #parse r2 
+    if args.dynamic_r2_chisq != None:
+        dynamic_r2 = True
+        r2_thresh =  args.dynamic_r2_chisq
+    else:
+        dynamic_r2 = False
+        r2_thresh = args.ld_r2
+    
+    fetch_df = fetch_gws(
+        gws_fpath=args.gws_fpath,
+        sig_tresh_1=args.sig_treshold,
+        prefix=args.prefix,
+        group=args.grouping,
+        grouping_method=args.grouping_method,
+        locus_width=args.loc_width,
+        sig_tresh_2=args.sig_treshold_2,
+        dynamic_r2=dynamic_r2,
+        ld_r2=r2,
+        overlap=args.overlap,
+        columns=columns,
+        ignore_region=args.ignore_region,
+        cred_set_file=args.cred_set_file,
+        ld_api=ld_api,
+        extra_cols=args.extra_cols,
+        pheno_name=args.pheno_name,
+        pheno_data_file =args.pheno_info_file
+    )
     fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")

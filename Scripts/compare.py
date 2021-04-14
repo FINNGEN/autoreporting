@@ -168,13 +168,13 @@ def filter_invalid_alleles(df: pd.DataFrame,columns: Dict[str, str]) -> pd.DataF
     return retval
 
 def compare(df, ld_check, plink_mem, ld_panel_path,
-            prefix, ldstore_threads, ld_treshold,  cache_gwas, columns, 
+            prefix, ldstore_threads, ld_threshold,  cache_gwas, columns, 
             association_db):
     """
     Compares found significant variants to gwascatalog results and/or supplied summary statistic files
     In: df, ld_check, plink_mem, ld_panel_path,
         prefix, gwascatalog_pval, gwascatalog_pad, gwascatalog_threads,
-        ldstore_threads, ld_treshold, cache_gwas, columns, gwapi, customdataresource
+        ldstore_threads, ld_threshold, cache_gwas, columns, gwapi, customdataresource
     Out: A tuple (report_df, ld_df)
         report_df: the dataframe containing all of the variants and their previous associations, as well as annotations
         ld_df (optional): a dataframe containing the LD paired associations of variants
@@ -224,6 +224,8 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         report_out_df=report_out_df.drop(columns=["map_variant"])
         report_out_df=report_out_df.rename(columns={"#variant_x":"#variant","#variant_y":"#variant_hit","{}_x".format(columns["pval"]):columns["pval"],"{}_y".format(columns["pval"]):"pval_trait"})
         report_out_df=report_out_df.sort_values(by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"#variant"])
+    if ld_check:
+        raise Exception("LD DF calculation deprecated")
     #Calculate ld between our variants and external variants
     ld_out=None
     if ld_check and (not summary_df.empty):
@@ -245,7 +247,7 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
                 print(pr.stdout)
                 continue
             for gr in groups:
-                ld=extract_ld_variants(df,summary_df,gr,ldstore_threads,ld_treshold,prefix,columns)
+                ld=extract_ld_variants(df,summary_df,gr,ldstore_threads,ld_threshold,prefix,columns)
                 if type(ld)==type(None):
                     continue
                 ld_df=pd.concat([ld_df,ld],sort=True)
@@ -279,7 +281,7 @@ if __name__ == "__main__":
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=25,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
     parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
-    parser.add_argument("--ld-treshold",type=float,default=0.9,help="ld treshold for including ld associations in ld report")
+    parser.add_argument("--ld-threshold",type=float,default=0.9,help="ld threshold for including ld associations in ld report")
     parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
     parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")
@@ -309,7 +311,7 @@ if __name__ == "__main__":
     df=pd.read_csv(args.compare_fname,sep="\t")
     [report_df,ld_out_df] = compare(df, ld_check=args.ld_check,
                                     plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
-                                    ldstore_threads=args.ldstore_threads, ld_treshold=args.ld_treshold, cache_gwas=args.cache_gwas, columns=columns,
+                                    ldstore_threads=args.ldstore_threads, ld_threshold=args.ld_threshold, cache_gwas=args.cache_gwas, columns=columns,
                                     association_db=assoc_db)
     if type(report_df) != type(None):
         report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
