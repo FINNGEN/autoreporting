@@ -145,7 +145,7 @@ def ld_grouping(
         ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         group_ld_threshold = ld_threshold
         if dynamic_r2:
-            lead_pval = leads.loc[leads["#variant"]==lead_variant,"pval"].iat[0]
+            lead_pval = leads.loc[leads["#variant"]==lead_variant,columns["pval"]].iat[0]
             group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
         ld_data_filtered = ld_data[ld_data["r2_to_lead"] >= group_ld_threshold]
         group = all_variants[all_variants["#variant"].isin(ld_data_filtered["#variant"]) ].copy()
@@ -219,7 +219,7 @@ def credible_set_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: fl
         cred_group = cred_group.drop(columns=["r2_to_lead_right"])
         group_ld_threshold = ld_threshold
         if dynamic_r2:
-            lead_pval = leads.loc[leads["#variant"]==lead_variant,"pval"].iat[0]
+            lead_pval = leads.loc[leads["#variant"]==lead_variant,columns["pval"]].iat[0]
             group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
         ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=group_ld_threshold].copy() #filter ld
         ld_partners = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
