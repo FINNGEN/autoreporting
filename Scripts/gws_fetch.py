@@ -123,8 +123,8 @@ def ld_grouping(
     In: df filtered with p1, df filtered with p2, 
     """
     all_variants=df_p2.copy()
-    group_leads = df_p1.copy()
-    ld_ranges = group_leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
+    leads = df_p1.copy()
+    ld_ranges = leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
     ld_ = []
     for idx, row in ld_ranges.iterrows():
         ld_.append( Variant(row["chr"], row["pos"], row["ref"], row["alt"] ) )
@@ -140,8 +140,8 @@ def ld_grouping(
     out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
     #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
     #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
-    while not group_leads.empty:
-        lead_variant = group_leads.loc[group_leads[columns["pval"]].idxmin(),"#variant" ]
+    while not leads.empty:
+        lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant" ]
         ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
         group_ld_threshold = ld_threshold
         if dynamic_r2:
@@ -158,7 +158,7 @@ def ld_grouping(
         group["pos_rmax"]=group[columns["pos"]].max()
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
-        group_leads=group_leads[ ~group_leads["#variant"].isin( group["#variant"].unique() ) ]
+        leads=leads[ ~leads["#variant"].isin( group["#variant"].unique() ) ]
         #overlap
         if not overlap:
             all_variants=all_variants[~all_variants["#variant"].isin( group["#variant"].unique() )]
