@@ -77,7 +77,7 @@ task report {
         sign_treshold=${sign_treshold}
         alt_sign_treshold=${alt_sign_treshold}
         grouping_locus_width=${grouping_locus_width}
-        ld_opts=${ld_opts}
+        ld_opts="${ld_opts}"
         plink_memory=${plink_memory}
         gwascatalog_pval=${gwascatalog_pval}
         gwascatalog_width_kb=${gwascatalog_width_kb}
