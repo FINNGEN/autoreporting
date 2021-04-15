@@ -139,7 +139,7 @@ task report {
                     "--column-labels {} "
                     "--extra-cols {} "
                     "--pheno-info-file {} "
-                    "--gwascatalog-allele-file {}"
+                    "--gwascatalog-allele-file {} "
                     "{} " #local gwascatalog
                     "{} " #efo
                     "{} " #ignore
