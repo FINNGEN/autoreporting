@@ -93,7 +93,7 @@ task report {
         custom_dataresource="${custom_dataresource}"
         column_names = "${sep=" " column_names}"
         extra_columns = "${extra_columns}"
-        phenotype_info = "${phenotype_info_file}"
+        phenotype_info = "--pheno-info-file ${phenotype_info_file}" if "${phenotype_info_file}" != empty_file else "" 
 
         alleledb_file = "${allele_vcf_file}"
 
@@ -138,7 +138,7 @@ task report {
                     "--db {} "
                     "--column-labels {} "
                     "--extra-cols {} "
-                    "--pheno-info-file {} "
+                    "{} " #phenofile
                     "--gwascatalog-allele-file {} "
                     "{} " #local gwascatalog
                     "{} " #efo
