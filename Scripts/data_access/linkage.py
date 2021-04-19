@@ -24,11 +24,15 @@ class OnlineLD(LDAccess):
             data=try_request("GET",url=self.url,params=params)
         except ResourceNotFound as e:
             print("LD data not found (status code {}) with url {} and params {}.".format(e.parameters["status_code"],self.url,params) )
-            return None
+            return LDData(
+                Variant(chrom,pos,ref,alt),
+                Variant(chrom,pos,ref,alt),
+                1.0
+            )
         except ResponseFailure as e:
             print("Error with request.")
             print(e)
-            return None
+            raise e
         #parse data
         ld_data=data.json()["ld"]
         ld_out=[]
