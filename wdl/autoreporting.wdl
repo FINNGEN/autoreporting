@@ -35,7 +35,7 @@ task report {
     Int gwascatalog_width_kb
     Int cpus
     Int gwascatalog_threads
-    Int docker_memory
+    Int memory
     File efo_map
     File custom_dataresource
 
@@ -113,80 +113,47 @@ task report {
             if efos[pheno_id] != "NA" and efos[pheno_id] != "":
                 efo_cmd="--efo-codes {}".format(efos[pheno_id])
 
-        call_command=("main.py {} "
-                    "--pheno-name {} "
-                    " --sign-treshold {} " 
-                    "--alt-sign-treshold {} "
-                    "{} "
-                    "--grouping-method {} "
-                    "--locus-width-kb {} "
-                    "--ld-panel-path {} "
-                    "{} "#ld opts
-                    "--plink-memory {} "
-                    "{} " #include batch freq
-                    "--finngen-path {} "
-                    "--functional-path {} "
-                    "--gnomad-genome-path {} "
-                    "--gnomad-exome-path {} "
-                    "{} "
-                    "{} "
-                    "--use-gwascatalog "
-                    "--gwascatalog-threads {} "
-                    "--strict-group-r2 {} "
-                    "--gwascatalog-pval {} "
-                    "--gwascatalog-width-kb {} "
-                    "--db {} "
-                    "--column-labels {} "
-                    "--extra-cols {} "
-                    "{} " #phenofile
-                    "--gwascatalog-allele-file {} "
-                    "{} " #local gwascatalog
-                    "{} " #efo
-                    "{} " #ignore
-                    "--custom-dataresource {} "
-                    "--fetch-out {}.fetch.out "
-                    "--annotate-out {}.annotate.out "
-                    "--report-out {}.report.out "
-                    "--top-report-out {}.top.out "
-                    ).format(summstat,
-                        pheno_id,
-                        sign_treshold,
-                        alt_sign_treshold,
-                        group,
-                        grouping_method,
-                        grouping_locus_width,
-                        plink_path,
-                        ld_opts,
-                        plink_memory,
-                        include_batch_freq,
-                        finngen_annotation,
-                        functional_annotation,
-                        gnomad_genome,
-                        gnomad_exome,
-                        previous_release,
-                        credset,
-                        gwascatalog_threads,
-                        strict_group_r2,
-                        gwascatalog_pval,
-                        gwascatalog_width_kb,
-                        db_choice,
-                        column_names,
-                        extra_columns,
-                        phenotype_info,
-                        alleledb_file,
-                        local_gwascatalog,
-                        efo_cmd,
-                        ignore_cmd,
-                        custom_dataresource,
-                        pheno_id,
-                        pheno_id,
-                        pheno_id,
-                        pheno_id)
-        print("--- phenotype {} COMMAND ---".format(pheno_id))
+        call_command=(f"main.py {summstat} "
+                    f"--pheno-name {pheno_id} "
+                    f" --sign-treshold {sign_treshold} " 
+                    f"--alt-sign-treshold {alt_sign_treshold} "
+                    f"{group} "
+                    f"--grouping-method {grouping_method} "
+                    f"--locus-width-kb {grouping_locus_width} "
+                    f"--ld-panel-path {plink_path} "
+                    f"{ld_opts} "#ld opts
+                    f"--plink-memory {plink_memory} "
+                    f"{include_batch_freq} " #include batch freq
+                    f"--finngen-path {finngen_annotation} "
+                    f"--functional-path {functional_annotation} "
+                    f"--gnomad-genome-path {gnomad_genome} "
+                    f"--gnomad-exome-path {gnomad_exome} "
+                    f"{previous_release} "
+                    f"{credset} "
+                    f"--use-gwascatalog "
+                    f"--gwascatalog-threads {gwascatalog_threads} "
+                    f"--strict-group-r2 {strict_group_r2} "
+                    f"--gwascatalog-pval {gwascatalog_pval} "
+                    f"--gwascatalog-width-kb {gwascatalog_width_kb} "
+                    f"--db {db_choice} "
+                    f"--column-labels {column_names} "
+                    f"--extra-cols {extra_columns} "
+                    f"{phenotype_info} "
+                    f"--gwascatalog-allele-file {alleledb_file} "
+                    f"{local_gwascatalog} " #local gwascatalog
+                    f"{efo_cmd} " #efo
+                    f"{ignore_cmd} " #ignore
+                    f"--custom-dataresource {custom_dataresource} "
+                    f"--fetch-out {pheno_id}.fetch.out "
+                    f"--annotate-out {pheno_id}.annotate.out "
+                    f"--report-out {pheno_id}.report.out "
+                    f"--top-report-out {pheno_id}.top.out "
+                    )
+        print(f"--- phenotype {pheno_id} COMMAND ---")
         print(call_command)
         pr=subprocess.run(shlex.split(call_command),stdout=PIPE,stderr=subprocess.STDOUT,encoding="utf8")
-        print("--- phenotype {} RETURN CODE: {} ---".format(pheno_id,pr.returncode))
-        print("--- phenotype {} STDOUT ---".format(pheno_id))
+        print(f"--- phenotype {pheno_id} RETURN CODE: {pr.returncode} ---")
+        print(f"--- phenotype {pheno_id} STDOUT ---")
         print(pr.stdout)
         if pr.returncode != 0:
             print("The report did not run successfully. Check the logs.")
@@ -201,7 +168,7 @@ task report {
     runtime {
         docker: "${docker}"
         cpu: "${cpus}"
-        memory: "${docker_memory} GB"
+        memory: "${memory} GB"
         disks: "local-disk 100 HDD"
         zones: "europe-west1-b"
         preemptible: 2
@@ -211,73 +178,10 @@ task report {
 workflow autoreporting{
     File input_array_file
     Array[Array[String]] input_array = read_tsv(input_array_file)
-    String docker
-    Int memory
-    Int cpus
-
-    String gnomad_exome
-    String gnomad_genome
-    String ld_panel
-    String finngen_annotation
-    String functional_annotation
-    String local_gwcatalog
-    String db_choice
-    File efo_code_file
-    String ignore_region
-    Boolean include_batch_freq
-    Float sign_treshold
-    Float alt_sign_treshold
-    Int grouping_locus_width
-    String ld_opts
-    Int plink_memory
-    Float gwascatalog_pval
-    Int gwascatalog_width_kb
-    Int gwascatalog_threads
-    Boolean group
-    Boolean overlap
-    Float strict_group_r2
-    String primary_grouping_method
-    String secondary_grouping_method
-    File custom_dataresource
-    Array[String] column_names
-    String extra_columns
-    File dummy_file
-    File phenotype_info_file
 
     scatter (arr in  input_array ){
         call report {
-            input: input_file_list = arr,
-            docker=docker,
-            primary_grouping_method=primary_grouping_method,
-            secondary_grouping_method=secondary_grouping_method,
-            docker_memory=memory,
-            cpus=cpus,
-            gnomad_exome=gnomad_exome,
-            gnomad_genome=gnomad_genome,
-            ld_panel=ld_panel,
-            strict_group_r2=strict_group_r2,
-            finngen_annotation=finngen_annotation,
-            functional_annotation=functional_annotation,
-            local_gwcatalog=local_gwcatalog,
-            db_choice=db_choice,
-            efo_map=efo_code_file,
-            include_batch_freq=include_batch_freq,
-            ignore_region=ignore_region,
-            sign_treshold=sign_treshold,
-            alt_sign_treshold=alt_sign_treshold,
-            grouping_locus_width=grouping_locus_width,
-            ld_opts=ld_opts,
-            plink_memory=plink_memory,
-            gwascatalog_pval=gwascatalog_pval,
-            gwascatalog_width_kb=gwascatalog_width_kb,
-            gwascatalog_threads=gwascatalog_threads,
-            group=group,
-            overlap=overlap,
-            custom_dataresource=custom_dataresource,
-            column_names=column_names,
-            extra_columns=extra_columns,
-            dummy_file=dummy_file,
-            phenotype_info_file=phenotype_info_file
+            input: input_file_list = arr
         }
     }
 
