@@ -196,16 +196,19 @@ def incremental_ld_grouping(
         ld_data = ld_api.get_ranges([Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]])], locus_width*1000, group_ld_threshold)
         flat_ld = [a.to_flat() for a in ld_data]
         ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2_to_lead'])
-        ld_df['variant1']=create_variant_column(ld_df,'chrom1','pos1','ref1','alt1')
-        ld_df['#variant']=create_variant_column(ld_df,'chrom2','pos2','ref2','alt2').drop(columns=["chrom1","pos1","chrom2","pos2","ref1","ref2","alt1","alt2"])
-
-        ld_df = ld_df[ld_df["variant1"]==lead_var_id]
-
-        merged_df = pd.merge(all_variants, ld_df[["#variant","r2_to_lead"]], how="inner",on="#variant")
-        group_vars = merged_df.loc[:,out_df.columns]
-        grouplead = all_variants[all_variants["#variant"]==lead_var_id].copy()
-        grouplead["r2_to_lead"]=1.0
-        group = pd.concat([group_vars,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
+        if not ld_df.empty:
+            ld_df['variant1']=create_variant_column(ld_df,'chrom1','pos1','ref1','alt1')
+            ld_df['#variant']=create_variant_column(ld_df,'chrom2','pos2','ref2','alt2').drop(columns=["chrom1","pos1","chrom2","pos2","ref1","ref2","alt1","alt2"])
+            ld_df = ld_df[ld_df["variant1"]==lead_var_id]
+            merged_df = pd.merge(all_variants, ld_df[["#variant","r2_to_lead"]], how="inner",on="#variant")
+            group_vars = merged_df.loc[:,out_df.columns]
+            grouplead = all_variants[all_variants["#variant"]==lead_var_id].copy()
+            grouplead["r2_to_lead"]=1.0
+            group = pd.concat([group_vars,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
+        else:
+            group = lead_var_row
+            group["r2_to_lead"]=1.0
+    
         group["locus_id"]=lead_var_id
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
