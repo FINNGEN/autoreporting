@@ -198,7 +198,8 @@ def incremental_ld_grouping(
         ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2_to_lead'])
         if not ld_df.empty:
             ld_df['variant1']=create_variant_column(ld_df,'chrom1','pos1','ref1','alt1')
-            ld_df['#variant']=create_variant_column(ld_df,'chrom2','pos2','ref2','alt2').drop(columns=["chrom1","pos1","chrom2","pos2","ref1","ref2","alt1","alt2"])
+            ld_df['#variant']=create_variant_column(ld_df,'chrom2','pos2','ref2','alt2')
+            ld_df = ld_df.drop(columns=["chrom1","pos1","chrom2","pos2","ref1","ref2","alt1","alt2"])
             ld_df = ld_df[ld_df["variant1"]==lead_var_id]
             merged_df = pd.merge(all_variants, ld_df[["#variant","r2_to_lead"]], how="inner",on="#variant")
             group_vars = merged_df.loc[:,out_df.columns]
