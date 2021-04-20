@@ -207,6 +207,7 @@ def incremental_ld_grouping(
             grouplead["r2_to_lead"]=1.0
             group = pd.concat([group_vars,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
         else:
+            print(f"DEBUG: empty group with lead variant {lead_var_id}")
             group = leads.loc[leads["#variant"]==lead_var_id,:]
             group["r2_to_lead"]=1.0
     
