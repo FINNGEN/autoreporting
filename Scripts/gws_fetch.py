@@ -165,6 +165,63 @@ def ld_grouping(
     return out_df
 
 
+def incremental_ld_grouping(
+    df_p1,
+    df_p2,
+    sig_treshold_2,
+    locus_width,
+    dynamic_r2,
+    ld_threshold,
+    overlap,
+    prefix,
+    ld_api,
+    columns):
+    leads = df_p1.copy()
+    all_variants = df_p2.copy()
+    out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
+    iteration=0
+    while not leads.empty:
+        print(f"DEBUG: iteration: {iteration}")
+        print(f"DEBUG: len(leads):{len(leads)}")
+        print(f"DEBUG: len(all_variants):{len(all_variants)}")
+        #get min pval variant
+        lead_var_row = leads.loc[leads[columns["pval"]].idxmin(),: ]
+        lead_var_id = lead_var_row["#variant"]
+        #get ld threshold
+        group_ld_threshold = ld_threshold
+        if dynamic_r2:
+            lead_pval = lead_var_row[columns["pval"]]
+            group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
+        #get LD neighbourhood
+        ld_data = ld_api.get_ranges([Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]])], locus_width*1000, group_ld_threshold)
+        flat_ld = [a.to_flat() for a in ld_data]
+        ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2_to_lead'])
+        ld_df['variant1']=create_variant_column(ld_df,'chrom1','pos1','ref1','alt1')
+        ld_df['#variant']=create_variant_column(ld_df,'chrom2','pos2','ref2','alt2').drop(columns=["chrom1","pos1","chrom2","pos2","ref1","ref2","alt1","alt2"])
+
+        ld_df = ld_df[ld_df["variant1"]==lead_var_id]
+
+        merged_df = pd.merge(all_variants, ld_df[["#variant","r2_to_lead"]], how="inner",on="#variant")
+        group_vars = merged_df.loc[:,out_df.columns]
+        grouplead = all_variants[all_variants["#variant"]==lead_var_id].copy()
+        grouplead["r2_to_lead"]=1.0
+        group = pd.concat([group_vars,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
+        group["locus_id"]=lead_var_id
+        group["pos_rmin"]=group[columns["pos"]].min()
+        group["pos_rmax"]=group[columns["pos"]].max()
+        out_df = pd.concat([out_df,group],ignore_index=True,axis=0,join="inner")
+
+        #remove all group variants from leads
+        leads = leads[~leads["#variant"].isin(group["#variant"].unique())]
+        #if overlap false, we remove grouped variants from all variants
+        if not overlap:
+            all_variants = all_variants[~all_variants["#variant"].isin(group["#variant"].unique())]
+        iteration+=1
+    return out_df
+
+
+    raise NotImplementedError
+
 def credible_set_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
 
     """Group variants using credible sets
@@ -549,7 +606,7 @@ def fetch_gws(gws_fpath: str,
         #grouping
         if group:
             if grouping_method=="ld":
-                new_df=ld_grouping(
+                new_df=incremental_ld_grouping(
                     df_p1=df_p1,
                     df_p2=df_p2,
                     sig_treshold_2=sig_tresh_2,
