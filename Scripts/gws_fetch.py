@@ -193,7 +193,7 @@ def incremental_ld_grouping(
             lead_pval = lead_var_row[columns["pval"]]
             group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
         #get LD neighbourhood
-        ld_data = ld_api.get_ranges([Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]])], locus_width*1000, group_ld_threshold)
+        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_width*1000, group_ld_threshold)
         flat_ld = [a.to_flat() for a in ld_data]
         ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2_to_lead'])
         if not ld_df.empty:
