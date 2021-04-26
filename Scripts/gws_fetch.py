@@ -107,83 +107,27 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
             print("NOTE: CS .cred file {} does not contain data for column {}. Setting it to NA".format(fname, column))
     return cred_data[cred_columns].astype(cred_data_type)
 
+
+
 def ld_grouping(
     df_p1,
     df_p2,
-    sig_treshold_2,
+    sig_threshold_2,
     locus_width,
     dynamic_r2,
     ld_threshold,
     overlap,
-    prefix,
-    ld_api,
-    columns):
-    """
-    Create groups based on the LD between variants.
-    In: df filtered with p1, df filtered with p2, 
-    """
-    all_variants=df_p2.copy()
-    leads = df_p1.copy()
-    ld_ranges = leads[ [columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "#variant"] ].rename(columns={ columns["chrom"]:"chr", columns["pos"]:"pos", columns["ref"]:"ref", columns["alt"]:"alt" })
-    ld_ = []
-    for idx, row in ld_ranges.iterrows():
-        ld_.append( Variant(row["chr"], row["pos"], row["ref"], row["alt"] ) )
-    ld_data=ld_api.get_ranges(ld_,locus_width*1000)
-    #un-nest ld data
-    ld_data = [a.to_flat() for a in ld_data]
-    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
-    all_lead_ld_data['variant1']=create_variant_column(all_lead_ld_data,'chrom1','pos1','ref1','alt1')
-    all_lead_ld_data['variant2']=create_variant_column(all_lead_ld_data,'chrom2','pos2','ref2','alt2')
-    ld_df = pd.merge(all_variants[ ["#variant",columns["pval"] ] ],all_lead_ld_data,how="inner",left_on="#variant",right_on="variant2" )
-    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])
-    ld_df = ld_df[ld_df[columns["pval"]] <= sig_treshold_2 ]
-    out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
-    #Grouping: greedily group those variants that have not been yet grouped into the most significant variants.
-    #Range has been taken care of in the LD fetching, as well as r^2 threshold, and p-value was taken care of in filtering the ld_df.
-    while not leads.empty:
-        lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant" ]
-        ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
-        group_ld_threshold = ld_threshold
-        if dynamic_r2:
-            lead_pval = leads.loc[leads["#variant"]==lead_variant,columns["pval"]].iat[0]
-            group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
-        ld_data_filtered = ld_data[ld_data["r2_to_lead"] >= group_ld_threshold]
-        group = all_variants[all_variants["#variant"].isin(ld_data_filtered["#variant"]) ].copy()
-        group = pd.merge(group,ld_data,on="#variant",how="left")
-        grouplead=all_variants[all_variants["#variant"]==lead_variant].copy()
-        grouplead["r2_to_lead"]=1.0#the group lead is, of course, in perfect LD with the group lead
-        group=pd.concat([group,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
-        group["locus_id"]=lead_variant
-        group["pos_rmin"]=group[columns["pos"]].min()
-        group["pos_rmax"]=group[columns["pos"]].max()
-        out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
-        #remove all of the variants with p<sig_tresh from lead_variants, since those in groups can not become leads
-        leads=leads[ ~leads["#variant"].isin( group["#variant"].unique() ) ]
-        #overlap
-        if not overlap:
-            all_variants=all_variants[~all_variants["#variant"].isin( group["#variant"].unique() )]
-    return out_df
-
-
-def incremental_ld_grouping(
-    df_p1,
-    df_p2,
-    sig_treshold_2,
-    locus_width,
-    dynamic_r2,
-    ld_threshold,
-    overlap,
-    prefix,
     ld_api,
     columns):
     leads = df_p1.copy()
     all_variants = df_p2.copy()
-    out_df = pd.DataFrame(columns=list(df_p2.columns)+["r2_to_lead"])
+    #if r2 to lead data was gotten from cs, it's dropped as obsolete.
+    if "r2_to_lead" in all_variants.columns:
+        leads = leads.drop(columns=["r2_to_lead"])
+        all_variants = all_variants.drop(columns=["r2_to_lead"])
+    out_df = pd.DataFrame(columns=list(all_variants.columns)+["r2_to_lead"])
     iteration=0
     while not leads.empty:
-        print(f"DEBUG: iteration: {iteration}")
-        print(f"DEBUG: len(leads):{len(leads)}")
-        print(f"DEBUG: len(all_variants):{len(all_variants)}")
         #get min pval variant
         lead_var_row = leads.loc[leads[columns["pval"]].idxmin(),: ]
         lead_var_id = lead_var_row["#variant"]
@@ -208,7 +152,6 @@ def incremental_ld_grouping(
             grouplead["r2_to_lead"]=1.0
             group = pd.concat([group_vars,grouplead],ignore_index=True,axis=0,join='inner').drop_duplicates(subset=["#variant"])
         else:
-            print(f"DEBUG: empty group with lead variant {lead_var_id}")
             group = leads.loc[leads["#variant"]==lead_var_id,:]
             group["r2_to_lead"]=1.0
     
@@ -226,10 +169,7 @@ def incremental_ld_grouping(
     return out_df
 
 
-    raise NotImplementedError
-
-def credible_set_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
-
+def credible_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float, locus_range: int, overlap: bool, ld_api: LDAccess, columns: Dict[str, str]) -> pd.DataFrame:
     """Group variants using credible sets
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
     Args:
@@ -242,53 +182,50 @@ def credible_set_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: fl
     Returns:
         (pd.DataFrame): Grouped variants in a pandas dataframe
     """
-    df=data.copy()
-    lead_vars=[]
-    #determine group leads. Group leads are 'the variants where cs_id == #variant+"_"+cs_number'.
-    #for credible_set in df.loc[~df["cs_id"].isna(),"cs_id"].unique():
+    df = data.copy()
+    lead_vars = []
     for name, group in df.groupby(["cs_id"]):
         loc_id = "_".join(name.split("_")[:-1])#remove cs_number from cs_id
         group_lead =  group.loc[group["#variant"]==loc_id,"#variant"].iat[0]
         lead_vars.append(group_lead)
     if len(lead_vars) == 0:
         return pd.DataFrame(columns=df.columns)
-    lead_df = df.loc[df["#variant"].isin(lead_vars)].copy()
-    ld_ = []
-    for idx, row in lead_df.iterrows():
-        ld_.append( Variant( row[columns["chrom"]], row[columns["pos"]], row[columns["ref"]], row[columns["alt"]] ) )
-    ld_data=ld_api.get_ranges(ld_,locus_range*1000)
-    #un-nest ld data
-    ld_data = [a.to_flat() for a in ld_data]
-    all_lead_ld_data=pd.DataFrame(ld_data ,columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
-    all_lead_ld_data['variant1']=create_variant_column(all_lead_ld_data,'chrom1','pos1','ref1','alt1')
-    all_lead_ld_data['variant2']=create_variant_column(all_lead_ld_data,'chrom2','pos2','ref2','alt2')
-    #join
-    ld_df = pd.merge(df[["#variant",columns["chrom"],columns["pos"],columns["pval"]]],all_lead_ld_data, how="inner",left_on="#variant",right_on="variant2") #does include all of the lead variants as well
-    ld_df=ld_df.drop(columns=["chrom2","pos2","variant2","ref1","ref2","alt1","alt2"])
-    #filter by p-value
+    leads = df.loc[df["#variant"].isin(lead_vars)].copy()
     out_df = pd.DataFrame(columns=list(data.columns))
-    #create df with only lead variants
-    leads = df[df["#variant"].isin(lead_vars)].loc[:,["#variant",columns["pval"]]].copy()
+
     while not leads.empty:
-        #get lead variant and ld data
-        lead_variant = leads.loc[leads[columns["pval"]].idxmin(),"#variant"] #choose the lead variant with smallest p-value
-        ld_data = ld_df.loc[ld_df["variant1"] == lead_variant,["#variant","r2"] ].copy().rename(columns={"r2":"r2_to_lead"})
-        
-        #create credible set group and ld partner group
-        credible_id = data.loc[data["#variant"]==lead_variant,"cs_id"].values[0]
-        credible_set= data.loc[data["cs_id"] == credible_id,:].copy()
-        cred_group = credible_set.merge(ld_data,on="#variant",how="left",suffixes = ("","_right"))#contains all variants of this CS, even though LD might be smaller than ld threshold
-        cred_group["r2_to_lead"]=cred_group["r2_to_lead"].fillna(cred_group["r2_to_lead_right"])
-        cred_group = cred_group.drop(columns=["r2_to_lead_right"])
+        lead_var_row = leads.loc[leads[columns["pval"]].idxmin(),: ]
+        lead_variant = lead_var_row["#variant"] #choose the lead variant with smallest p-value
+        cs_id = lead_var_row["cs_id"]
+        #get ld threshold
         group_ld_threshold = ld_threshold
         if dynamic_r2:
-            lead_pval = leads.loc[leads["#variant"]==lead_variant,columns["pval"]].iat[0]
+            lead_pval = lead_var_row[columns["pval"]]
             group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
-        ld_data_filtered = ld_data[ld_data["r2_to_lead"]>=group_ld_threshold].copy() #filter ld
-        ld_partners = df[df["#variant"].isin(ld_data_filtered["#variant"] )].copy()
-        ld_partners = pd.merge(ld_partners,ld_data_filtered,on="#variant",how="left", suffixes = ("","_right"))
-        ld_partners["r2_to_lead"] = ld_partners["r2_to_lead_right"]
-        ld_partners = ld_partners.drop(columns=["r2_to_lead_right"])
+        #get LD data to cs lead
+        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range*1000, group_ld_threshold)
+        flat_ld = [a.to_flat() for a in ld_data]
+        ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
+        ld_df = ld_df.rename(columns={"r2":"r2_to_lead"})
+        if not ld_df.empty:
+            ld_df['variant1']=create_variant_column(ld_df,'chrom1','pos1','ref1','alt1')
+            ld_df['#variant']=create_variant_column(ld_df,'chrom2','pos2','ref2','alt2')
+            ld_df = ld_df.drop(columns=["chrom1","pos1","chrom2","pos2","ref1","ref2","alt1","alt2"])
+            ld_df = ld_df[ld_df["variant1"]==lead_variant]
+            #merged_df = pd.merge(df, ld_df[["#variant","r2_to_lead"]], how="inner",on="#variant")
+        #separate credible set. It is deliberately taken from the not mutated 'data'-dataframe, so that even if those variants were grouped somewhere before, they are still included.
+        cs = data.loc[data["cs_id"]==cs_id,:].copy()
+        #fill r2 from the ld data if it's not all in the cs data
+        cs_group = cs.merge(ld_df,on="#variant",how="left",suffixes = ("","_right"))#contains all variants of this CS, even though LD might be smaller than ld threshold
+        cs_group["r2_to_lead"]=cs_group["r2_to_lead"].fillna(cs_group["r2_to_lead_right"])
+        cs_group = cs_group.drop(columns=["r2_to_lead_right"])
+
+        #get LD partners
+        ld_partners = df.merge(ld_df[["#variant","r2_to_lead"]], on="#variant",how="inner",suffixes = ("_old",""))
+        ld_partners = ld_partners.loc[ld_partners["cs_id"]!= cs_id,:]
+        #fill with right
+        ld_partners = ld_partners.drop(columns=["r2_to_lead_old"])
+        #filter out the variants in the current credible set
         #remove credset data from LD partner variants
         wipe_credset_data = ["cs_prob",
             "cs_min_r2",
@@ -299,22 +236,20 @@ def credible_set_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: fl
             "cs_id"]
         for col in wipe_credset_data:
             ld_partners[col] = np.nan
-        #concat the two, remove duplicate entries. Entries with cs_id are preferred over entries without cs_id.
-        #Though it shouldn't be possible for there to be variants that are both in the credible set and out of it. 
-        group=pd.concat([cred_group,ld_partners],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
+        group=pd.concat([cs_group,ld_partners],ignore_index=True,sort=False).sort_values(by=["cs_id","#variant","r2_to_lead"]).drop_duplicates(subset=["#variant"],keep="first")
         group["locus_id"]=lead_variant
         group["pos_rmin"]=group[columns["pos"]].min()
         group["pos_rmax"]=group[columns["pos"]].max()
-        
-        #add the group to output
         out_df=pd.concat([out_df,group],ignore_index=True,axis=0,join='inner')
         
         #convergence: remove lead_variant, remove group from df if overlap is not true
         leads=leads[~ (leads["#variant"] == lead_variant) ]
         if not overlap:
-            df=df[~df["#variant"].isin(ld_data_filtered["#variant"])]
-            df=df[~(df["cs_id"]==credible_id)]
+            df=df[~df["#variant"].isin(ld_partners["#variant"])]
+            df=df[~(df["cs_id"]==cs_id)]
+        
     return out_df
+
 
 def extract_cols(df: pd.DataFrame, cols: List[str])-> pd.DataFrame:
     """Extract columns from a dataframe
@@ -554,7 +489,7 @@ def fetch_gws(gws_fpath: str,
         not_grouped_data.loc[:,"pos_rmax"]=not_grouped_data.loc[:,columns["pos"]]
         not_grouped_data.loc[:,"pos_rmin"]=not_grouped_data.loc[:,columns["pos"]]
         #group, sort data
-        grouped_data = credible_set_grouping(
+        grouped_data = credible_grouping(
             data=not_grouped_data,
             dynamic_r2=dynamic_r2,
             ld_threshold=ld_r2,
@@ -612,15 +547,14 @@ def fetch_gws(gws_fpath: str,
         #grouping
         if group:
             if grouping_method=="ld":
-                new_df=incremental_ld_grouping(
+                new_df=ld_grouping(
                     df_p1=df_p1,
                     df_p2=df_p2,
-                    sig_treshold_2=sig_tresh_2,
+                    sig_threshold_2=sig_tresh_2,
                     locus_width=locus_width,
                     dynamic_r2 = dynamic_r2,
                     ld_threshold=ld_r2,
                     overlap=overlap,
-                    prefix=prefix,
                     ld_api=ld_api,
                     columns=columns
                 )
