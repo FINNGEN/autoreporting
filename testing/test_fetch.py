@@ -485,6 +485,69 @@ class TestLDGrouping(unittest.TestCase):
             raise Exception(msg)
 
 
+    def test_overlapping_groups(self):
+        """Test whether the grouping functions properly for overlapping signals.
+        Say that there are two "signals" that are overlapping:
+        peak 1 with pval 1e-10 on 10Mb
+        peak 2 with pval 1e-9 on 10.5Mb
+        r2 threshold 0.2 -> variants inside 400 kb are taken to group
+        all ld variants in between, so the first peak should steal quite a bit of them from the peak 2
+        """
+        cols = {
+            "chrom":"chrom1",
+            "pos":"pos1",
+            "ref":"ref1",
+            "alt":"alt1",
+            "pval":"pval1"
+        }
+        variants = [
+            "1:10000000:1e-10",#peak 1
+            "1:10500000:1e-9",#peak 2
+            "1:10100000:1e-5",
+            "1:10200000:1e-5",
+            "1:10300000:1e-5",
+            "1:10400000:1e-5",
+            "1:10150000:1e-5",
+            "1:10250000:1e-5",
+            "1:10350000:1e-5",
+            "1:10450000:1e-5"
+        ]
+        data,c = create_loci(variants)
+        ld_variants = [
+            Variant(
+                a[0],
+                a[1],
+                "A",
+                "T"
+            )
+            for a in data
+        ]
+        df = pd.DataFrame(data,columns=c)
+        df["locus_id"]=np.nan
+        ld_api = PosLD(ld_variants)
+        df_p1 = df[df["pval1"]<1e-6].copy()
+        df_p2 = df.copy()
+        output = gws_fetch.ld_grouping(df_p1,df_p2,sig_threshold_2 = 1e-2, dynamic_r2=False, ld_threshold=0.2, locus_width=1000000, overlap=False, ld_api=ld_api, columns=cols)
+
+        out = output[["#variant","locus_id"]].sort_values(["#variant"])
+
+        validation = [
+            ["chr1_10000000_A_T",  "chr1_10000000_A_T"],
+            ["chr1_10100000_A_T",  "chr1_10000000_A_T"],
+            ["chr1_10200000_A_T",  "chr1_10000000_A_T"],
+            ["chr1_10300000_A_T",  "chr1_10000000_A_T"],
+            ["chr1_10150000_A_T",  "chr1_10000000_A_T"],
+            ["chr1_10250000_A_T",  "chr1_10000000_A_T"],
+            ["chr1_10350000_A_T",  "chr1_10000000_A_T"],
+            ["chr1_10500000_A_T",  "chr1_10500000_A_T"],
+            ["chr1_10400000_A_T",  "chr1_10500000_A_T"],
+            ["chr1_10450000_A_T",  "chr1_10500000_A_T"]
+        ]
+        validation_df =  pd.DataFrame(validation,columns=["#variant","locus_id"]).sort_values(["#variant"])
+
+        if not out.equals(validation_df):
+            msg = f"Output does not equal validation data!\n validation:\n{validation_df}\noutput:\n{out}"
+            raise Exception(msg)
 
 if __name__=="__main__":
     unittest.main()
