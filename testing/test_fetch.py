@@ -549,5 +549,157 @@ class TestLDGrouping(unittest.TestCase):
             msg = f"Output does not equal validation data!\n validation:\n{validation_df}\noutput:\n{out}"
             raise Exception(msg)
 
+    def test_static_r2(self):
+        """Test that a static r2 threshold works as expected
+        """
+        cols = {
+            "chrom":"chrom1",
+            "pos":"pos1",
+            "ref":"ref1",
+            "alt":"alt1",
+            "pval":"pval1"
+        }
+        variants = [
+            "1:10000000:1e-10",#peak 1
+            "1:10100000:1e-5",
+            "1:10200000:1e-5",
+            "1:10300000:1e-5",
+            "1:10400000:1e-5",
+            "1:10500000:1e-5",
+            "1:10150000:1e-5",
+            "1:10250000:1e-5",
+            "1:10350000:1e-5",
+            "1:10450000:1e-5"
+        ]
+        data,c = create_loci(variants)
+        ld_variants = [
+            Variant(
+                a[0],
+                a[1],
+                "A",
+                "T"
+            )
+            for a in data
+        ]
+        r2_threshold = 0.201
+        df = pd.DataFrame(data,columns=c)
+        df["locus_id"]=np.nan
+        ld_api = PosLD(ld_variants)
+        df_p1 = df[df["pval1"]<1e-6].copy()
+        df_p2 = df.copy()
+        # r2 threshold is 0.201, which means that everything farther away than 399 kb or so is rejected.
+        # Therefore there should be 7 variants in the group incl. lead
+        output = gws_fetch.ld_grouping(
+            df_p1,
+            df_p2,
+            sig_threshold_2 = 1e-2,
+            dynamic_r2=False,
+            ld_threshold=r2_threshold,
+            locus_width=1000000,
+            overlap=False,
+            ld_api=ld_api,
+            columns=cols
+        )
+        out=output[["#variant","locus_id","r2_to_lead"]].sort_values(["#variant"]).reset_index(drop=True)
+        validation = [
+            ["chr1_10000000_A_T", "chr1_10000000_A_T",1.0],
+            ["chr1_10100000_A_T", "chr1_10000000_A_T",0.8],
+            ["chr1_10150000_A_T", "chr1_10000000_A_T",0.7],
+            ["chr1_10200000_A_T", "chr1_10000000_A_T",0.6],
+            ["chr1_10250000_A_T", "chr1_10000000_A_T",0.5],
+            ["chr1_10300000_A_T", "chr1_10000000_A_T",0.4],
+            ["chr1_10350000_A_T", "chr1_10000000_A_T",0.3],
+        ]
+        validation_df = pd.DataFrame(validation, columns=["#variant","locus_id","r2_to_lead"])
+        passes=[]
+        for col in out.columns:
+            if out[col].dtype in (float,int):
+                try:
+                    passes.append(np.allclose(out[col],validation_df[col]))
+                except:
+                    passes.append(False)
+            else:
+                    passes.append(out[col].equals(validation_df[col]))
+        if not all(passes):
+            msg = f"Output does not equal validation data!\n validation:\n{validation_df}\noutput:\n{out}"
+            raise Exception(msg)
+
+
+    def test_r2_chisq(self):
+        """Test that dynamic r2
+        """
+        cols = {
+            "chrom":"chrom1",
+            "pos":"pos1",
+            "ref":"ref1",
+            "alt":"alt1",
+            "pval":"pval1"
+        }
+        variants = [
+            "1:10000000:1e-10",#peak 1
+            "1:10100000:1e-5",
+            "1:10200000:1e-5",
+            "1:10300000:1e-5",
+            "1:10400000:1e-5",
+            "1:10500000:1e-5",
+            "1:10150000:1e-5",
+            "1:10250000:1e-5",
+            "1:10350000:1e-5",
+            "1:10450000:1e-5"
+        ]
+        data,c = create_loci(variants)
+        ld_variants = [
+            Variant(
+                a[0],
+                a[1],
+                "A",
+                "T"
+            )
+            for a in data
+        ]
+        r2_threshold = 5.0 #with pval 1e-10 and threshold 5.0, r2 threshold will be 0.119 aka 440kb or so
+        df = pd.DataFrame(data,columns=c)
+        df["locus_id"]=np.nan
+        ld_api = PosLD(ld_variants)
+        df_p1 = df[df["pval1"]<1e-6].copy()
+        df_p2 = df.copy()
+        # r2 threshold is 0.201, which means that everything farther away than 399 kb or so is rejected.
+        # Therefore there should be 7 variants in the group incl. lead
+        output = gws_fetch.ld_grouping(
+            df_p1,
+            df_p2,
+            sig_threshold_2 = 1e-2,
+            dynamic_r2=True,
+            ld_threshold=r2_threshold,
+            locus_width=1000000,
+            overlap=False,
+            ld_api=ld_api,
+            columns=cols
+        )
+        out=output[["#variant","locus_id","r2_to_lead"]].sort_values(["#variant"]).reset_index(drop=True)
+        validation = [
+            ["chr1_10000000_A_T", "chr1_10000000_A_T", 1.0],
+            ["chr1_10100000_A_T", "chr1_10000000_A_T", 0.8],
+            ["chr1_10150000_A_T", "chr1_10000000_A_T", 0.7],
+            ["chr1_10200000_A_T", "chr1_10000000_A_T", 0.6],
+            ["chr1_10250000_A_T", "chr1_10000000_A_T", 0.5],
+            ["chr1_10300000_A_T", "chr1_10000000_A_T", 0.4],
+            ["chr1_10350000_A_T", "chr1_10000000_A_T", 0.3],
+            ["chr1_10400000_A_T", "chr1_10000000_A_T", 0.2]
+        ]
+        validation_df = pd.DataFrame(validation, columns=["#variant","locus_id","r2_to_lead"])
+        passes=[]
+        for col in out.columns:
+            if out[col].dtype in (float,int):
+                try:
+                    passes.append(np.allclose(out[col],validation_df[col]))
+                except:
+                    passes.append(False)
+            else:
+                    passes.append(out[col].equals(validation_df[col]))
+        if not all(passes):
+            msg = f"Output does not equal validation data!\n validation:\n{validation_df}\noutput:\n{out}"
+            raise Exception(msg)
+
 if __name__=="__main__":
     unittest.main()
