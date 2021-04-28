@@ -231,20 +231,21 @@ class PosLD(LDAccess):
         return ld
         
 
-class TestCredGrouping(unittest.TestCase):
+class CredGrouping(unittest.TestCase):
+    cols = {
+        "chrom":"chrom1",
+        "pos":"pos1",
+        "ref":"ref1",
+        "alt":"alt1",
+        "pval":"pval1"
+    }
+    
     def test_credible_set_grouping(self):
         """Test credible set grouping
             Say, some groups. Let's say that for LD partners, our simulation data's r2 goes linearly to zero with distance.
             LD goes linearly fron 1 with 0 distance to 0 with 500_000 distance.
             LD calculations are delegated to a mock object that holds the LD data in a dict and returns it.
         """
-        cols = {
-            "chrom":"chrom1",
-            "pos":"pos1",
-            "ref":"ref1",
-            "alt":"alt1",
-            "pval":"pval1"
-        }
         loci = [
             "1:2000000:1e-8",
             "1:5000000:5e-9",
@@ -297,7 +298,13 @@ class TestCredGrouping(unittest.TestCase):
         ]
         #run incremental credible grouping
         ld_api = PosLD(ld_variants)
-        output = gws_fetch.credible_grouping(data, dynamic_r2=False, ld_threshold=0.2, locus_range=1500000, overlap=False, ld_api=ld_api, columns=cols) 
+        output = gws_fetch.credible_grouping(data,
+            dynamic_r2=False,
+            ld_threshold=0.2,
+            locus_range=1500000,
+            overlap=False,
+            ld_api=ld_api,
+            columns=CredGrouping.cols) 
         validation = [
             ["chr1_1850000_A_T", "chr1_2000000_A_T", np.nan],
             ["chr1_1900000_A_T", "chr1_2000000_A_T", "chr1_2000000_A_T_1"],
@@ -331,13 +338,6 @@ class TestCredGrouping(unittest.TestCase):
     def test_overlapping_cs(self):
         """Check that multiple overlapping cs do not "steal" each other's CS variants
         """
-        cols = {
-            "chrom":"chrom1",
-            "pos":"pos1",
-            "ref":"ref1",
-            "alt":"alt1",
-            "pval":"pval1"
-        }
         loci = [
             "1:2000000:1e-8",
             "1:2500000:5e-9"
@@ -369,7 +369,11 @@ class TestCredGrouping(unittest.TestCase):
         data["locus_id"]=np.nan
         ld_api = PosLD(cred_variants)
         
-        output = gws_fetch.credible_grouping(data, dynamic_r2=False, ld_threshold=0.00, locus_range=1500000, overlap=False, ld_api=ld_api, columns=cols) 
+        output = gws_fetch.credible_grouping(data,
+            dynamic_r2=False,
+            ld_threshold=0.00,
+            locus_range=1500000,
+            overlap=False, ld_api=ld_api, columns=CredGrouping.cols) 
         out = output[["#variant","locus_id","cs_id"]].sort_values(["#variant","locus_id"]).reset_index(drop=True)
         validation= [
             ["chr1_1900000_A_T", "chr1_2000000_A_T", "chr1_2000000_A_T_1"],
@@ -388,22 +392,167 @@ class TestCredGrouping(unittest.TestCase):
         if not out.equals(validation_df):
             msg = f"Output does not equal validation data!\n validation:\n{validation_df}\noutput:\n{out}"
             raise Exception(msg)
-
-
-class TestLDGrouping(unittest.TestCase):
-    def test_ld_grouping(self):
-        """Test non-overlapping LD set grouping
-            3 groups with 2 groups being in same chromosome, but in completely separate positions.
-            LD goes linearly fron 1 with 0 distance to 0 with 500_000 distance.
-            LD from "PosLD" that gives an r2 value based on pos difference.
+        
+    def test_static_r2(self):
+        """Test that a static r2 threshold works as expected in credible grouping
         """
-        cols = {
+        cs_var = [
+            "1:10000000:1e-10"
+        ]
+        cs_d = {
+            "1:10000000:1e-10":[]
+        }
+        variants = [
+            "1:10100000:1e-5",
+            "1:10200000:1e-5",
+            "1:10300000:1e-5",
+            "1:10400000:1e-5",
+            "1:10500000:1e-5",
+            "1:10150000:1e-5",
+            "1:10250000:1e-5",
+            "1:10350000:1e-5",
+            "1:10450000:1e-5"
+        ]
+        cs_data,c = create_cs_loci(cs_var,cs_d)
+        var_data,c = create_loci(variants)
+        data = cs_data+var_data
+        ld_variants = [
+            Variant(
+                a[0],
+                a[1],
+                "A",
+                "T"
+            )
+            for a in data
+        ]
+        r2_threshold = 0.201
+        df = pd.DataFrame(data,columns=c)
+        df["locus_id"]=np.nan
+        ld_api = PosLD(ld_variants)
+        # r2 threshold is 0.201, which means that everything farther away than 399 kb or so is rejected.
+        # Therefore there should be 7 variants in the group incl. lead
+        output = gws_fetch.credible_grouping(
+            df,
+            dynamic_r2=False,
+            ld_threshold=r2_threshold,
+            locus_range=1000000,
+            overlap=False,
+            ld_api=ld_api,
+            columns=LDGrouping.cols
+        )
+        out=output[["#variant","locus_id","r2_to_lead"]].sort_values(["#variant"]).reset_index(drop=True)
+        validation = [
+            ["chr1_10000000_A_T", "chr1_10000000_A_T",1.0],
+            ["chr1_10100000_A_T", "chr1_10000000_A_T",0.8],
+            ["chr1_10150000_A_T", "chr1_10000000_A_T",0.7],
+            ["chr1_10200000_A_T", "chr1_10000000_A_T",0.6],
+            ["chr1_10250000_A_T", "chr1_10000000_A_T",0.5],
+            ["chr1_10300000_A_T", "chr1_10000000_A_T",0.4],
+            ["chr1_10350000_A_T", "chr1_10000000_A_T",0.3],
+        ]
+        validation_df = pd.DataFrame(validation, columns=["#variant","locus_id","r2_to_lead"])
+        passes=[]
+        for col in out.columns:
+            if out[col].dtype in (float,int):
+                try:
+                    passes.append(np.allclose(out[col],validation_df[col]))
+                except:
+                    passes.append(False)
+            else:
+                    passes.append(out[col].equals(validation_df[col]))
+        if not all(passes):
+            msg = f"Output does not equal validation data!\n validation:\n{validation_df}\noutput:\n{out}"
+            raise Exception(msg)
+
+
+    def test_r2_chisq(self):
+        """Test that dynamic r2 works in cred grouping
+        """
+        cs_var = [
+            "1:10000000:1e-10"
+        ]
+        cs_d = {
+            "1:10000000:1e-10":[]
+        }
+        variants = [
+            "1:10100000:1e-5",
+            "1:10200000:1e-5",
+            "1:10300000:1e-5",
+            "1:10400000:1e-5",
+            "1:10500000:1e-5",
+            "1:10150000:1e-5",
+            "1:10250000:1e-5",
+            "1:10350000:1e-5",
+            "1:10450000:1e-5"
+        ]
+        cs_data,c = create_cs_loci(cs_var,cs_d)
+        var_data,c = create_loci(variants)
+        data = cs_data+var_data
+        ld_variants = [
+            Variant(
+                a[0],
+                a[1],
+                "A",
+                "T"
+            )
+            for a in data
+        ]
+        r2_threshold = 5.0 #with pval 1e-10 and threshold 5.0, r2 threshold will be 0.119 aka 440kb or so
+        #therefore there should be 8 vars in group
+        df = pd.DataFrame(data,columns=c)
+        df["locus_id"]=np.nan
+        ld_api = PosLD(ld_variants)
+        
+        output = gws_fetch.credible_grouping(
+            df,
+            dynamic_r2=True,
+            ld_threshold=r2_threshold,
+            locus_range=1000000,
+            overlap=False,
+            ld_api=ld_api,
+            columns=LDGrouping.cols
+        )
+        out=output[["#variant","locus_id","r2_to_lead"]].sort_values(["#variant"]).reset_index(drop=True)
+        validation = [
+            ["chr1_10000000_A_T", "chr1_10000000_A_T", 1.0],
+            ["chr1_10100000_A_T", "chr1_10000000_A_T", 0.8],
+            ["chr1_10150000_A_T", "chr1_10000000_A_T", 0.7],
+            ["chr1_10200000_A_T", "chr1_10000000_A_T", 0.6],
+            ["chr1_10250000_A_T", "chr1_10000000_A_T", 0.5],
+            ["chr1_10300000_A_T", "chr1_10000000_A_T", 0.4],
+            ["chr1_10350000_A_T", "chr1_10000000_A_T", 0.3],
+            ["chr1_10400000_A_T", "chr1_10000000_A_T", 0.2]
+        ]
+        validation_df = pd.DataFrame(validation, columns=["#variant","locus_id","r2_to_lead"])
+        passes=[]
+        for col in out.columns:
+            if out[col].dtype in (float,int):
+                try:
+                    passes.append(np.allclose(out[col],validation_df[col]))
+                except:
+                    passes.append(False)
+            else:
+                    passes.append(out[col].equals(validation_df[col]))
+        if not all(passes):
+            msg = f"Output does not equal validation data!\n validation:\n{validation_df}\noutput:\n{out}"
+            raise Exception(msg)
+
+
+class LDGrouping(unittest.TestCase):
+    cols = {
             "chrom":"chrom1",
             "pos":"pos1",
             "ref":"ref1",
             "alt":"alt1",
             "pval":"pval1"
         }
+    
+    def test_ld_grouping(self):
+        """Test non-overlapping LD set grouping
+            3 groups with 2 groups being in same chromosome, but in completely separate positions.
+            LD goes linearly fron 1 with 0 distance to 0 with 500_000 distance.
+            LD from "PosLD" that gives an r2 value based on pos difference.
+        """
         loci = [
             "1:2000000:1e-8",
             "1:5000000:5e-9",
@@ -457,7 +606,16 @@ class TestLDGrouping(unittest.TestCase):
         ]
         ld_api = PosLD(ld_variants)
         #run incremental credible grouping
-        output = gws_fetch.ld_grouping(df_p1,df_p2,sig_threshold_2 = 1e-6, dynamic_r2=False, ld_threshold=0.15, locus_width=1500000, overlap=False, ld_api=ld_api, columns=cols)
+        output = gws_fetch.ld_grouping(df_p1,
+            df_p2,
+            sig_threshold_2=1e-6,
+            dynamic_r2=False,
+            ld_threshold=0.15,
+            locus_width=1500000,
+            overlap=False,
+            ld_api=ld_api,
+            columns=LDGrouping.cols
+        )
         out = output[["#variant","locus_id"]].sort_values(["#variant","locus_id"]).reset_index(drop=True) 
         validation= [
             ["chr1_1850000_A_T",   "chr1_2000000_A_T"],
@@ -493,13 +651,6 @@ class TestLDGrouping(unittest.TestCase):
         r2 threshold 0.2 -> variants inside 400 kb are taken to group
         all ld variants in between, so the first peak should steal quite a bit of them from the peak 2
         """
-        cols = {
-            "chrom":"chrom1",
-            "pos":"pos1",
-            "ref":"ref1",
-            "alt":"alt1",
-            "pval":"pval1"
-        }
         variants = [
             "1:10000000:1e-10",#peak 1
             "1:10500000:1e-9",#peak 2
@@ -527,7 +678,7 @@ class TestLDGrouping(unittest.TestCase):
         ld_api = PosLD(ld_variants)
         df_p1 = df[df["pval1"]<1e-6].copy()
         df_p2 = df.copy()
-        output = gws_fetch.ld_grouping(df_p1,df_p2,sig_threshold_2 = 1e-2, dynamic_r2=False, ld_threshold=0.2, locus_width=1000000, overlap=False, ld_api=ld_api, columns=cols)
+        output = gws_fetch.ld_grouping(df_p1,df_p2,sig_threshold_2 = 1e-2, dynamic_r2=False, ld_threshold=0.2, locus_width=1000000, overlap=False, ld_api=ld_api, columns=LDGrouping.cols)
 
         out = output[["#variant","locus_id"]].sort_values(["#variant"])
 
@@ -552,13 +703,6 @@ class TestLDGrouping(unittest.TestCase):
     def test_static_r2(self):
         """Test that a static r2 threshold works as expected
         """
-        cols = {
-            "chrom":"chrom1",
-            "pos":"pos1",
-            "ref":"ref1",
-            "alt":"alt1",
-            "pval":"pval1"
-        }
         variants = [
             "1:10000000:1e-10",#peak 1
             "1:10100000:1e-5",
@@ -598,7 +742,7 @@ class TestLDGrouping(unittest.TestCase):
             locus_width=1000000,
             overlap=False,
             ld_api=ld_api,
-            columns=cols
+            columns=LDGrouping.cols
         )
         out=output[["#variant","locus_id","r2_to_lead"]].sort_values(["#variant"]).reset_index(drop=True)
         validation = [
@@ -628,13 +772,6 @@ class TestLDGrouping(unittest.TestCase):
     def test_r2_chisq(self):
         """Test that dynamic r2
         """
-        cols = {
-            "chrom":"chrom1",
-            "pos":"pos1",
-            "ref":"ref1",
-            "alt":"alt1",
-            "pval":"pval1"
-        }
         variants = [
             "1:10000000:1e-10",#peak 1
             "1:10100000:1e-5",
@@ -658,13 +795,12 @@ class TestLDGrouping(unittest.TestCase):
             for a in data
         ]
         r2_threshold = 5.0 #with pval 1e-10 and threshold 5.0, r2 threshold will be 0.119 aka 440kb or so
+        #therefore there should be 8 vars in group
         df = pd.DataFrame(data,columns=c)
         df["locus_id"]=np.nan
         ld_api = PosLD(ld_variants)
         df_p1 = df[df["pval1"]<1e-6].copy()
         df_p2 = df.copy()
-        # r2 threshold is 0.201, which means that everything farther away than 399 kb or so is rejected.
-        # Therefore there should be 7 variants in the group incl. lead
         output = gws_fetch.ld_grouping(
             df_p1,
             df_p2,
@@ -674,7 +810,7 @@ class TestLDGrouping(unittest.TestCase):
             locus_width=1000000,
             overlap=False,
             ld_api=ld_api,
-            columns=cols
+            columns=LDGrouping.cols
         )
         out=output[["#variant","locus_id","r2_to_lead"]].sort_values(["#variant"]).reset_index(drop=True)
         validation = [
