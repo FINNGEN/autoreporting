@@ -110,15 +110,28 @@ def load_susie_credfile(fname: str) -> pd.DataFrame:
 
 
 def ld_grouping(
-    df_p1,
-    df_p2,
-    sig_threshold_2,
-    locus_width,
-    dynamic_r2,
-    ld_threshold,
-    overlap,
-    ld_api,
-    columns):
+    df_p1: pd.DataFrame,
+    df_p2: pd.DataFrame,
+    locus_range: int,
+    dynamic_r2:bool,
+    ld_threshold:float,
+    overlap: bool,
+    ld_api: LDAccess,
+    columns: Dict[str,str]):
+    """Group variants using LD
+    Create groups using most significant variant as group lead, and LD partners with r2>ld_threshold as LD partners. Choose leads greedily with remaining min pval.
+    Args:
+        df_p1 (pd.DataFrame): Dataframe with variants that have pval>sig_threshold. These variants can be lead variants.
+        df_p2 (pd.DataFrame): Dataframe with variants that have pval>sig_threshold_2. These variants can be LD partners.
+        locus_range (int): Range around the locus on which LD is calculated, in kb
+        dynamic_r2 (bool): Whether to adjust LD threshold by lead variant pval or not.
+        ld_threshold (float): LD threshold for including a variant in the group. If dynamic r2 is False, it is the r^2 threshold. If dynamic r2 is True, it is ld threshold in ld_threshold/stats.chi2.isf(lead_pval,df=1)
+        overlap (bool): Whether groups can overlap or not. If overlapping is set to True, variants grouped in a group are not removed from df_p2 after grouping, so other groups can claim them as well.
+        ld_api (LDAccess): ld api object
+        columns (Dict[str,str]): column dictionary
+    Returns:
+        (pd.DataFrame): Grouped variants in a pandas dataframe
+    """
     leads = df_p1.copy()
     all_variants = df_p2.copy()
     #if r2 to lead data was gotten from cs, it's dropped as obsolete.
@@ -137,7 +150,7 @@ def ld_grouping(
             lead_pval = lead_var_row[columns["pval"]]
             group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
         #get LD neighbourhood
-        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_width*1000, group_ld_threshold)
+        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range*1000, group_ld_threshold)
         flat_ld = [a.to_flat() for a in ld_data]
         ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
         ld_df = ld_df.rename(columns={"r2":"r2_to_lead"})
@@ -174,9 +187,10 @@ def credible_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float,
     Create groups using credible set most probable variants as the lead variants, and rest of the data as the additional variants
     Args:
         data (pd.DataFrame): Input data
-        ld_threshold (float): LD threshold for including a variant in the group
+        dynamic_r2 (bool): Whether to adjust LD threshold by lead variant pval or not.
+        ld_threshold (float): LD threshold for including a variant in the group. If dynamic r2 is False, it is the r^2 threshold. If dynamic r2 is True, it is ld threshold in ld_threshold/stats.chi2.isf(lead_pval,df=1)
         locus_range (int): Range around the locus on which LD is calculated, in kb
-        overlap (bool): Whether groups can overlap or not
+        overlap (bool): Whether groups can overlap or not. If overlapping is set to True, variants grouped in a group are not removed from df_p2 after grouping, so other groups can claim them as well.
         ld_api (LDAccess): ld api object
         columns (Dict[str,str]): column dictionary
     Returns:
@@ -550,8 +564,7 @@ def fetch_gws(gws_fpath: str,
                 new_df=ld_grouping(
                     df_p1=df_p1,
                     df_p2=df_p2,
-                    sig_threshold_2=sig_tresh_2,
-                    locus_width=locus_width,
+                    locus_range=locus_width,
                     dynamic_r2 = dynamic_r2,
                     ld_threshold=ld_r2,
                     overlap=overlap,

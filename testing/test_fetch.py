@@ -608,10 +608,9 @@ class LDGrouping(unittest.TestCase):
         #run incremental credible grouping
         output = gws_fetch.ld_grouping(df_p1,
             df_p2,
-            sig_threshold_2=1e-6,
             dynamic_r2=False,
             ld_threshold=0.15,
-            locus_width=1500000,
+            locus_range=1500000,
             overlap=False,
             ld_api=ld_api,
             columns=LDGrouping.cols
@@ -678,7 +677,15 @@ class LDGrouping(unittest.TestCase):
         ld_api = PosLD(ld_variants)
         df_p1 = df[df["pval1"]<1e-6].copy()
         df_p2 = df.copy()
-        output = gws_fetch.ld_grouping(df_p1,df_p2,sig_threshold_2 = 1e-2, dynamic_r2=False, ld_threshold=0.2, locus_width=1000000, overlap=False, ld_api=ld_api, columns=LDGrouping.cols)
+        output = gws_fetch.ld_grouping(
+            df_p1,
+            df_p2,
+            dynamic_r2=False,
+            ld_threshold=0.2,
+            locus_range=1000000,
+            overlap=False,
+            ld_api=ld_api,
+            columns=LDGrouping.cols)
 
         out = output[["#variant","locus_id"]].sort_values(["#variant"])
 
@@ -736,10 +743,9 @@ class LDGrouping(unittest.TestCase):
         output = gws_fetch.ld_grouping(
             df_p1,
             df_p2,
-            sig_threshold_2 = 1e-2,
             dynamic_r2=False,
             ld_threshold=r2_threshold,
-            locus_width=1000000,
+            locus_range=1000000,
             overlap=False,
             ld_api=ld_api,
             columns=LDGrouping.cols
@@ -804,10 +810,9 @@ class LDGrouping(unittest.TestCase):
         output = gws_fetch.ld_grouping(
             df_p1,
             df_p2,
-            sig_threshold_2 = 1e-2,
             dynamic_r2=True,
             ld_threshold=r2_threshold,
-            locus_width=1000000,
+            locus_range=1000000,
             overlap=False,
             ld_api=ld_api,
             columns=LDGrouping.cols
