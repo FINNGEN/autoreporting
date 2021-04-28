@@ -105,13 +105,16 @@ task report {
         if "${credible_set}" != empty_file:
             credset="--credible-set-file ${credible_set}"
 
+        
+        efofile = "${efo_map}"
         #efo codes
-        with open("${efo_map}","r") as f:
-            efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
         efo_cmd=""
-        if pheno_id in efos.keys():
-            if efos[pheno_id] != "NA" and efos[pheno_id] != "":
-                efo_cmd="--efo-codes {}".format(efos[pheno_id])
+        if efofile != empty_file:
+            with open(efofile,"r") as f:
+                efos = {a.strip().split("\t")[0] : a.strip().split("\t")[1]  for a in f.readlines()}
+            if pheno_id in efos.keys():
+                if efos[pheno_id] != "NA" and efos[pheno_id] != "":
+                    efo_cmd="--efo-codes {}".format(efos[pheno_id])
 
         call_command=(f"main.py {summstat} "
                     f"--pheno-name {pheno_id} "
