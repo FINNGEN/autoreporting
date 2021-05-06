@@ -172,16 +172,14 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         row["functional_variants_relaxed"]=func_set
         # Solve traits for relaxed and strict groups.
         all_traits=(
-                    loc_variants[["trait","trait_name","r2_to_lead"]]
+                    loc_variants.loc[~loc_variants["trait"].isna(),["trait","trait_name","r2_to_lead"]]
                     .sort_values(by="r2_to_lead",ascending=False)
                     .drop_duplicates(subset=["trait","trait_name"], keep="first")
-                    .dropna()
                     )
         strict_traits=(
-                    strict_group[["trait","trait_name","r2_to_lead"]]
+                    strict_group.loc[~strict_group["trait"].isna(),["trait","trait_name","r2_to_lead"]]
                     .sort_values(by="r2_to_lead",ascending=False)
                     .drop_duplicates(subset=["trait","trait_name"],keep="first")
-                    .dropna()
                     )
         
         other_traits_relaxed = all_traits[ ~all_traits["trait"].isin(efo_traits) ].copy()
