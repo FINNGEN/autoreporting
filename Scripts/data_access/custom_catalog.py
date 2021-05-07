@@ -2,6 +2,7 @@ import abc
 from typing import List, Text, Dict,Any
 import pandas as pd, numpy as np
 from data_access.db import ExtDB
+from autoreporting_utils import Region
 
 class CustomCatalog(ExtDB):
     def __init__(self, fname: str, pval_threshold: float, padding: int):
@@ -35,13 +36,13 @@ class CustomCatalog(ExtDB):
         """
         return trait_code
     
-    def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def associations_for_regions(self, regions: List[Region]) -> List[Dict[str, Any]]:
         """Return associations for a list of regions of type {"chrom": str, "min": int, "max": int }
         Args:
             regions (List[Dict[str, Any]]): The list of regions for which associations are queried
         """
         out= []
         for region in regions:
-            assocs=self.__get_associations(region["chrom"],region["min"],region["max"])
+            assocs=self.__get_associations(region.chrom,region.start,region.end)
             out.extend(assocs)
         return out

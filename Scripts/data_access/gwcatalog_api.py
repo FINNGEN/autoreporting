@@ -7,6 +7,7 @@ from io import StringIO
 from itertools import groupby
 import pandas as pd, numpy as np
 from data_access.db import ExtDB, AlleleDB, Location, VariantData, Variant
+from autoreporting_utils import Region
 from multiprocessing.dummy import Pool as ThreadPool
 
 class RequestError(Exception):
@@ -94,14 +95,14 @@ class SummaryApi(ExtDB):
             record["trait_name"] = self.__get_trait(record["trait"])
         return retval
 
-    def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Return associations for a list of regions of type {"chrom": str, "min": int, "max": int }
+    def associations_for_regions(self, regions: List[Region]) -> List[Dict[str, Any]]:
+        """Return associations for a list of Regions
         Args:
-            regions (List[Dict[str, Any]]): The list of regions for which associations are queried
+            regions (List[Region]): The list of regions for which associations are queried
         """
         data_lst=[]
         for region in regions:
-            data_lst.append([region["chrom"],region["min"],region["max"]])
+            data_lst.append([region.chrom,region.start,region.end])
         results = None
         with ThreadPool(self.threads) as pool:
             results=pool.starmap(self.__get_associations,data_lst)
@@ -167,17 +168,17 @@ class LocalDB(ExtDB):
         retval=_gwcat_set_column_types(retval)
         return retval.to_dict("records")
 
-    def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Get associations for a list of regions
+    def associations_for_regions(self, regions: List[Region]) -> List[Dict[str, Any]]:
+        """Get associations for a list of Regions
         Args:
-            regions(List[Dict[str, Any]]): A list of dictionaries with keys 'chrom', 'min', 'max'
+            regions(List[Region]): A list of Regions
         Returns:
         List[Dict[str, Any]]: A List of associations for variants in the regions
         """
         out= []
         for region in regions:
             try:
-                out.extend(self.__get_associations(region["chrom"],region["min"],region["max"]))
+                out.extend(self.__get_associations(region.chrom,region.start,region.end))
             except:
                 pass
         #TODO: get rid of this ugly format switching
@@ -265,10 +266,10 @@ class GwasApi(ExtDB):
         retval = retval[retval["pval"]<=pval]
         return retval.to_dict("records")
 
-    def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def associations_for_regions(self, regions: List[Region]) -> List[Dict[str, Any]]:
         data_lst=[]
         for region in regions:
-            data_lst.append([region["chrom"],region["min"],region["max"]])
+            data_lst.append([region.chrom,region.start,region.end])
         results = None
         with ThreadPool(self.threads) as pool:
             results=pool.starmap(self.__get_associations,data_lst)
