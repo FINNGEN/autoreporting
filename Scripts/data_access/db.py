@@ -63,11 +63,11 @@ class LDAccess(object):
     """
 
     @abc.abstractmethod
-    def get_ranges(self, variants: List[Variant], window: int, ld_threshold: Optional[float]) -> List[LDData]:
-        """Return LD for multiple variant ranges
-        Args: variant data, i.e. a dataframe with columns [chr, pos, ref, alt, #variant], a window,ld threshold
-            variants (List[LDInput]): List of input variants ()
-            window (int):
+    def get_range(self, variant: Variant, bp_range: int, ld_threshold: Optional[float]) -> List[LDData]:
+        """Return LD for single variant range
+        Args:
+            variant (Variant): Variant for which to get the LD neighbourhood
+            bp_range (int): LD calculation range. Get LD results for variants closer than this many basepairs away from the lead var. 
             ld_threshold (Optional[float]): Optional LD R^2 threshold. Only variants that are in greater correlation than the threshold are reported. 
         Returns: 
             (List[LDData]):List of variant associations
