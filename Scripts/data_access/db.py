@@ -5,16 +5,17 @@ import abc
 from typing import List, Text, Dict,Any, Optional, NamedTuple
 from io import StringIO
 import pandas as pd #type: ignore
+from autoreporting_utils import Region
 
 class ExtDB(object):
     """Abstract base class for association searches
     """
 
     @abc.abstractmethod
-    def associations_for_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Return associations for a list of regions of type {"chrom": str, "min": int, "max": int }
+    def associations_for_regions(self, regions: List[Region]) -> List[Dict[str, Any]]:
+        """Return associations for a list of regions
         Args:
-            regions (List[Dict[str, Any]]): The list of regions for which associations are queried
+            regions (List[Region]): The list of regions for which associations are queried
         """
 
 class Variant(NamedTuple):

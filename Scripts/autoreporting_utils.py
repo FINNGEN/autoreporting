@@ -2,7 +2,7 @@ import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
 import pysam
-from typing import List, Dict
+from typing import List, Dict, NamedTuple
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
 """
@@ -109,33 +109,48 @@ def load_pysam_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_v
     tb.close()
     return out_df
 
-def prune_regions(df):
-    """Prune overlapping tabix regions so that no duplicate calls are made
-    In: dataframe with the regions
-    Out:dataframe with pruned regions
+class Region(NamedTuple):
+    chrom: str
+    start: int
+    end: int
+
+    def overlaps(self, other: 'Region')->bool:
+        """Check if two Regions overlap
+        """
+        #check that both regions are valid
+        if self.end < self.start:
+            raise Exception(f"Region {self} is invalid: start is larger than end!")
+        if other.end < other.start:
+            raise Exception(f"Region {other} is invalid: start is larger than end!")
+        if self.chrom == other.chrom:
+            if (self.start <= other.end) and (other.start <= self.end):
+                return True
+        return False
+
+def prune_regions(regions:List[Region])->List[Region]:
+    """merge overlapping regions, so that there are less overlapping regions
+    Args:
+        regions (List[Region]): List of regions to merge
+    Returns:
+        (List[Region]): List of non-overlapping regions
     """
-    regions=[]
-    for t in df.itertuples():
-        if regions:
-            found=False
-            for region in regions:
-                if (( int(t.pos_rmax)<region["min"] ) or ( int(t.pos_rmin) > region["max"] ) ) or (str(t._1)!=region[ "chrom" ] ):
-                    continue
-                elif int(t.pos_rmin)>=region["min"] and int(t.pos_rmax)<=region["max"]:
-                    found=True
-                    break
-                else: 
-                    if int(t.pos_rmin)<region["min"] and int(t.pos_rmax)>region["min"]:
-                        region["min"]=int(t.pos_rmin)
-                    if int(t.pos_rmax)>region["max"] and int(t.pos_rmin)<region["max"]:
-                        region["max"]=int(t.pos_rmax)
-                    found=True
-                    break
-            if not found:
-                regions.append({"chrom":str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
-        else:
-            regions.append({"chrom":str(t._1),"min":int(t.pos_rmin),"max":int(t.pos_rmax)})
-    return pd.DataFrame(regions)
+    out=[]
+    #create chromosome divided intervals
+    chromosomes = set([r.chrom for r in regions])
+    cdict = {a:[] for a in sorted(chromosomes)}
+    _=[cdict[r.chrom].append(r) for r in regions]
+    for chrom, c_regions in cdict.items():
+        sorted_regions = sorted(c_regions, key=lambda x:x.start)
+        out.append(sorted_regions[0])
+        for s_r in sorted_regions:
+            #check for overlap
+            if out[-1].overlaps(s_r):
+                #get max region
+                out[-1] = Region(out[-1].chrom, min(out[-1].start,s_r.start),max(out[-1].end,s_r.end))
+            else:
+                out.append(s_r)
+    return out
+
 
 def columns_from_arguments(column_labels):
     """
