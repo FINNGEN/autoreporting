@@ -148,7 +148,7 @@ def ld_grouping(
         group_ld_threshold = ld_threshold
         if dynamic_r2:
             lead_pval = lead_var_row[columns["pval"]]
-            group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
+            group_ld_threshold = min(ld_threshold/stats.chi2.isf(lead_pval,df=1),1.0)
         #get LD neighbourhood
         ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range*1000, group_ld_threshold)
         flat_ld = [a.to_flat() for a in ld_data]
@@ -215,7 +215,7 @@ def credible_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float,
         group_ld_threshold = ld_threshold
         if dynamic_r2:
             lead_pval = lead_var_row[columns["pval"]]
-            group_ld_threshold = ld_threshold/stats.chi2.isf(lead_pval,df=1)
+            group_ld_threshold = min(ld_threshold/stats.chi2.isf(lead_pval,df=1),1.0)
         #get LD data to cs lead
         ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range*1000, group_ld_threshold)
         flat_ld = [a.to_flat() for a in ld_data]

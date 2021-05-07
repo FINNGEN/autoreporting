@@ -55,10 +55,10 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     gnomad_add_cols = ["functional_category","enrichment_nfsee","fin.AF","fin.AN","fin.AC", "fin.homozygote_count", "fet_nfsee.odds_ratio", "fet_nfsee.p_value", "nfsee.AC", "nfsee.AN", "nfsee.AF", "nfsee.homozygote_count"]
     gnomad_add_cols_rename = {k:"gnomAD_{}".format(k) for k in gnomad_add_cols}
-    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region","good_cs"]
-    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor" }
+    cs_cols = ["cs_id", "cs_size", "cs_log10bf", "cs_number", "cs_region","good_cs","cs_min_r2"]
+    cs_cols_rename = {"cs_log10bf":"cs_log_bayes_factor","cs_min_r2":"credible_set_min_r2_value" }
 
-    aggregated_cols = ["credible_set_min_r2_value","start", "end", "found_associations_strict", "found_associations_relaxed",
+    aggregated_cols = ["start", "end", "found_associations_strict", "found_associations_relaxed",
                        "credible_set_variants", "functional_variants_strict",
                        "functional_variants_relaxed", "specific_efo_trait_associations_strict",
                        "specific_efo_trait_associations_relaxed","n_ld_partners_0_8","n_ld_partners_0_6"]
@@ -83,7 +83,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                      "cs_log_bayes_factor",
                      "cs_number",
                      "cs_region",
-                     "good_cs"]+\
+                     "good_cs",
+                     "credible_set_min_r2_value"]+\
                     aggregated_cols
 
     df=report_df.copy()
@@ -192,10 +193,10 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         matching_traits_strict = strict_traits[ strict_traits["trait"].isin(efo_traits) ].copy()
         row["specific_efo_trait_associations_relaxed"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_relaxed.itertuples() )
         row["specific_efo_trait_associations_strict"]=";".join( "{}|{:.3g}".format(t.trait_name,t.r2_to_lead) for t in matching_traits_strict.itertuples() )
-        try:
-            row["credible_set_min_r2_value"] = np.nanmin(credset_vars.loc[:, "r2_to_lead" ].values)
-        except:
-            row["credible_set_min_r2_value"] = np.nan
+        #try:
+        #    row["credible_set_min_r2_value"] = np.nanmin(credset_vars.loc[:, "r2_to_lead" ].values)
+        #except:
+        #    row["credible_set_min_r2_value"] = np.nan
 
         #N ld partners with LD >0.8, LD>0.6
         r2_thresh_0_8 = 0.8
