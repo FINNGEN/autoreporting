@@ -483,6 +483,17 @@ def fetch_gws(gws_fpath: str,
         summ_stat_variants = df_replace_value(summ_stat_variants,columns["chrom"],"X","23")#finally in chrom 23 
 
         summ_stat_variants = extract_cols(summ_stat_variants,list(columns.values())+extra_cols)
+        #filter per sign_threshold_2
+        summ_stat_variants = summ_stat_variants.loc[summ_stat_variants["pval"]<sig_tresh_2,:]
+        #check that every CS variant is in summ stat variants
+        #check that all cs vars are in cred_row_df
+        cs_df_ss = load_pysam_df(cs_df,gws_fpath,columns,"",".")
+        summstat_var_col = create_variant_column(cs_df_ss,columns["chrom"],columns["pos"],columns["ref"],columns["alt"])
+        cs_var_col = create_variant_column(cs_df,columns["chrom"],columns["pos"],columns["ref"],columns["alt"])
+        if not all(cs_var_col.isin(summstat_var_col)):
+            print("ERROR: not all CS variants were in summary statistic")
+            raise Exception("Not all cs variants were in summary statistic file. Grouping can not continue.")
+
         not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)\
             .sort_values(axis="index",by=[columns["chrom"],columns["pos"],columns["ref"],columns["alt"],"cs_id"],na_position="last")
         not_grouped_data=not_grouped_data.reset_index(drop=True)
