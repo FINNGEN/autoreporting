@@ -8,6 +8,7 @@ sys.path.append("./")
 sys.path.insert(0, './Scripts')
 from Scripts.data_access import gwcatalog_api
 from Scripts.data_access.db import AlleleDB, Location, VariantData, Variant
+from Scripts.autoreporting_utils import Region
 import itertools
 from io import StringIO
 
@@ -295,9 +296,9 @@ class TestLocalDB(unittest.TestCase):
         alldb = MockAlleleDB()
         db = gwcatalog_api.LocalDB(buf,1.0,100,alldb)
         regions = [
-            {"chrom":"1","min":1,"max":2},
-            {"chrom":"2","min":10,"max":12},
-            {"chrom":"3","min":100,"max":102},
+            Region("1",1,2),
+            Region("2",10,12),
+            Region("3",100,102)
         ]
         assocs = db.associations_for_regions(regions)
         validationdata = [{
@@ -326,9 +327,9 @@ class testGWASDB(unittest.TestCase):
         mockdb = MockAlleleDB()
         db = gwcatalog_api.GwasApi(1.0,100,1,mockdb)
         ranges = [
-            {"chrom":"1","min":1,"max":2},
-            {"chrom":"2","min":10,"max":12},
-            {"chrom":"3","min":100,"max":102},
+            Region("1",1,2),
+            Region("2",10,12),
+            Region("3",100,102)
         ]
         
         request_val = mock.Mock() 

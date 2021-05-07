@@ -191,7 +191,10 @@ def compare(df, ld_check, plink_mem, ld_panel_path,
         summary_df = pd.read_csv("{}gwas_out_mapping.tsv".format(prefix),sep="\t")
     else:
         range_df = df.loc[:,[columns["chrom"],"pos_rmin","pos_rmax"]].drop_duplicates().copy(deep=True)
-        regions = prune_regions(range_df).to_dict("records")
+        regions = [
+            Region(a[columns["chrom"]],int(a["pos_rmin"]),int(a["pos_rmax"])) for i,a in range_df.iterrows()
+        ]
+        regions = prune_regions(regions)
         assoc_records = association_db.associations_for_regions(regions)
         assoc_df = pd.DataFrame(assoc_records)
         if not assoc_df.empty:
