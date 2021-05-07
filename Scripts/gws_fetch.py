@@ -493,12 +493,12 @@ def fetch_gws(gws_fpath: str,
         summ_stat_variants_23 = load_pysam_ranges(cs_ranges_23,gws_fpath,"",".")
         summ_stat_variants = summ_stat_variants_x if summ_stat_variants_x.shape[0] > summ_stat_variants_23.shape[0] else summ_stat_variants_23
         summ_stat_variants = df_replace_value(summ_stat_variants,columns["chrom"],"X","23")#finally in chrom 23 
+        
         #filter them by p-value threshold 2. Merge credset will take care of cs variants that are filtered out.
         summ_stat_variants= summ_stat_variants.loc[summ_stat_variants[columns["pval"]]<=sig_tresh_2,:]
-
+        
         summ_stat_variants = extract_cols(summ_stat_variants,list(columns.values())+extra_cols)
-        #filter per sign_threshold_2
-        summ_stat_variants = summ_stat_variants.loc[summ_stat_variants["pval"]<sig_tresh_2,:]
+
         #check that every CS variant is in summ stat variants
         #check that all cs vars are in cred_row_df
         cs_df_ss = load_pysam_df(cs_df,gws_fpath,columns,"",".")
