@@ -179,7 +179,7 @@ def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: 
     #file version check: if number of variants is >0 and FG annotations are smaller, emit a warning message.
     if df.shape[0]>0 and all(fg_df["INFO"].isna()):
         print("Warning: FG annotation does not have any hits but the input data has. Check that you are using a recent version of the finngen annotation file (R3_v1 or above)")
-    fg_df=fg_df.rename(columns={"gene":"most_severe_gene","most_severe":"most_severe_consequence"})
+    fg_df=fg_df.rename(columns={"gene_most_severe":"most_severe_gene","most_severe":"most_severe_consequence"})
     fg_cols=fg_df.columns.values.tolist()
     if batch_freq:
         info=list(filter(lambda s: "INFO" in s,fg_cols))
