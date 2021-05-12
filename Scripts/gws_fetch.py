@@ -501,11 +501,17 @@ def fetch_gws(gws_fpath: str,
 
         #check that every CS variant is in summ stat variants
         #check that all cs vars are in cred_row_df
-        cs_df_ss = load_pysam_df(cs_df,gws_fpath,columns,"",".")
+        cs_df_x = df_replace_value(cs_df.copy(),columns["chrom"],"23","X")
+        cs_df_23 = df_replace_value(cs_df.copy(),columns["chrom"],"X","23")
+        cs_df_ss_x = load_pysam_df(cs_df_x,gws_fpath,columns,"",".")
+        cs_df_ss_23 = load_pysam_df(cs_df_23,gws_fpath,columns,"",".")
+        cs_df_ss = cs_df_ss_x if cs_df_ss_x.shape[0] > cs_df_ss_23.shape[0] else cs_df_ss_23
+        cs_df_ss = df_replace_value(cs_df_ss,columns["chrom"],"X","23")
         summstat_var_col = create_variant_column(cs_df_ss,columns["chrom"],columns["pos"],columns["ref"],columns["alt"])
         cs_var_col = create_variant_column(cs_df,columns["chrom"],columns["pos"],columns["ref"],columns["alt"])
         if not all(cs_var_col.isin(summstat_var_col)):
             print("ERROR: not all CS variants were in summary statistic")
+            print([cs_var for cs_var in cs_var_col if cs_var not in summstat_var_col])
             raise Exception("Not all cs variants were in summary statistic file. Grouping can not continue.")
 
         not_grouped_data = merge_credset(summ_stat_variants,cs_df,gws_fpath,columns)\
