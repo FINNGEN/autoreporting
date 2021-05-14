@@ -308,19 +308,30 @@ def merge_credset(gws_df,cs_df,fname,columns):
     In: Dataframe containing gws variants, dataframe containing credible sets, filename for summary statistic.
     Out: Dataframe containing the gws variants + any credible set variants that are not gws. Columns 'cs_id','cs_prob' added to the dataframe. 
     """
+    cols = list(gws_df.columns)
     join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
     # fetch rows using pysam
-    cred_row_df = load_pysam_df(cs_df,fname,columns)
-    cols = list(gws_df.columns)
+    #create x and chr23 versions
+    cs_f_x = df_replace_value(cs_df[join_cols].copy(),columns["chrom"],"X","23")
+    cs_f_23 = df_replace_value(cs_df[join_cols].copy(),columns["chrom"],"23","X")
+    #load both versions
+    cred_df_x = load_pysam_df(cs_f_x,fname,columns,"",".")
+    cred_df_23 = load_pysam_df(cs_f_23,fname,columns,"",".")
+    #take the one which is longer
+    cred_row_df = cred_df_23 if cred_df_23.shape[0] > cred_df_x.shape[0] else cred_df_x
+    #turn chrX into chr23
+    cred_row_df = df_replace_value(cred_row_df,columns["chrom"],"X","23")
     cred_row_df = cred_row_df[ cols ].drop_duplicates(keep="first")
-    cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
+
+    cred_row_df=cred_row_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str,columns["pval"]:float})
     cs_df=cs_df.astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})
     # ensure only the credible sets were included
     cred_row_df = pd.merge(cred_row_df,cs_df[join_cols],how="right",on=join_cols)
+    #now, by concatting these two, we should have all of the cs variants summstat data present.
     df = pd.concat( [gws_df,cred_row_df], axis="index", ignore_index=True, sort=False)\
-        .astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str})\
+        .astype(dtype={columns["chrom"]:str,columns["pos"]:np.int64,columns["ref"]:str,columns["alt"]:str,columns["pval"]:float})\
         .drop_duplicates(subset=list( join_cols ) )
-    # merge the credible set
+    # merge the credible set data to the summstat data
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
