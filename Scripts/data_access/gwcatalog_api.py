@@ -2,11 +2,11 @@ import json, requests
 import time
 import abc
 import os
-from typing import List, Text, Dict, Any, Optional
+from typing import List, Text, Dict, Any, Optional, NamedTuple
 from io import StringIO
 from itertools import groupby
 import pandas as pd, numpy as np
-from data_access.db import ExtDB, AlleleDB, Location, VariantData, Variant
+from data_access.db import ExtDB, AlleleDB, Location, VariantData, Variant, Rsid, RsidVar
 from autoreporting_utils import Region
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -197,32 +197,58 @@ def add_alleles(gwasdata: pd.DataFrame, alleledb : AlleleDB):
         (pd.DataFrame): Dataframe with added columns (ref, alt)
     """
     #get the Locations
-    data = gwasdata[["chrom","pos"]]
+    data = gwasdata[["chrom","pos"]].drop_duplicates()
     locs = []
     for t in data[["chrom","pos"]].itertuples():
         locs.append(Location(t.chrom,int(t.pos)))
     #get allele lst
     variantlst = alleledb.get_alleles(locs)
     variantlst = [a for a in variantlst if a.biallelic()]
-    variant_df = _resolve_alleles(gwasdata[["chrom","pos","rsid"]],variantlst)
-    out = gwasdata.merge(variant_df,how="inner",on=["chrom","pos"]).drop_duplicates(keep="first")
+    gwas_rsid_list = [Rsid(Location(a.chrom,a.pos),a.rsid) for a in gwasdata.itertuples()]
+    variants_with_alleles = _resolve_alleles(gwas_rsid_list,variantlst)
+    flat_vars = [
+        (
+            a.variant.chrom,
+            a.variant.pos,
+            a.variant.ref,
+            a.variant.alt,
+            a.rsid
+        )
+        for a in variants_with_alleles
+    ]
+    variant_df = pd.DataFrame(flat_vars,columns=["chrom","pos","ref","alt","rsid"])
+    out = gwasdata.merge(variant_df,how="inner",on=["chrom","pos","rsid"]).drop_duplicates(keep="first")
     return out
 
-def _resolve_alleles(df: pd.DataFrame, variantdata: List[VariantData])->pd.DataFrame:
+def _resolve_alleles(rsids: List[Rsid], variantdata: List[VariantData])->List[RsidVar]:
     """Resolve alleles from a list of VariantData and a pd.dataframe
     Args:
-        df (pd.DataFrame): dataframe with columns (chrom, pos, rsid)
+        rsids (List[Rsid]): List of Rsid objects
         variantdata (List[VariantData]): List of VariantData objects
     Returns:
-        (pd.DataFrame): dataframe with columns (chrom,pos,ref,alt)
+        (List[RsidVar]): List of RsidVar objects (Namedtuple with fields variant:Variant,rsid:str)
     """
     #form dataframe
     vardf = [(a.variant.chrom, a.variant.pos, a.variant.ref, ','.join([a.variant.alt]+a.other_alts), a.rsid) for a in variantdata]
     vardf = pd.DataFrame(vardf,columns=["chrom","pos","ref","alt","rsid"])
+    df = pd.DataFrame([(a.location.chromosome,a.location.position, a.rsid) for a in rsids ],columns=["chrom","pos","rsid"]).drop_duplicates()
+    vardf = vardf.drop_duplicates()
     #ensure both have same types
     vardf = vardf.astype({"pos":int,"rsid":int})
     df = df.astype({"pos":int,"rsid":int})
-    return df.merge(vardf, how="inner",on=["chrom","pos","rsid"]).drop(columns=["rsid"])
+    merged_data = df.merge(vardf, how="inner",on=["chrom","pos","rsid"])
+    return [
+        RsidVar(
+            Variant(
+                a.chrom,
+                a.pos,
+                a.ref,
+                a.alt
+            ),
+            a.rsid
+        ) 
+        for a in merged_data.itertuples()
+    ]
 
 class GwasApi(ExtDB):
     """ 

@@ -7,7 +7,7 @@ sys.path.append("../")
 sys.path.append("./")
 sys.path.insert(0, './Scripts')
 from Scripts.data_access import gwcatalog_api
-from Scripts.data_access.db import AlleleDB, Location, VariantData, Variant
+from Scripts.data_access.db import AlleleDB, Location, VariantData, Variant, RsidVar, Rsid
 from Scripts.autoreporting_utils import Region
 import itertools
 from io import StringIO
@@ -245,21 +245,25 @@ class TestGwcat(unittest.TestCase):
     def test_resolve_alleles(self):
         alldb = MockAlleleDB()
         variantdata = alldb.get_alleles([])
-        df={
-            "chrom":["1","2","3"],
-            "pos":[1,10,100],
-            "rsid":[12345,54321,90001]
-        }
-        df=pd.DataFrame(df)
-        out = gwcatalog_api._resolve_alleles(df,variantdata)
+        rsid_data=[
+            Rsid(Location("1",1),12345),
+            Rsid(Location("2",10),54321),
+            Rsid(Location("3",100),90001)
+        ]
+        out = gwcatalog_api._resolve_alleles(rsid_data,variantdata)
         validationdata = {
             "chrom":["1","2"],
             "pos":[1,10],
+            "rsid":[12345,54321],
             "ref":["A","A"],
             "alt":["C","C,G"]
         }
-        validationdata = pd.DataFrame(validationdata)
-        self.assertTrue(out.equals(validationdata))
+        validationdata = [
+            RsidVar(Variant("1",1,"A","C"),12345),
+            RsidVar(Variant("2",10,"A","C,G"),54321)
+        ]
+        #validationdata = pd.DataFrame(validationdata)
+        self.assertEqual(out,validationdata)
 
 class TestLocalDB(unittest.TestCase):
     """Test LocalDB

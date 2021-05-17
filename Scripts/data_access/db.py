@@ -80,11 +80,21 @@ class Location(NamedTuple):
     chromosome: str
     position: int
 
+class Rsid(NamedTuple):
+    """Rsid number
+    """
+    location: Location
+    rsid: str
+
+class RsidVar(NamedTuple):
+    variant: Variant
+    rsid: str
+
 class VariantData(NamedTuple):
     """Potentially multiallelic variant
     """
     variant: Variant
-    other_alts: List[str] #posibly empty
+    other_alts: List[str] #possibly empty
     rsid: int
 
     def biallelic(self) -> bool:
