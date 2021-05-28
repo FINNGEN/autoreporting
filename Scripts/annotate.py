@@ -87,12 +87,11 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
         functional_path (str): Annotation file path
         columns (Dict[str,str]): column names
     Returns:
-        (pd.DataFrame): Dataframe with columns for variant id, functional consequence, 
+        (pd.DataFrame): Dataframe with columns for variant id, 
         fin.AF,fin_AN,fin_AC, fin.homozygote_count, fet_nfsee.odds_ratio , 
         fet_nfsee.p_value, nfsee.AC, nfsee.AN, nfsee.AF, nfsee.homozygote_count
     """
     return_columns = ["#variant", 
-        "functional_category",
         "enrichment_nfsee",
         "fin.AF",
         "fin.AN",
@@ -112,20 +111,11 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
         "alt":"alt"
     }
 
-    functional_categories = ["pLoF",
-        "LC",
-        "start_lost",
-        "stop_lost",
-        "stop_gained",
-        "inframe_indel",
-        "missense_variant"]
-
     col_rename_dict = {
         "chrom":columns["chrom"],
         "pos":columns["pos"],
         "ref":columns["ref"],
         "alt":columns["alt"],
-        "consequence":"functional_category"
     }
 
     if (not functional_path) or df.empty:
@@ -140,30 +130,56 @@ def functional_annotate(df: pd.DataFrame, functional_path: Optional[str], column
     func_df=df_replace_value(func_df,"chrom","X","23")
     func_df = func_df.drop_duplicates(subset=["chrom","pos","ref","alt"]).rename(columns=col_rename_dict)
     
-    func_df["functional_category"] = func_df["functional_category"].apply(lambda x: x if x in functional_categories else np.nan)
 
     func_df["#variant"] = create_variant_column(func_df,chrom=columns["chrom"],pos=columns["pos"],ref=columns["ref"],alt=columns["alt"])
 
     return func_df[return_columns]
 
-def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: bool, columns: Dict[str,str]) -> pd.DataFrame:
+def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], columns: Dict[str,str]) -> pd.DataFrame:
     """Annotate variants with finngen annotations
     Args:
         df (pd.DataFrame): Input dataframe
         finngen_path (str): Annotation file path
-        batch_freq (bool): whether to incluyde
         columns (Dict[str,str]): column names
     Returns:
-        (pd.DataFrame): Dataframe with columns for variant id, finngen annotation columns prefixed with 'FG_'
+        (pd.DataFrame): Dataframe with columns #variant,
+            most_severe_gene,
+            most_severe_consequence,
+            FG_INFO,
+            n_INFO_gt_0_6,
+            functional_category
     """
-    finngen_cols=["most_severe_gene","most_severe_consequence"]
+    finngen_cols=[
+        "most_severe_gene",
+        "most_severe_consequence",
+        "FG_INFO",
+        "n_INFO_gt_0_6",
+        "functional_category"
+    ]
     resource_cols = {
         "chrom":"chr",
         "pos":"pos",
         "ref":"ref",
         "alt":"alt"
     }
-
+    functional_categories=[
+        "transcript_ablation",
+        "splice_donor_variant",
+        "stop_gained",
+        "splice_acceptor_variant",
+        "frameshift_variant",
+        "stop_lost",
+        "start_lost",
+        "inframe_insertion",
+        "inframe_deletion",
+        "missense_variant",
+        "protein_altering_variant"
+    ]
+    col_rename_d = {
+        "gene_most_severe":"most_severe_gene",
+        "most_severe":"most_severe_consequence",
+        "INFO":"FG_INFO"
+    }
     if (not finngen_path) or df.empty:
         return pd.DataFrame(columns=["#variant"])
     if not os.path.exists(finngen_path):
@@ -177,20 +193,25 @@ def finngen_annotate(df: pd.DataFrame, finngen_path: Optional[str], batch_freq: 
     fg_df["#variant"]=create_variant_column(fg_df,chrom="chr",pos="pos",ref="ref",alt="alt")
     fg_df = fg_df.drop_duplicates(subset=["#variant"])
     #file version check: if number of variants is >0 and FG annotations are smaller, emit a warning message.
-    if df.shape[0]>0 and all(fg_df["INFO"].isna()):
+    if df.shape[0]>0 and fg_df.shape[0]==0:
         print("Warning: FG annotation does not have any hits but the input data has. Check that you are using a recent version of the finngen annotation file (R3_v1 or above)")
-    fg_df=fg_df.rename(columns={"gene_most_severe":"most_severe_gene","most_severe":"most_severe_consequence"})
+    
+    fg_df=fg_df.rename(columns=col_rename_d)
+
+    #create functional category col. np.where syntax: np.where(condition,value_if_true,value_if_false)
+    fg_df["functional_category"] = np.where(
+        fg_df["most_severe_consequence"].isin(functional_categories),
+        fg_df["most_severe_consequence"],
+        np.nan
+    )
+    #calculate how many batchwise info vals > 0.6
     fg_cols=fg_df.columns.values.tolist()
-    if batch_freq:
-        info=list(filter(lambda s: "INFO" in s,fg_cols))
-        imp=list(filter(lambda s: "IMP" in s,fg_cols))
-        af=list(filter(lambda s: "AF" in s,fg_cols))
-        fg_batch_lst=info+imp+af
-        fg_batch_rename=create_rename_dict(fg_batch_lst,"FG_")
-        fg_df=fg_df.rename(columns=fg_batch_rename)
-        fg_batch_lst=list(fg_batch_rename.values())
-        finngen_cols=finngen_cols+fg_batch_lst
+    infocols = list(filter(lambda s: "INFO_" in s,fg_cols))
+    fg_df["n_INFO_gt_0_6"] = np.sum(fg_df[infocols]>0.6,axis=1)
+    
+    #subset final columns
     fg_df=fg_df.loc[:,["#variant"]+finngen_cols]
+    
     return fg_df
 
 def gnomad_gen_annotate(df: pd.DataFrame, gnomad_path: Optional[str], columns: Dict[str, str]) -> pd.DataFrame:
@@ -307,7 +328,7 @@ def gnomad_exo_annotate(df: pd.DataFrame, gnomad_path: str, columns: Dict[str, s
     gnomad_exomes=gnomad_exomes.rename(columns=gn_exo_rename_d)
     return gnomad_exomes
 
-def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, batch_freq: bool, finngen_path: str, functional_path: str, previous_release_path: str ,prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
+def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, finngen_path: str, functional_path: str, previous_release_path: str ,prefix: str, columns: Dict[str, str]) -> pd.DataFrame :
     """
     Annotates variants with allele frequencies, enrichment numbers, and most severe gene/consequence data
     Annotations from gnomad exome data, gnomad genome data, finngen annotation file, functional annotation file.
@@ -315,7 +336,6 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
         df (pd.DataFrame): Variant dataframe
         gnomad_genome_path (str): gnomad genome annotation file path
         gnomad_exome_path (str): gnomad exome annotation file path
-        batch_freq (bool): flag for whether to include batch-specific frequencies from finngen annotation
         finngen_path (str): finngen annotation file path
         functional_path (str): functional annotation file path
         previous_release_path (str): filepath for the previous release
@@ -340,7 +360,7 @@ def annotate(df: pd.DataFrame, gnomad_genome_path: str, gnomad_exome_path: str, 
     func_df = functional_annotate(call_df_x, functional_path, columns)
     gnomad_genomes = gnomad_gen_annotate(call_df_x,gnomad_genome_path,columns)
     gnomad_exomes = gnomad_exo_annotate(call_df_x,gnomad_exome_path,columns)
-    fg_df = finngen_annotate(df,finngen_path,batch_freq,columns)
+    fg_df = finngen_annotate(df,finngen_path,columns)
 
     #merge the wanted columns into df
     df=df.merge(gnomad_genomes,how="left",on="#variant")
@@ -356,7 +376,6 @@ if __name__=="__main__":
     parser.add_argument("annotate_fpath",type=str,help="Filepath of the results to be annotated")
     parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
     parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
-    parser.add_argument("--include-batch-freq",dest="batch_freq",action="store_true",help="Include batch frequencies from finngen annotations")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,help="File path to previous release summary statistic file")
@@ -372,6 +391,6 @@ if __name__=="__main__":
         print("Annotation files missing, aborting...")
     else:    
         input_df = pd.read_csv(args.annotate_fpath,sep="\t")
-        df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, batch_freq=args.batch_freq, finngen_path=args.finngen_path,
+        df = annotate(df=input_df,gnomad_genome_path=args.gnomad_genome_path, gnomad_exome_path=args.gnomad_exome_path, finngen_path=args.finngen_path,
         functional_path=args.functional_path, previous_release_path=args.previous_release_path, prefix=args.prefix, columns=columns)
         df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
