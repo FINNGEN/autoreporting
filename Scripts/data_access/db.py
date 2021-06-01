@@ -113,3 +113,30 @@ class AlleleDB(object):
             (List[VariantData]): As many of those locations 
         """
         return
+
+class CSVariant(NamedTuple):
+    variant:Variant
+    prob: float
+    lead_r2:float
+
+class CS(NamedTuple):
+    variants:List[CSVariant]
+    lead:Variant
+    region: str
+    number:int
+    bayes:float
+    min_r2:float
+    size:int
+    good_cs: bool
+
+class CSAccess(object):
+    """
+    Abstract object for getting CS information
+    """
+    @abc.abstractmethod
+    def get_cs(self)->List[CS]:
+        """Returns all credible sets from a datasource
+        Returns:
+            (List[CS]): List of credible sets. Each credible set contains variants.
+        """
+        return

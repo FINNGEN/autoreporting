@@ -9,6 +9,7 @@ from typing import Dict, List
 from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD, Variant, LDData
 from data_access.db import LDAccess
+from data_access.db import CSAccess, CS, CSVariant
 
 def parse_region(region):
     chrom=region.split(":")[0]
