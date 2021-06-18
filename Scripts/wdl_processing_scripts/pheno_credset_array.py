@@ -69,6 +69,8 @@ def main(args):
     prevs = construct_phenoname_list(prevlist, args.prev_release_prefix)
     #match the rows
     output_list=[]
+    if args.only_cred:
+        phenos=[a for a in phenos if a in creds]
     for p in phenos:
         line="{}\t{}/{}{}.{}\t".format(p,phenopathdict[p], args.phenotype_prefix,p,phenosuffixdict[p])
         if p in creds:
@@ -95,6 +97,7 @@ if __name__ == "__main__":
     parser.add_argument("--credset-prefix",type=str,default="",help="If the credible sets have a prefix that is not part of the phenotype name, e.g. version number use this flag to include it.")
     parser.add_argument("--prev-release-prefix",type=str,default="",help="If the previous release summary statistics have a prefix that is not part of the phenotype name, e.g. version number use this flag to include it.")
     parser.add_argument("--empty-file-path",type=str,required=True,help="File path for an empty dummy file in google cloud. Used to fill missing entries.")
+    parser.add_argument("--only-cred",action="store_true",help="Include only phenotypes with credible set information")
     parser.add_argument("--out", type=str, required=True, help="Output file")
     args=parser.parse_args()
     main(args)
