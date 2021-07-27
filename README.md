@@ -17,6 +17,8 @@
             * 4.2.2.1. [A detailed description of annotate](#detailedannotate)  
         * 4.2.3. [compare<span></span>.py:](#comparespanspanpy)  
             * 4.2.3.1. [A detailed description of compare](#detailedcompare)  
+        * 4.2.4. [top_report<span></span>.py:](#top_reportspanspanpy)  
+            * 4.2.4.1. [A detailed description of compare](#detailedtop)  
 * 5. [Outputs](#Outputs)  
 * 6. [WDL pipeline](#WDLpipeline)  
     * 6.1. [WDL files](#wdlinputs)  
@@ -92,6 +94,7 @@ The resources to use this tool (gnomAD & FinnGen annotations, LD panel) can be f
 - FinnGen annotations: ```gs://finngen-production-library-green/finngen_R4/finngen_R4_analysis_data/annotations/```
 - Functional annotations: ```gs://r4_data_west1/gnomad_functional_variants/fin_enriched_genomes_select_columns.txt.gz```
 - LD panel (based on 1000 genomes data): ```gs://finngen-production-library-green/autoreporting_annotations/1kg_ld/whole_1k*```
+- VCF allele panel for gwas catalog comparison: ```gs://finngen-production-library-green/autoreporting_annotations/vcf_allele_panel/dbsnp_hg38p13_b153_numerical.vcf.gz```
 
 
 #  4. <a name='Usage'></a>Usage
@@ -107,29 +110,33 @@ usage: main.py [-h] [--sign-treshold SIG_TRESHOLD] [--prefix PREFIX]
                [--grouping-method GROUPING_METHOD]
                [--locus-width-kb LOC_WIDTH]
                [--alt-sign-treshold SIG_TRESHOLD_2]
-               [--ld-panel-path LD_PANEL_PATH] [--ld-r2 LD_R2]
+               [--ld-panel-path LD_PANEL_PATH]
+               [--ld-r2 LD_R2 | --dynamic-r2-chisq [DYNAMIC_R2_CHISQ]]
                [--plink-memory PLINK_MEM] [--overlap]
                [--ignore-region IGNORE_REGION]
                [--credible-set-file CRED_SET_FILE] [--ld-api LD_API_CHOICE]
+               [--pheno-name PHENO_NAME] [--pheno-info-file PHENO_INFO_FILE]
+               [--extra-cols [EXTRA_COLS [EXTRA_COLS ...]]]
+               [--column-labels CHROM POS REF ALT PVAL]
                [--gnomad-genome-path GNOMAD_GENOME_PATH]
-               [--gnomad-exome-path GNOMAD_EXOME_PATH] [--include-batch-freq]
+               [--gnomad-exome-path GNOMAD_EXOME_PATH]
                [--finngen-path FINNGEN_PATH]
                [--functional-path FUNCTIONAL_PATH]
-               [--annotate-out ANNOTATE_OUT]
-               [--use-gwascatalog] [--custom-dataresource CUSTOM_DATARESOURCE]
-               [--check-for-ld] [--report-out REPORT_OUT]
-               [--ld-report-out LD_REPORT_OUT]
+               [--previous-release-path PREVIOUS_RELEASE_PATH]
+               [--annotate-out ANNOTATE_OUT] [--use-gwascatalog]
+               [--custom-dataresource CUSTOM_DATARESOURCE] [--check-for-ld]
+               [--report-out REPORT_OUT] [--ld-report-out LD_REPORT_OUT]
                [--gwascatalog-pval GWASCATALOG_PVAL]
                [--gwascatalog-width-kb GWASCATALOG_PAD]
                [--gwascatalog-threads GWASCATALOG_THREADS]
-               [--ldstore-threads LDSTORE_THREADS] [--ld-treshold LD_TRESHOLD]
-               [--cache-gwas] [--column-labels CHROM POS REF ALT PVAL]
-               [--extra-cols [EXTRA_COLS [EXTRA_COLS ...]]]
+               [--ldstore-threads LDSTORE_THREADS]
+               [--ld-threshold LD_THRESHOLD] [--cache-gwas]
+               [--local-gwascatalog LOCALDB_PATH]
+               [--db {local,gwas,summary_stats}]
+               [--gwascatalog-allele-file ALLELE_DB_FILE]
                [--top-report-out TOP_REPORT_OUT]
                [--strict-group-r2 STRICT_GROUP_R2]
                [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
-               [--local-gwascatalog LOCALDB_PATH]
-               [--db {local,gwas,summary_stats}]
                gws_fpath
 ```
 
@@ -146,27 +153,29 @@ Argument   |  Meaning   |   Example | Original script
 --alt-sign-treshold | optional alternate significance threshold for including less significant variants into groups. | --alt-sign-treshold 5e-6 | gws_fetch.py
 --ld-panel-path | path to the LD panel, without panel file suffix. LD panel must be in plink's .bed format, as a single file. Accompanying .bim and .fam files must be in the same directory. | --ld-panel-path path_to_panel/plink_file | gws_fetch.py
 --ld-r2 | plink clump-r2 argument, default 0.4 | --ld-r2 0.7 | gws_fetch.py
+--dynamic-r2-chisq | If flag is passed, r2 threshold is set per peak so that leadvar_chisq*r2=value (default 5). | --dynamic-r2-chisq | gws_fetch.py
 --ld-api | choose which LD calculation method you want to use. `online` requires no ld panel or plink usage. `plink` uses plink to calculate LD. | --ld-api plink \| online | gws_fetch.py
 --plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 | gws_fetch.py
 --overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap | gws_fetch.py
 --ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 | gws_fetch.py
 --credible-set-file| Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.| --credile-set-file file_containing_susie_snp_files | gws_fetch.py
+--previous-release-path | path to previous release summary statistic. Must be tabixed. Required for annotation. | --previous-release-path path/prev_rel_pheno.gz | annotate<span></span>.py
 --gnomad-genome-path | path to gnomAD genome annotation file. Must be tabixed. Required for annotation. | --gnomad-genome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
 --gnomad-exome-path | path to gnomAD exome annotation file. Must be tabixed. Required for annotation. | --gnomad-exome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
---include-batch-freq | Include batch frequencies from FinnGen annotation file | --include-batch-freq | annotate<span></span>.py
 --finngen-path | Path to FinnGen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --functional-path | File path to functional annotation file | --functional-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
 --annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
 --use-gwascatalog | Add flag to compare results against GWAS Catalog associations | --use-gwascatalog | compare<span></span>.py
 --custom-dataresource | Compare against associations defined in an additional file. | --custom-dataresource file.tsv | compare<span></span>.py
---check-for-ld | When supplied, gws variants and summary statistics (from file or GWAS Catalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
 --raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if asked for. | --raport-out raport_out.tsv | compare<span></span>.py
---ld-raport-out | ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
 --gwascatalog-pval | P-value to use for filtering results from GWAS Catalog. default 5e-8 | --gwascatalog-pval 5e-6 | compare<span></span>.py
 --gwascatalog-width-kb | Buffer outside gws variants that is searched from GWAS Catalog, in kilobases. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
 --gwascatalog-threads | Number of concurrent queries to gwasgatalog API. Default 4. Increase to speed up gwascatalog comparison. | --gwascatalog-threads 8 | compare<span></span>.py
---ldstore-threads | Number of threads to use with LDstore. At most the number of logical cores your processor has. Default 4.| --ldstore-threads 2 | compare<span></span>.py
---ld-treshold | LD threshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
+--gwascatalog-allele-file | compressed & tabixed VCF file which contains alleles for rsids. Required for `gwas` and `local` gwascatalog dbs. Must be matching build and version with GWAS Catalog. Currently hg38.12 b153. | --gwascatalog-allele-file| compare<span></span>.py
+--ld-raport-out | DEPRECATED ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
+--check-for-ld | DEPRECATED When supplied, gws variants and summary statistics (from file or GWAS Catalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
+--ldstore-threads | DEPRECATED Number of threads to use with LDstore. At most the number of logical cores your processor has. Default 4.| --ldstore-threads 2 | compare<span></span>.py
+--ld-treshold | DEPRECATED LD threshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
 --cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
 --column-labels | Specify summary file column names. Columns specified are: (chrom, pos, ref, alt, pval) . Default is '#chrom pos ref alt pval'. | --column-labels CHROM POS REF ALT PVAL | all scripts
 --extra-cols | Include additional columns from the summary file in the analysis, for example effect size, rsid or allele frequencies. Values are added both to variant reports and group reports, with names like lead_COLNAME in group report. | --extra-cols beta sebeta rsid maf_cases maf_controls | gws_fetch.py
@@ -174,7 +183,7 @@ Argument   |  Meaning   |   Example | Original script
 --efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Ontology codes. | --efo-traits EFO_1 EFO_2 EFO_3 EFO_4 | compare<span></span>.py
 --local-gwascatalog | File path to gwas catalog downloadable associations with mapped ontologies. | --local-gwascatalog gwascatalog-associations-with-ontologies.tsv | compare<span></span>.py
 --db | Choose which comparison database to use: GWAS Catalog proper, GWAS Catalog's summary statistic api, or a local copy of GWAS Catalog. With local copy, you need to supply the --local-gwascatalog filepath | --db gwas \| summary_stats \| local | compare<span></span>.py
-gws_path |  Path to the tabixed and gzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
+gws_path |  Path to the tabixed and bgzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
 
 The same arguments are used in the smaller scripts that the main script uses.
 
@@ -206,6 +215,7 @@ gnomad_genome=path_to_annotation/gnomad_genomes.gz          # gnomad genome anno
 gnomad_exome=path_to_annotation/gnomad_exomes.gz            # gnomad exome annotation file
 finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
 functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
+gwas_allele_path=path_to_allele_vcf/dbsnp_vcf.gz            # GWAS Catalog allele annotation file 
 use_gwascatalog="--use-gwascatalog"                         # Compare against GWAS Catalog
 db=gwas                                                     # GWAS Catalog database: local copy (local), normal (gwas), or summary statistic API (summ_stats)
 extracols='rsid beta sebeta maf maf_cases maf_controls'     # Add additional columns to reports
@@ -222,6 +232,7 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --gnomad-exome-path $gnomad_exome \
         --finngen-path $finngen_ann \
         --functional-path $functional_ann \
+        --gwascatalog-allele-file  $gwas_allele_path \
         $use_gwascatalog --db $db --extra-cols $extracols
 ```
 
@@ -307,7 +318,7 @@ The grouping based on linkage disequilibrium is based on plink 1.9's --clump opt
 ```
 usage: annotate.py [-h] [--gnomad-genome-path GNOMAD_GENOME_PATH]
                    [--gnomad-exome-path GNOMAD_EXOME_PATH]
-                   [--include-batch-freq] [--finngen-path FINNGEN_PATH]
+                   [--finngen-path FINNGEN_PATH]
                    [--functional-path FUNCTIONAL_PATH] [--prefix PREFIX]
                    [--annotate-out ANNOTATE_OUT]
                    [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
@@ -339,8 +350,9 @@ __input__:
 annotate_fpath: The output of gws_fetch.py  
 gnomad_genome_path: A tabixed, bgzipped gnomAD genome annotation file.  
 gnomad_exome_path: A tabixed, bgzipped gnomAD exome annotation file.  
-finngen_path: A tabixed, bgzipped FinnGen annotation file. Batch-specific information can be included with the flag ```--include-batch-freq```. Due to file formatting changes, the FinnGen version matters. The version can be given with the ```--finngen-annotation-version``` flag. Finngen annotation files made with releases 3 or earlier should use the value 'r3', and files made with releases 4 and above should use value 'r4'. The default value is 'r3'. Given an invalid version, the script will not be able to parse the FinnGen annotation file.  
+finngen_path: A tabixed, bgzipped FinnGen annotation file. Due to file formatting changes, the FinnGen version matters. Use a finngen variant annotation for r4 or newer. Given an invalid version, the script will not be able to parse the FinnGen annotation file.  
 functional_path: A tabixed, bgzipped file containing the functional consequences (missense variant, pLoF etc.) for variants.  
+prev_release_path: A tabixed, bgzipped summary statistic file of previous release results. Has to have same columns as input summary statistic
 __output__:  
 annotate_out: A file with the same columns as annotate_fpath, as well as additional annotation columns from gnomAD, FinnGen and functional annotations.  
 
@@ -362,13 +374,11 @@ usage: compare.py [-h] [--sign-treshold SIG_TRESHOLD]
                   [--gwascatalog-width-kb GWASCATALOG_PAD]
                   [--gwascatalog-threads GWASCATALOG_THREADS]
                   [--ldstore-threads LDSTORE_THREADS]
-                  [--ld-treshold LD_TRESHOLD] [--cache-gwas]
-                  [--column-labels CHROM POS REF ALT PVAL BETA AF AF_CASE AF_CONTROL]
-                  [--top-report-out TOP_REPORT_OUT]
-                  [--strict-group-r2 STRICT_GROUP_R2]
-                  [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
+                  [--ld-threshold LD_THRESHOLD] [--cache-gwas]
+                  [--column-labels CHROM POS REF ALT PVAL]
                   [--local-gwascatalog LOCALDB_PATH]
                   [--db {local,gwas,summary_stats}]
+                  [--gwascatalog-allele-file ALLELE_DB_FILE]
                   compare_fname
 ```
 The compare<span></span>.py-script is used to compare the genome-wide significant variants to earlier results, either in the form of summary statistics supplied to the script or searched from GWAScatalog's summary statistic api. The optional arguments are the same as the arguments to main<span></span>.py. Here's an example bash script for running compare<span></span>.py:
@@ -399,13 +409,30 @@ custom_dataresource (optional): A tab-separated values file containing variants 
 __Output__:  
 report_out: a tsv report of the variants, with each variant on its own row. If the variant has been reported in earlier studies, the phenotype and p-value for that study is announced. Variants that are novel are also reported. In case a variant associates with multiple phenotypes, all of these are reported on their own rows.  
 ld_report_out: A tsv report of those variants that are in LD with external summary statistic/gwascatalog variants.  
-top_report_out: A tsv report of variant groups. Information about the associated phenotypes, functional variants and credible set variants is included. More specific match information is presented in report_out. Functional variants and associations are divided into two columns, `_relaxed` and `_strict`. The `_relaxed`-columns show the functional variants/associations for the whole group, and `_strict`-columns show the functional variants/associations for 1) the credible set in case grouping around credible sets, 2) for variants in the group whose p-value is under the p-value threshold in case of other grouping methods.
 
 __Script function__:
 The comparison script takes in a filtered and annotated variant tsv file, and reports if those variants have been announced in earlier studies. The comparison can be done against GWAS Catalog, an online variant database, or against an additional dataresource. Phenotypes of interest can be added using the `--efo-codes` flag. If these phenotypes are present in the compared associations, they are presented on the top report on their own column.  
 The GWAS Catalog API access can be controlled using parameters ```--gwascatalog-threads```, ```--gwascatalog-pval``` and ```--gwascatalog-width-kb```. The ```--gwascatalog-threads``` parameters decides how many concurrent connections to the GWAS Catalog are allowed. This is not limited by the number of logical cores in your computer's processor. The ```--gwascatalog-pval``` parameter sets the threshold for associations from GWAS Catalog: If the association has a smaller p-value, it is included. The ```--gwascatalog-width-kb``` parameter is not currently used.   
-Optionally, genome-wide significant variants can also be tested for LD against database associations using the flag ```--check-for-ld```. Variants for which the ld value is larger than `--ld-treshold` value are reported. Same parameters that were used in gws_fetch.py, like ```--plink-memory``` and ```--ld-panel-path``` need to be used. However, these results are not incorporated to the top report.
+DEPRECATED Optionally, genome-wide significant variants can also be tested for LD against database associations using the flag ```--check-for-ld```. Variants for which the ld value is larger than `--ld-treshold` value are reported. Same parameters that were used in gws_fetch.py, like ```--plink-memory``` and ```--ld-panel-path``` need to be used. However, these results are not incorporated to the top report.
 
+
+##  4.2.4. <a name='top_reportspanspanpy'></a>top_report<span></span>.py:  
+```
+usage: top_report.py [-h] [--sign-treshold SIG_TRESHOLD]
+                     [--grouping-method GROUPING_METHOD]
+                     [--column-labels CHROM POS REF ALT PVAL]
+                     [--extra-cols [EXTRA_COLS [EXTRA_COLS ...]]]
+                     [--efo-codes EFO_TRAITS [EFO_TRAITS ...]]
+                     [--strict-group-r2 STRICT_GROUP_R2]
+                     [--top-report-out TOP_REPORT_OUT]
+                     report_fname
+```
+The top_report.py script is used to compile a group-aggregated report of the autoreporting variant-based report. One group is presented per row, and values of the top variant and values aggregated over the group are listed for each group. See section [outputs](#Outputs) for a detailed description for the top report structure.
+###  4.2.4.1. <a name='detailedtop'></a>A detailed description of top_report<span></span>.py:  
+__TODO__
+For now, the top report is built identically as it is when running main<span></span>.py. See section [outputs](#Outputs)
+__Output__:    
+top_report_out: A tsv report of variant groups. Information about the associated phenotypes, functional variants and credible set variants is included. More specific match information is presented in report_out. Functional variants and associations are divided into two columns, `_relaxed` and `_strict`. The `_relaxed`-columns show the functional variants/associations for the whole group, and `_strict`-columns show the functional variants/associations for 1) the credible set in case grouping around credible sets, 2) for variants in the group whose p-value is under the p-value threshold in case of other grouping methods.
 
 ##  5. <a name='Outputs'></a>Outputs
 
@@ -445,13 +472,13 @@ gnomAD_nfsee.homozygote_count | Amount of homozygote carriers in NFSEE populatio
 cs_id | credible set id | `chr1_123456_A_C_1`
 cs_size | credible set size | `5`
 cs_log_bayes_factor | credible set bayes factor, log10 | `5.21`
-cs_number | credible set number in its region | `1`
+cs_number | credible set number in its region. Numbers are not necessarily indicative of the amount of credible sets for a region. For example, a cs number of 9 does not mean there are 9 credible sets for that region. | `1`
 cs_region | finemapping region | `1:1-30000001`
 found_associations_strict | This column lists all of the trait associations found in GWAS Catalog for variants that are in the credible set/strict group  (strict group here means that in case of LD grouping, variants that are in higher LD than a given threshold). The trait name is followed by the amount of correlation (in R²) that association had with the lead variant. If there are multiple variants associated with that trait, the largest value is chosen. | `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All of the variants associated with a trait are guaranteed to either be part of a credible set (in the case of credible set grouping), or to have LD larger than a given threshold with the top variant (in case of LD grouping).
 found_associations_relaxed | This column lists all of the trait associations found in GWAS Catalog for variants in the group. The trait name is followed  by the R² to lead value of the variant that had the association. If there are multiple variants associated with that trait, the largest value is chosen.  |  `trait1\|1;trait2\|0.8` Given a group that has been associated with traits `trait1` and `trait2`, `trait1` association is in the top SNP and `trait2`  association with variants that have R² of [0.5,0.8] with top SNP. All associated variants are guaranteed to be part of this group.  
 credible_set_variants | This column lists the credible set variants. The PIP and R² values are listed after the variant | `chr1_1_C_T\|0.6\|1;chr1_100_A_G\|0.2\|0.999` for variants `chr1_1_C_T` and `chr1_100_A_G`, with PIP and R² values of [0.6,0.2] and [1,0.999], respectively.
-functional_variants_strict | All of the variants with a functional consequence, with the functional consequence label and R² to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the credible set/strict group. 
-functional_variants_relaxed | All of the variants with a functional consequence, with the functional consequence label and R² to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|0.6` for a group with one missense variant and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the group.
+functional_variants_strict | All of the variants with a functional consequence, with the functional consequence label, gene related to that label and R² to lead variant. The variants are part of the credible set/strict group. | `chr1_1_C_T\|missense_variant\|ABC123\|0.6` for a group with one missense variant associated with gene ABC123 and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the credible set/strict group. 
+functional_variants_relaxed | All of the variants with a functional consequence, with the functional consequence label, gene related to that label and R² to lead variant. | `chr1_1_C_T\|missense_variant\|ABC123\|0.6` for a group with one missense variant associated with gene ABC123 and R² to lead variant of `0.6`. All listed variants are guaranteed to be part of the group.
 specific_efo_trait_associations_strict | If specific traits were given to the script(e.g. equivalent EFO codes to the phenotype in question), any trait associations correspoding to those traits are listed here. This column lists only associations where the variant is in the credible set/strict group.| Same formatting as found_associations_strict 
 specific_efo_trait_associations_relaxed | If specific traits were given to the script(e.g. equivalent EFO codes to the phenotype in question), any trait associations correspoding to those traits are listed here. This column lists associations to all variants in the group. |  Same formatting as found_associations_relaxed
 credible_set_min_r2_value | The minimum R² value to lead variant in the credible set | `0.489`
@@ -528,7 +555,6 @@ autoreporting.primary_grouping_method |   Primary grouping method, currently onl
 autoreporting.secondary_grouping_method |   Grouping method to use if credible set file is not available.   |   String   |"ld" | -
 autoreporting.group |   Whether to group the variants or not   |   Boolean   |true | `--group`
 autoreporting.overlap |   Whether variants in a group are allowed to be part of other groups   |   Boolean   | false | `--overlap`
-autoreporting.include_batch_freq |   Whether to include batch-specific annotations for INFO scores   |   Boolean   |true | `--include-batch-freq`
 autoreporting.sign_treshold |   Significance threshold for simple and ld grouping   |   Float   |5e-8 | `--sign-treshold`
 autoreporting.alt_sign_treshold |   Alternate significance threshold for simple and ld grouping   |    Float  |1e-2 | `--alt-sign-treshold`
 autoreporting.grouping_locus_width |   Grouping window in kilobases   |   Integer   |2000 | `--locus-width-kb`

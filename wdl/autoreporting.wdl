@@ -41,7 +41,6 @@ task report {
 
     Boolean group
     Boolean overlap
-    Boolean include_batch_freq
 
     String primary_grouping_method
     String secondary_grouping_method
@@ -86,7 +85,6 @@ task report {
 
         group="--group" if "${group}"=="true" else ""
         overlap="--overlap" if "${overlap}"=="true" else ""
-        include_batch_freq="--include-batch-freq" if "${include_batch_freq}"=="true" else ""
         grouping_method = "${primary_grouping_method}" if "${credible_set}" != empty_file else "${secondary_grouping_method}" 
         ignore_cmd = "--ignore-region ${ignore_region}" if "${ignore_region}" != "" else ""
         db_choice = "${db_choice}"
@@ -126,7 +124,6 @@ task report {
                     f"--ld-panel-path {plink_path} "
                     f"{ld_opts} "#ld opts
                     f"--plink-memory {plink_memory} "
-                    f"{include_batch_freq} " #include batch freq
                     f"--finngen-path {finngen_annotation} "
                     f"--functional-path {functional_annotation} "
                     f"--gnomad-genome-path {gnomad_genome} "

@@ -161,10 +161,11 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
         # Get credible set variants in relazed & strict group, as well as functional variants. 
         # Try because it is possible that functional data was skipped.
         try:
-            func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),["#variant","functional_category","r2_to_lead"] ].drop_duplicates()
-            func_set=";".join("{}|{}|{:.3g}".format(t._1,t.functional_category,t.r2_to_lead) for t in  func_s.itertuples())
-            func_s_strict = strict_group.loc[~strict_group["functional_category"].isna(),["#variant","functional_category","r2_to_lead"] ].drop_duplicates()
-            func_set_strict=";".join("{}|{}|{:.3g}".format(t._1,t.functional_category,t.r2_to_lead) for t in  func_s_strict.itertuples())
+            col_lst = ["#variant","functional_category","most_severe_gene","r2_to_lead"]
+            func_s = loc_variants.loc[~loc_variants["functional_category"].isna(),col_lst].drop_duplicates()
+            func_set=";".join("{}|{}|{}|{:.3g}".format(t._1,t.functional_category,t.most_severe_gene,t.r2_to_lead) for t in  func_s.itertuples())
+            func_s_strict = strict_group.loc[~strict_group["functional_category"].isna(),col_lst ].drop_duplicates()
+            func_set_strict=";".join("{}|{}|{}|{:.3g}".format(t._1,t.functional_category,t.most_severe_gene,t.r2_to_lead) for t in  func_s_strict.itertuples())
         except:
             func_set=""
             func_set_strict=""
