@@ -170,7 +170,7 @@ task report {
         cpu: "${cpus}"
         memory: "${memory} GB"
         disks: "local-disk 100 HDD"
-        zones: "europe-west1-b"
+        zones: "europe-west1-b europe-west1-c europe-west1-d"
         preemptible: 2
     }
 }
