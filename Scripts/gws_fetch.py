@@ -10,6 +10,8 @@ from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD, Variant, LDData
 from data_access.db import LDAccess
 from data_access.db import CSAccess, CS, CSVariant
+from data_access.cs import cs_to_df
+from data_access.csfactory import csfactory
 
 def parse_region(region):
     chrom=region.split(":")[0]
@@ -46,67 +48,6 @@ def simple_grouping(df_p1,df_p2,r,overlap,columns):
             t_dropidx=(group_df[ columns["pos"] ]<=(ms_snp[columns["pos"]]+r) )&(group_df[ columns["pos"] ]>=(ms_snp[columns["pos"]]-r) )&(group_df[ columns["chrom"] ]==ms_snp[columns["chrom"]])
             group_df=group_df.loc[~t_dropidx,:]
     return new_df
-
-def load_credsets(fname: str, columns: Dict[str, str]) -> pd.DataFrame:
-    """
-    Load SuSiE credible sets from one bgzipped file.
-    Args:
-        fname (str): SUSIE snp file
-        columns (Dict[str, str]): Column name dictionary
-    Returns:
-        (pd.DataFrame): pandas dataframe containing the credible set variants with chr, pos, ref, alt, cs probability, and cs id.
-
-    """
-    input_data = pd.read_csv(fname,sep="\t",compression="gzip")
-    if input_data.empty:
-        return pd.DataFrame(columns = columns.values()+["cs_prob","cs_id","cs_region","cs_number","r2_to_lead"])
-    input_data = input_data[input_data["cs"]!=-1]#filter to credible sets
-    input_data["credsetid"]=input_data[["region","cs"]].apply(lambda x: "".join([str(y) for y in x]),axis=1)
-    data = input_data.rename(columns={"chromosome":columns["chrom"],
-                                      "position": columns["pos"],
-                                      "allele1": columns["ref"],
-                                      "allele2": columns["alt"],
-                                      "prob": "cs_prob",
-                                      "region":"cs_region",
-                                      "cs":"cs_number",
-                                      "lead_r2":"r2_to_lead"}).copy()
-    data[columns["chrom"]] = data[columns["chrom"]].str.strip("chr")
-    data["cs_id"]=np.NaN
-    for name, group in data.groupby("credsetid"):
-        rsid=group.loc[group["cs_prob"].idxmax(),"rsid"]
-        idx=group.loc[group["cs_prob"].idxmax(),"cs_number"]
-        data.loc[data["credsetid"]==name,"cs_id"] = "{}_{}".format(rsid,idx)
-    cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"], "cs_prob", "cs_id", "cs_number", "cs_region", "r2_to_lead"]
-    for column in cols:
-        if column not in data.columns:
-            data[column] = np.NaN
-            print("NOTE: CS .snp file {} does not contain data for column {}. Setting it to NA".format(fname, column))
-    data=data.loc[:,cols].astype({"cs_number":int,"cs_region":str})
-    return data
-
-def load_susie_credfile(fname: str) -> pd.DataFrame:
-    """Load information about credible sets from SuSiE .cred file
-    Args:
-        fname (str): Filename
-    Returns:
-        (pd.DataFrame): Dataframe with credible set id (cs_id), bayes factor (cs_log10bf), minimum r2 (cs_min_r2) and cs size (cs_size)
-    """
-    cred_data_type = {
-        "cs_log10bf":float,
-        "cs_min_r2":float,
-        "cs_size":int,
-        "cs_number":int,
-        "cs_region":str,
-        "good_cs":bool
-    }
-    cred_columns = list(cred_data_type.keys())
-    cred_data = pd.read_csv(fname, sep="\t",compression="gzip").rename(columns={"region":"cs_region","cs":"cs_number"})
-    # if the credible set data does not have a certain column, make that NaN (for older data)
-    for column in cred_columns:
-        if column not in cred_data.columns:
-            cred_data[column] = np.NaN
-            print("NOTE: CS .cred file {} does not contain data for column {}. Setting it to NA".format(fname, column))
-    return cred_data[cred_columns].astype(cred_data_type)
 
 
 
@@ -336,94 +277,6 @@ def merge_credset(gws_df,cs_df,fname,columns):
     merged = pd.merge(df,cs_df,how="left",on=join_cols)
     return merged
 
-def load_credset_summaries(var_file: str,group_file: str,columns:Dict[str,str])->pd.DataFrame:
-    """
-    Order of operations:
-    1. extract columns, set datatypes
-    2. join data in appropriate way
-    3. rename columns of joined data
-    4. return data
-    """
-    
-    group_datatypes = {
-        "region": str,
-        "cs": int,
-        "v": str,
-        "cs_specific_prob": float,
-        "cs_log10bf": float,
-        "cs_min_r2": float,
-        "cs_size": int,
-        "good_cs": bool
-    }
-    snp_datatypes = {
-        "region": str,
-        "cs": int,
-        "v": str,
-        "cs_specific_prob": float,
-        "lead_r2": float
-    }
-    output_columns = [
-        columns["chrom"],
-        columns["pos"],
-        columns["ref"],
-        columns["alt"],
-        "cs_id",
-        "cs_region",
-        "cs_number",
-        "cs_prob",
-        "cs_log10bf",
-        "cs_min_r2",
-        "cs_size",
-        "good_cs",
-        "r2_to_lead"
-    ]
-    column_rename = {
-        "region": "cs_region",
-        "cs": "cs_number",
-        "cs_specific_prob": "cs_prob",
-        "lead_r2": "r2_to_lead"
-    }
-    cpra_types = {
-        columns["chrom"]:str,
-        columns["pos"]:int,
-        columns["ref"]:str,
-        columns["alt"]:str,
-    }
-    group_cols = list(group_datatypes.keys())
-    snp_cols = list(snp_datatypes.keys())
-
-    # load data
-    snips = pd.read_csv(var_file,sep="\t")
-    groups = pd.read_csv(group_file,sep="\t")
-
-    #missing data to na
-    for col in snp_cols:
-        if col not in snips.columns:
-            print(f"NOTE: credset SNP file missing column {col}")
-            snips[col] = np.nan
-    for col in group_cols:
-        if col not in groups.columns:
-            print(f"NOTE: credset CRED file missing column {col}")
-            groups[col] = np.nan
-    snips = snips[snp_cols]
-    groups = groups[group_cols]
-    groups["lead_r2"] = 1.0 #lead variant is always in perfect LD to the lead variant...
-    #create cs_id
-    groups["cs_id"]="chr" + groups["v"].str.replace(":","_")+"_"+groups["cs"].astype(str)
-    #add the group-specific columns cs_log10bf, cs_min_r2, cs_size, good_cs to snips
-    # E.g. merge by (region,cs)
-    group_mergecols = ["region","cs","cs_log10bf","cs_min_r2","cs_size","good_cs","cs_id"]
-    snips = snips.merge(groups[group_mergecols],on=["region","cs"],how="left") 
-    complete_data = pd.concat([snips,groups],ignore_index=True,sort=False)
-    
-    complete_data = complete_data.rename(columns=column_rename)
-    #separate v to c:p:r:a
-    
-    cpra_list = [columns["chrom"],columns["pos"],columns["ref"],columns["alt"]]
-    complete_data[cpra_list] = complete_data["v"].str.split(':',n=3,expand=True)
-    complete_data[cpra_list] = complete_data[cpra_list].astype(cpra_types)
-    return complete_data[output_columns]
-
 def fetch_gws(gws_fpath: str, 
                 sig_tresh_1: float,
                 prefix: str,
@@ -436,7 +289,7 @@ def fetch_gws(gws_fpath: str,
                 overlap: bool,
                 columns: Dict[str,str],
                 ignore_region: str,
-                cred_set_file: str,
+                cred_set_data: CSAccess,
                 ld_api: LDAccess, 
                 extra_cols: List[str],
                 pheno_name: str,
@@ -465,21 +318,10 @@ def fetch_gws(gws_fpath: str,
     if ignore_region:
         ignore_region_=parse_region(ignore_region)
     if group and grouping_method == "cred":
-        #TODO: handling for missing credible set files, aka aborting with a good error message.
-        #load credsets
-        if ".bgz" in cred_set_file: #yeah, ugly, so what
-            print("READING CS .BGZ FILES")
-            cs_df=load_credsets(cred_set_file,columns)
-            #load credset additional information
-            susie_cred_file = cred_set_file.replace("snp","cred")
-            cs_info = load_susie_credfile(susie_cred_file)
-            cs_df=cs_df.merge(cs_info,on=["cs_region","cs_number"],how="left")
-        elif ".snp.filter.tsv" in cred_set_file:
-            print("READING CS SUMMARIES")
-            cred_filename = cred_set_file.replace(".snp.filter.tsv",".cred.summary.tsv")
-            cs_df = load_credset_summaries(cred_set_file, cred_filename,columns)
-        else:
-            raise ValueError("credsetfile format not recognized.")
+        if not cred_set_data:
+            raise Exception("--credible-set-file not specified")
+        cs_data = cred_set_data.get_cs()
+        cs_df = cs_to_df(cs_data,columns)
         #cs df X->23
         cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
         cs_df = df_replace_value(cs_df,"cs_id",r'^chrX(.*)',r'chr23\1',regex=True)
@@ -567,8 +409,9 @@ def fetch_gws(gws_fpath: str,
         
         #data input: get credible set variants
         join_cols=[columns["chrom"], columns["pos"], columns["ref"], columns["alt"]]
-        if cred_set_file != "":
-            cs_df=load_credsets(cred_set_file,columns)
+        if cred_set_data:
+            cs_data = cred_set_data.get_cs()
+            cs_df = cs_to_df(cs_data,columns)
         else:
             cs_df=pd.DataFrame(columns=join_cols+["cs_prob","cs_id","cs_region"])
         cs_df = df_replace_value(cs_df,columns["chrom"],"X","23")
@@ -661,6 +504,7 @@ if __name__=="__main__":
     if args.prefix!="":
         args.prefix=args.prefix+"."
     args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
+    #ld api loading
     ld_api=None
     if args.ld_api_choice == "plink":
         ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
@@ -668,6 +512,12 @@ if __name__=="__main__":
         ld_api = OnlineLD("http://api.finngen.fi/api/ld")
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice)) 
+    #cs access object loading
+    if args.cred_set_file:
+        cs_access = csfactory(args.cred_set_file)
+    else:
+        cs_access=None
+
     #parse r2 
     if args.dynamic_r2_chisq != None:
         dynamic_r2 = True
@@ -675,7 +525,7 @@ if __name__=="__main__":
     else:
         dynamic_r2 = False
         r2_thresh = args.ld_r2
-    
+
     fetch_df = fetch_gws(
         gws_fpath=args.gws_fpath,
         sig_tresh_1=args.sig_treshold,
@@ -689,7 +539,7 @@ if __name__=="__main__":
         overlap=args.overlap,
         columns=columns,
         ignore_region=args.ignore_region,
-        cred_set_file=args.cred_set_file,
+        cred_set_data=cs_access,
         ld_api=ld_api,
         extra_cols=args.extra_cols,
         pheno_name=args.pheno_name,
