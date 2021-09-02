@@ -4,7 +4,7 @@ import argparse,shlex,subprocess
 import pandas as pd 
 import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils,top_report
-from data_access import datafactory
+from data_access import datafactory, csfactory
 from data_access.linkage import PlinkLD, OnlineLD
 
 def main(args):
@@ -43,6 +43,11 @@ def main(args):
     else:
         dynamic_r2 = False
         r2_thresh = args.ld_r2
+
+    if args.cred_set_file:
+        cs_access = csfactory.csfactory(args.cred_set_file)
+    else:
+        cs_access=None
     ###########################
     ###Filter and Group SNPs###
     ###########################
@@ -62,7 +67,7 @@ def main(args):
         overlap=args.overlap,
         columns=columns,
         ignore_region=args.ignore_region,
-        cred_set_file=args.cred_set_file,
+        cred_set_data=cs_access,
         ld_api=ld_api,
         extra_cols=args.extra_cols,
         pheno_name=args.pheno_name,
