@@ -23,6 +23,32 @@ class TestCSSummary(unittest.TestCase):
                 
                 test = cs.CSSummaryReader(f_snp.name,f_cred.name)
 
+    def test_init_fail(self):
+        """load a faulty file, resulting in an error
+        """
+        #cred header faulty
+        cred_header="trait	region	cs"
+        snp_header="trait	region	v	cs	cs_specific_prob	chromosome	position	allele1	allele2	maf	beta	p	se	most_severe	gene_most_severe"
+        with NamedTemporaryFile(mode="w+t") as f_snp:
+            f_snp.write(snp_header)
+            f_snp.seek(0)
+            with NamedTemporaryFile(mode="w+t") as f_cred:
+                f_cred.write(cred_header)
+                f_cred.seek(0)
+                with self.assertRaises(Exception) as cm:
+                    test = cs.CSSummaryReader(f_snp.name,f_cred.name)
+        #snp header faulty
+        cred_header = "trait	region	cs	cs_log10bf	cs_avg_r2	cs_min_r2	low_purity	cs_size	good_cs	cs_id	v	rsid	p	beta	sd	prob	cs_specific_prob	most_severe	gene_most_severe"
+        snp_header="trait	region	v	cs"
+        with NamedTemporaryFile(mode="w+t") as f_snp:
+            f_snp.write(snp_header)
+            f_snp.seek(0)
+            with NamedTemporaryFile(mode="w+t") as f_cred:
+                f_cred.write(cred_header)
+                f_cred.seek(0)
+                with self.assertRaises(Exception) as cm:
+                    test = cs.CSSummaryReader(f_snp.name,f_cred.name)
+
     def test_load(self):
         cred_header="region	cs	cs_log10bf	cs_min_r2	cs_size	good_cs	v	cs_specific_prob\n"
         snp_header="region	v	cs	cs_specific_prob\n"
@@ -98,6 +124,60 @@ class TestCSFull(unittest.TestCase):
                 snp_temp.seek(0)
                 test=cs.CSFullReader(snp_temp.name,cred_temp.name)
 
+    def test_init_fail(self):
+        """load a faulty file, resulting in an error
+        """
+        #cred header faulty
+        cred_header = "\t".join([
+            "cs_log10bf",
+            "cs_min_r2",
+            "cs"
+        ])
+        snp_header = "\t".join([
+            "v",
+            "cs_specific_prob",
+            "region",
+            "cs",
+            "lead_r2"
+        ])
+        with NamedTemporaryFile(mode="w+b") as f_snp:
+            gzip_snp = gzip.GzipFile(mode="wb",fileobj = f_snp)
+            gzip_snp.write(bytes(snp_header,"utf-8"))
+            gzip_snp.close()
+            f_snp.seek(0)
+            with NamedTemporaryFile(mode="w+b") as f_cred:
+                gzip_cred = gzip.GzipFile(mode="wb",fileobj = f_cred)
+                gzip_cred.write(bytes(cred_header,"utf-8"))
+                gzip_cred.close()
+                f_cred.seek(0)
+                with self.assertRaises(Exception) as cm:
+                    test = cs.CSFullReader(f_snp.name,f_cred.name)
+        #snp header faulty
+        cred_header = "\t".join([
+            "cs_log10bf",
+            "cs_min_r2",
+            "cs",
+            "cs_size",
+            "region",
+            "low_purity"
+        ])
+        snp_header = "\t".join([
+            "v",
+            "cs_specific_prob"
+        ])
+        with NamedTemporaryFile(mode="w+b") as f_snp:
+            gzip_snp = gzip.GzipFile(mode="wb",fileobj = f_snp)
+            gzip_snp.write(bytes(snp_header,"utf-8"))
+            gzip_snp.close()
+            f_snp.seek(0)
+            with NamedTemporaryFile(mode="w+b") as f_cred:
+                gzip_cred = gzip.GzipFile(mode="wb",fileobj = f_cred)
+                gzip_cred.write(bytes(cred_header,"utf-8"))
+                gzip_cred.close()
+                f_cred.seek(0)
+                with self.assertRaises(Exception) as cm:
+                    test = cs.CSFullReader(f_snp.name,f_cred.name)
+
     def test_load(self):
         cred_header = "\t".join([
             "cs_log10bf",
@@ -139,7 +219,6 @@ class TestCSFull(unittest.TestCase):
                 not test_data.good_cs
             ])
         )+"\n"
-        print(cred_as_string)
         snp_as_string = "\t".join(
             map(str,[
                 "1:1:A:T",
