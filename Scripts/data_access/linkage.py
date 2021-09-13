@@ -75,8 +75,9 @@ class PlinkLD(LDAccess):
             variant.ref,
             variant.alt
         )
+        kb_range = int(bp_range/1000)
         plink_name = f"plink_{snp}_ld"
-        plink_cmd = f"plink --allow-extra-chr --bfile {self.path} --chr {chromosome} --r2 gz --ld-snp {snp} --ld-window-r2 {ld_threshold} --ld-window-kb {bp_range} --ld-window 100000 --out {plink_name} --memory {self.memory}"
+        plink_cmd = f"plink --allow-extra-chr --bfile {self.path} --chr {chromosome} --r2 gz --ld-snp {snp} --ld-window-r2 {ld_threshold} --ld-window-kb {kb_range} --ld-window 100000 --out {plink_name} --memory {self.memory}"
         pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
         pr.wait()
         plink_log = pr.stdout.readlines()

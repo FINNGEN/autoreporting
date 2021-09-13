@@ -65,7 +65,7 @@ def ld_grouping(
     Args:
         df_p1 (pd.DataFrame): Dataframe with variants that have pval>sig_threshold. These variants can be lead variants.
         df_p2 (pd.DataFrame): Dataframe with variants that have pval>sig_threshold_2. These variants can be LD partners.
-        locus_range (int): Range around the locus on which LD is calculated, in kb
+        locus_range (int): Range around the locus on which LD is calculated, in bp
         dynamic_r2 (bool): Whether to adjust LD threshold by lead variant pval or not.
         ld_threshold (float): LD threshold for including a variant in the group. If dynamic r2 is False, it is the r^2 threshold. If dynamic r2 is True, it is ld threshold in ld_threshold/stats.chi2.isf(lead_pval,df=1)
         overlap (bool): Whether groups can overlap or not. If overlapping is set to True, variants grouped in a group are not removed from df_p2 after grouping, so other groups can claim them as well.
@@ -92,7 +92,7 @@ def ld_grouping(
             lead_pval = lead_var_row[columns["pval"]]
             group_ld_threshold = min(ld_threshold/stats.chi2.isf(lead_pval,df=1),1.0)
         #get LD neighbourhood
-        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range*1000, group_ld_threshold)
+        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range, group_ld_threshold)
         flat_ld = [a.to_flat() for a in ld_data]
         ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
         ld_df = ld_df.rename(columns={"r2":"r2_to_lead"})
@@ -131,7 +131,7 @@ def credible_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float,
         data (pd.DataFrame): Input data
         dynamic_r2 (bool): Whether to adjust LD threshold by lead variant pval or not.
         ld_threshold (float): LD threshold for including a variant in the group. If dynamic r2 is False, it is the r^2 threshold. If dynamic r2 is True, it is ld threshold in ld_threshold/stats.chi2.isf(lead_pval,df=1)
-        locus_range (int): Range around the locus on which LD is calculated, in kb
+        locus_range (int): Range around the locus on which LD is calculated, in bp
         overlap (bool): Whether groups can overlap or not. If overlapping is set to True, variants grouped in a group are not removed from df_p2 after grouping, so other groups can claim them as well.
         ld_api (LDAccess): ld api object
         columns (Dict[str,str]): column dictionary
@@ -159,7 +159,7 @@ def credible_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float,
             lead_pval = lead_var_row[columns["pval"]]
             group_ld_threshold = min(ld_threshold/stats.chi2.isf(lead_pval,df=1),1.0)
         #get LD data to cs lead
-        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range*1000, group_ld_threshold)
+        ld_data = ld_api.get_range(Variant(lead_var_row[columns["chrom"]], lead_var_row[columns["pos"]], lead_var_row[columns["ref"]], lead_var_row[columns["alt"]]), locus_range, group_ld_threshold)
         flat_ld = [a.to_flat() for a in ld_data]
         ld_df = pd.DataFrame(flat_ld, columns=['chrom1','pos1','ref1','alt1','chrom2','pos2','ref2','alt2','r2'])
         ld_df = ld_df.rename(columns={"r2":"r2_to_lead"})
@@ -315,6 +315,7 @@ def fetch_gws(gws_fpath: str,
     Returns:
         (pd.DataFrame): Filtered and grouped variants
     """
+    locus_width_bp = locus_width*1000
     if ignore_region:
         ignore_region_=parse_region(ignore_region)
     if group and grouping_method == "cred":
@@ -335,8 +336,8 @@ def fetch_gws(gws_fpath: str,
             return None
         cs_leads = cs_df.loc[cs_df[["cs_id","cs_prob"]].reset_index().groupby("cs_id").max()["index"],:]
         cs_ranges = cs_leads[[columns["chrom"],columns["pos"]]].copy()
-        cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width*1000
-        cs_ranges["max"] = cs_ranges[columns["pos"]]+locus_width*1000
+        cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width_bp
+        cs_ranges["max"] = cs_ranges[columns["pos"]]+locus_width_bp
         cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
         #make an X and 23 version of ranges
         cs_ranges_23 = df_replace_value(cs_ranges.copy(),"chrom","X","23")
@@ -380,7 +381,7 @@ def fetch_gws(gws_fpath: str,
             data=not_grouped_data,
             dynamic_r2=dynamic_r2,
             ld_threshold=ld_r2,
-            locus_range=locus_width,
+            locus_range=locus_width_bp,
             overlap=overlap,
             ld_api=ld_api,
             columns=columns)
@@ -388,7 +389,6 @@ def fetch_gws(gws_fpath: str,
         
     else:
         sig_tresh_2=max(sig_tresh_1,sig_tresh_2)
-        r=locus_width*1000#range for location width, originally in kb
         dtype={columns["chrom"]:str,
                     columns["pos"]:np.int32,
                     columns["ref"]:str,
@@ -438,7 +438,7 @@ def fetch_gws(gws_fpath: str,
                 new_df=ld_grouping(
                     df_p1=df_p1,
                     df_p2=df_p2,
-                    locus_range=locus_width,
+                    locus_range=locus_width_bp,
                     dynamic_r2 = dynamic_r2,
                     ld_threshold=ld_r2,
                     overlap=overlap,
@@ -446,7 +446,7 @@ def fetch_gws(gws_fpath: str,
                     columns=columns
                 )
             else :
-                new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=r,overlap=overlap,columns=columns)
+                new_df=simple_grouping(df_p1=df_p1,df_p2=df_p2,r=locus_width_bp,overlap=overlap,columns=columns)
                 new_df["r2_to_lead"]=np.nan
             new_df=new_df.sort_values(["locus_id","#variant"])
             retval = new_df
