@@ -117,7 +117,7 @@ def main(args):
         #create top report
         #top level df 
         top_df=top_report.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,
-                                            significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols)
+                                            significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols,dynamic_r2=dynamic_r2, ld_r2_threshold=r2_thresh)
         top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
     if type(ld_out_df) != type(None):
         ld_out_df.to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
