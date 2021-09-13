@@ -169,6 +169,9 @@ def credible_grouping(data: pd.DataFrame, dynamic_r2: bool, ld_threshold: float,
             ld_df = ld_df.drop(columns=["chrom1","pos1","chrom2","pos2","ref1","ref2","alt1","alt2"])
             ld_df = ld_df[ld_df["variant1"]==lead_variant]
             #merged_df = pd.merge(df, ld_df[["#variant","r2_to_lead"]], how="inner",on="#variant")
+        else:
+            #empty df, 
+            ld_df = pd.DataFrame(columns=["#variant","variant1","r2_to_lead"])
         #separate credible set. It is deliberately taken from the not mutated 'data'-dataframe, so that even if those variants were grouped somewhere before, they are still included.
         cs = data.loc[data["cs_id"]==cs_id,:].copy()
         #fill r2 from the ld data if it's not all in the cs data
