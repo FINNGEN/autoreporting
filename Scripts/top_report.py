@@ -2,6 +2,7 @@ import argparse,shlex,subprocess, glob, re
 from subprocess import Popen, PIPE
 import pandas as pd
 import numpy as np
+import scipy.stats as stats
 from autoreporting_utils import *
 import os
 from data_access import datafactory
@@ -25,12 +26,15 @@ def top_report_lead_cols(top_df: pd.DataFrame, report_df: pd.DataFrame, columns:
     return out
 
 
-def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold, extra_cols):
+def create_top_level_report(report_df,efo_traits,columns,grouping_method,significance_threshold,strict_ld_threshold, extra_cols,dynamic_r2, ld_r2_threshold):
     """
     Create a top level report from which it is easy to see which loci are novel
     In: report_out df, traits that appear in matching_pheno_gwas_catalog_hits, column names
     Out: Dataframe with a row for every lead variant in df, with columns locus_id chr, start, end, matching_pheno_gwas_catalog_hits other_gwas_hits  
     """ 
+    calc_r2_threshold = lambda x: ld_r2_threshold
+    if dynamic_r2:
+        calc_r2_threshold = lambda pval: min(ld_r2_threshold/stats.chi2.isf(pval,df=1),1.0)
 
     pheno_cols = ["phenotype", "longname", "n_cases", "n_controls"]
     pheno_col_rename = {
@@ -75,7 +79,8 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
                     "pos",
                     "ref",
                     "alt",
-                    "pval"]+\
+                    "pval",
+                    "lead_r2_threshold"]+\
                     lead_cols+\
                     gnomad_cols+\
                     ["cs_id",
@@ -96,7 +101,6 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
 
     lead_var_df = df.loc[df["locus_id"]==df["#variant"],["#variant"]].drop_duplicates()
     lead_var_idx = lead_var_df.index
-
     #get the pheno_cols dataframe
     try:
         pheno_info_df = df.loc[lead_var_idx,pheno_cols+["#variant"]].rename(columns=pheno_col_rename)
@@ -106,8 +110,9 @@ def create_top_level_report(report_df,efo_traits,columns,grouping_method,signifi
     try:
         group_info_df = df.loc[lead_var_idx,group_cols+["#variant"]]
         group_info_df=group_info_df.rename(columns=group_cols_rename)
-    except:
-        group_info_df = pd.DataFrame(columns = ["#variant","locus_id","chrom","pos","ref","alt"])
+        group_info_df["lead_r2_threshold"] = group_info_df["pval"].apply(calc_r2_threshold)
+    except Exception as e:
+        group_info_df = pd.DataFrame(columns = ["#variant","locus_id","chrom","pos","ref","alt","pval","lead_r2_threshold"])
     
     #get cs cols dataframe
     try:
@@ -228,13 +233,23 @@ if __name__ == "__main__":
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
+    r2_group = parser.add_mutually_exclusive_group()
+    r2_group.add_argument("--ld-r2", dest="ld_r2", type=float, default=0.01, help="r2 cutoff for ld clumping")
+    r2_group.add_argument("--dynamic-r2-chisq",type=float,nargs="?",const=5.0,default=None,help="If flag is passed, r2 threshold is set per peak so that leadvar_chisq*r2=value (default 5).")
     args=parser.parse_args()
+
+    if args.dynamic_r2_chisq != None:
+        dynamic_r2 = True
+        r2_thresh =  args.dynamic_r2_chisq
+    else:
+        dynamic_r2 = False
+        r2_thresh = args.ld_r2
     #read data
     report_df = pd.read_csv(args.report_fname,sep="\t")
     print("read file")
     #create top report
     columns = columns_from_arguments(args.column_labels)
-    top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols)
+    top_df=create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method= args.grouping_method,significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols,dynamic_r2=dynamic_r2, ld_r2_threshold=r2_thresh)
     print("made top report, shape:",top_df.shape)
     #write to file
     top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
