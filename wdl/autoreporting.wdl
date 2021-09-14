@@ -233,7 +233,7 @@ task post_process_top_reports {
         #check r2 between hits
         bed_path="${plink_bed}"
         plink_path="${dollar}{bed_path%.*}"
-        post_process_hits.py  ${top}.top.filter --ld-panel-path $plink_path  --region-width-kb ${locus_width_kb} --output ${top}.top.post.tsv
+        post_process_hits.py  ${top}.top --ld-panel-path $plink_path  --region-width-kb ${locus_width_kb} --output ${top}.top.post.tsv
     >>>
     output {
         File top_filtered = top+".top"
