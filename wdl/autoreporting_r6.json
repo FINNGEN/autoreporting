@@ -1,14 +1,15 @@
 {
     "autoreporting.input_array_file": "gs://r6_data/autoreporting/inputs/r6_summary_cred_rerun_autorep",
-    
-    "autoreporting.report.docker":"eu.gcr.io/finngen-refinery-dev/autorep:bb0bf7b",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:bb0bf7b",
+    "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu3/wgs_all",
+    "autoreporting.locus_width_kb":2000,
+
     "autoreporting.report.memory":30,
     "autoreporting.report.cpus":4,
     "autoreporting.report.gnomad_exome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/exomes/gnomad.exomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
     "autoreporting.report.gnomad_genome":"gs://fg-datateam-analysisteam-share/gnomad/2.1/genomes/gnomad.genomes.r2.1.sites.liftover.b38.finngen.r2pos.af.ac.an.tsv.gz",
     "autoreporting.report.finngen_annotation":"gs://r6_data/annotations/R6_annotated_variants_v1.gz",
     "autoreporting.report.functional_annotation":"gs://finngen_commons/annotations/fin_enriched_genomes_select_columns.txt.gz",
-    "autoreporting.report.ld_panel":"gs://finngen-imputation-panel/sisu3/wgs_all",
     "autoreporting.report.column_names":["#chrom","pos","ref","alt","pval"],
     "autoreporting.report.extra_columns":"mlogp beta sebeta af_alt af_alt_cases af_alt_controls rsids",
     "autoreporting.report.efo_map":"gs://finngen_commons/autoreporting/efo_map_na.tsv",
@@ -19,7 +20,6 @@
     "autoreporting.report.overlap":false,
     "autoreporting.report.sign_treshold":5e-8,
     "autoreporting.report.alt_sign_treshold":1e-2,
-    "autoreporting.report.grouping_locus_width":2000,
     "autoreporting.report.ld_opts":"--dynamic-r2-chisq 5.0",
     "autoreporting.report.plink_memory":17000,
     "autoreporting.report.local_gwcatalog":"gs://r7_data/autoreporting/inputs/gwas-catalog-associations_ontology-annotated_2021_04_20.tsv",
@@ -31,5 +31,10 @@
     "autoreporting.report.custom_dataresource":"gs://r7_data/autoreporting/inputs/betamatch_ext_data_2021_04_27.tsv",
     "autoreporting.report.dummy_file":"gs://misc-analysis/EMPTY_FILE",
     "autoreporting.report.phenotype_info_file":"gs://finngen-production-library-green/finngen_R6/finngen_R6_analysis_data/finngen_R6_pheno_n.tsv",
-    "autoreporting.report.allele_vcf_file":"gs://autoreporting_resources/dbsnp_vcf/dbsnp_hg38p13_b153_numerical.vcf.gz"
+    "autoreporting.report.allele_vcf_file":"gs://autoreporting_resources/dbsnp_vcf/dbsnp_hg38p13_b153_numerical.vcf.gz",
+
+    "autoreporting.post_process_top_reports.r2_threshold":0.02,
+    "autoreporting.post_process_top_reports.af_col":"lead_FINNGEN_af_alt",
+    "autoreporting.post_process_top_reports.af_threshold":0.01,
+    "autoreporting.post_process_top_reports.in_fg_col":"lead_FINNGEN_af_alt"
 }

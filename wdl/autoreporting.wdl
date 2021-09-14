@@ -28,7 +28,7 @@ task report {
 
     Float sign_treshold
     Float alt_sign_treshold
-    Int grouping_locus_width
+    Int locus_width_kb
     String ld_opts
     Int plink_memory
     Float gwascatalog_pval
@@ -75,7 +75,7 @@ task report {
 
         sign_treshold=${sign_treshold}
         alt_sign_treshold=${alt_sign_treshold}
-        grouping_locus_width=${grouping_locus_width}
+        locus_width_kb=${locus_width_kb}
         ld_opts="${ld_opts}"
         plink_memory=${plink_memory}
         gwascatalog_pval=${gwascatalog_pval}
@@ -120,7 +120,7 @@ task report {
                     f"--alt-sign-treshold {alt_sign_treshold} "
                     f"{group} "
                     f"--grouping-method {grouping_method} "
-                    f"--locus-width-kb {grouping_locus_width} "
+                    f"--locus-width-kb {locus_width_kb} "
                     f"--ld-panel-path {plink_path} "
                     f"{ld_opts} "#ld opts
                     f"--plink-memory {plink_memory} "
@@ -160,10 +160,19 @@ task report {
             print("${phenoname}","exit code:",pr.returncode)
             sys.exit(1)
         CODE
+        if test -f "${phenotype_name}.report.out"; then
+            echo "True" > had_results
+        else
+            echo "False" > had_results
+            touch ${phenotype_name}.report.out
+            touch ${phenotype_name}.top.out
+        fi
     >>>
 
     output {
-        Array[File] out=glob("*.out")
+        Boolean had_results = read_boolean("had_results")
+        File variant_report = phenotype_name+".report.out" 
+        File group_report = phenotype_name+".top.out"
     }
     runtime {
         docker: "${docker}"
@@ -175,14 +184,103 @@ task report {
     }
 }
 
+task outputter {
+    File var
+    File group
+
+    command {
+        echo "WDL spec 1.1 fixes this with optional outputs"
+    }
+
+    runtime {
+        docker: "ubuntu:18.04"
+        cpu: "1"
+        memory: "2 GB"
+        disks: "local-disk 10 HDD"
+        zones: "europe-west1-b europe-west1-c europe-west1-d"
+        preemptible: 2
+    }
+
+    output {
+        File variant_report = var
+        File group_report = group
+    }
+}
+
+task post_process_top_reports {
+    #from workflow
+    File top_report
+    String docker #
+    String ld_panel
+    Int locus_width_kb
+
+    #directly to this task
+    Float r2_threshold
+    String af_col
+    Float af_threshold
+    String in_fg_col
+    
+    #derived
+    File plink_bed = ld_panel +".bed"
+    File plink_bim = ld_panel +".bim"
+    File plink_fam = ld_panel +".fam"
+    String top = basename(top_report,".top.out")
+    String dollar="$"
+    command <<<
+        #filter the top report
+        meta_filter_top.py ${top_report} --width-kb ${locus_width_kb} --r2-threshold ${r2_threshold} --af-column ${af_col} \
+            --af-threshold ${af_threshold} --fg-specific-column ${in_fg_col} --output ${top}.top
+        #check r2 between hits
+        bed_path="${plink_bed}"
+        plink_path="${dollar}{bed_path%.*}"
+        post_process_hits.py  ${top}.top.filter --ld-panel-path $plink_path  --region-width-kb ${locus_width_kb} --output ${top}.top.post.tsv
+    >>>
+    output {
+        File top_filtered = top+".top"
+        File not_in_fg = top+".top.not_in_finngen"
+        File removed_hits = top+".top.filtered"
+        File post_processed = top+".top.post.tsv"
+    }
+    runtime {
+        docker: "${docker}"
+        cpu: "4"
+        memory: "30 GB"
+        disks: "local-disk 100 HDD"
+        zones: "europe-west1-b europe-west1-c europe-west1-d"
+        preemptible: 2
+    }
+}
+
 workflow autoreporting{
     File input_array_file
+    String docker
+    String ld_panel
+    Int locus_width_kb
     Array[Array[String]] input_array = read_tsv(input_array_file)
 
     scatter (arr in  input_array ){
         call report {
-            input: input_file_list = arr
+            input: input_file_list = arr, docker=docker, ld_panel=ld_panel, locus_width_kb=locus_width_kb
         }
+        if( report.had_results ) {
+            call outputter {
+                input: var=report.variant_report,group=report.group_report
+            }
+
+            call post_process_top_reports {
+                input: top_report = report.group_report, docker=docker, ld_panel=ld_panel,locus_width_kb=locus_width_kb
+            }
+        }
+
+    }
+
+    output {
+        Array[File] variant_report = select_all(outputter.variant_report)
+        Array[File] group_report = select_all(outputter.group_report)
+        Array[File] filtered_group = select_all(post_process_top_reports.top_filtered)
+        Array[File] not_in_finngen = select_all(post_process_top_reports.not_in_fg)
+        Array[File] removed_hits = select_all(post_process_top_reports.removed_hits)
+        Array[File] post_processed_group = select_all(post_process_top_reports.post_processed)
     }
 
 }
