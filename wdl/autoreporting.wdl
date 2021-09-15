@@ -184,29 +184,6 @@ task report {
     }
 }
 
-task outputter {
-    File var
-    File group
-
-    command {
-        echo "WDL spec 1.1 fixes this with optional outputs"
-    }
-
-    runtime {
-        docker: "ubuntu:18.04"
-        cpu: "1"
-        memory: "2 GB"
-        disks: "local-disk 10 HDD"
-        zones: "europe-west1-b europe-west1-c europe-west1-d"
-        preemptible: 2
-    }
-
-    output {
-        File variant_report = var
-        File group_report = group
-    }
-}
-
 task post_process_top_reports {
     #from workflow
     File top_report
@@ -263,9 +240,8 @@ workflow autoreporting{
             input: input_file_list = arr, docker=docker, ld_panel=ld_panel, locus_width_kb=locus_width_kb
         }
         if( report.had_results ) {
-            call outputter {
-                input: var=report.variant_report,group=report.group_report
-            }
+            File variants = report.variant_report
+            File groups = report.group_report
 
             call post_process_top_reports {
                 input: top_report = report.group_report, docker=docker, ld_panel=ld_panel,locus_width_kb=locus_width_kb
@@ -275,8 +251,8 @@ workflow autoreporting{
     }
 
     output {
-        Array[File] variant_report = select_all(outputter.variant_report)
-        Array[File] group_report = select_all(outputter.group_report)
+        Array[File] variant_report = select_all(variants)
+        Array[File] group_report = select_all(groups)
         Array[File] filtered_group = select_all(post_process_top_reports.top_filtered)
         Array[File] not_in_finngen = select_all(post_process_top_reports.not_in_fg)
         Array[File] removed_hits = select_all(post_process_top_reports.removed_hits)
