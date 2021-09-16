@@ -13,7 +13,7 @@ def max_r2_correlation(variant:Variant,data_variants:List[Variant],ld_data:List[
     #filter to variants on the top report
     ld_data = [a for a in ld_data if ((a.variant1 in data_variants) and (a.variant2 in data_variants))]
     #if for some reason the variant in question is in variant2, add flipped LDData so it's not filtered away
-    ld_data.extend([LDData(a.variant2,a.variant2,a.r2) for a in ld_data])
+    ld_data.extend([LDData(a.variant2,a.variant1,a.r2) for a in ld_data])
     #filter the LD so that 1) the first variant in pairs is the variant, and 2) exclude self-correlation(which is by definition strongest)
     ld_data = [a for a in ld_data if ( (a.variant1 == variant) and (a.variant2 != variant) )]
     if ld_data:
