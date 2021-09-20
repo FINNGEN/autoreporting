@@ -7,7 +7,7 @@ from data_access.db import Variant, LDData, LDAccess
 import data_access.linkage as linkage
 import data_access.db as db
 
-def max_r2_correlation(variant:Variant,data_variants:List[Variant],ld_data:List[LDData])->Optional[LDData]:
+def max_r2_correlation(variant: Variant, data_variants: List[Variant], ld_data: List[LDData])->Optional[LDData]:
     """Get strongest r2 correlation between a locus and other loci in its region
     """
     #filter to variants on the top report
@@ -22,7 +22,7 @@ def max_r2_correlation(variant:Variant,data_variants:List[Variant],ld_data:List[
     return None
 
 
-def is_strongest_association(var:Variant,loc_id: str, pval_threshold:float,region_width: int,data:pd.DataFrame)->bool:
+def is_strongest_association(var: Variant, loc_id: str, pval_threshold: float, region_width: int, data: pd.DataFrame)->bool:
     """Check if the locus is the strongest association in the region.  
     """
     chrom = str(var.chrom)
@@ -38,7 +38,7 @@ def is_strongest_association(var:Variant,loc_id: str, pval_threshold:float,regio
     return True
 
 
-def main(data:pd.DataFrame,region_width:int,ld_api:LDAccess)->pd.DataFrame:
+def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: str)->pd.DataFrame:
     """Calculate r2 between rows, and check if the locus it the strongest hit in region
     """
     #go through the data row by row
@@ -56,7 +56,6 @@ def main(data:pd.DataFrame,region_width:int,ld_api:LDAccess)->pd.DataFrame:
     list_of_datavars = [Variant(str(d.chrom),int(d.pos),str(d.ref),str(d.alt)) for d in data.itertuples()]
 
     for idx,dtuple in enumerate(data.itertuples()):
-        print(idx)
         #create easier to work with Variant from the row named tuple
         variant = Variant(str(dtuple.chrom),int(dtuple.pos),dtuple.ref,dtuple.alt)
 
@@ -80,7 +79,7 @@ def main(data:pd.DataFrame,region_width:int,ld_api:LDAccess)->pd.DataFrame:
         out_data.loc[idx,"max_r2"] = r2
         out_data.loc[idx,"max_r2_hit"] = max_var
         out_data.loc[idx,"strongest_hit"] = strongest_hit
-    return out_data
+    out_data.fillna("NA").replace("","NA").to_csv(output_fname,sep="\t",index=False,float_format="%.3g")
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
@@ -94,7 +93,5 @@ if __name__=="__main__":
     ld_api = linkage.PlinkLD(args.ld_panel_path,args.plink_memory)
     region_width_bp = args.region_width_kb*1000
     data=pd.read_csv(args.input_data,sep="\t")
-    #calc
-    out_data=main(data, region_width_bp, ld_api)
-    #write output
-    out_data.fillna("NA").replace("","NA").to_csv(args.output,sep="\t",index=False,float_format="%.3g")
+    #calc & write output
+    main(data, region_width_bp, ld_api,args.output)
