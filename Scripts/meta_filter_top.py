@@ -104,13 +104,13 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
         with open(output,"w") as outfile:
 
             headerline = infile.readline()
-            header_ord = {a:i for i,a in enumerate(headerline.strip().split("\t"))}
+            header_ord = {a:i for i,a in enumerate(headerline.strip("\n").split("\t"))}
 
             outfile.write(headerline)
 
             for line in infile:
 
-                line_cols = line.strip().split("\t")
+                line_cols = line.strip("\n").split("\t")
                 #determine whether the line is in finngen or not
                 locus_id = line_cols[header_ord["locus_id"]]
 
