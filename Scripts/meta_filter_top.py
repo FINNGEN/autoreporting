@@ -10,6 +10,15 @@ import scipy.stats as stats
 import argparse
 from typing import NamedTuple, List, Dict, Optional
 
+class Locus(NamedTuple):
+    locid: str
+    c: str
+    p: int
+    r: str
+    a: str
+    pval: float
+    af: float
+
 class NotInFinnGen(NamedTuple):
     locid:str
     pval: str
@@ -22,36 +31,26 @@ class FilteredOut(NamedTuple):
     filtering_ld: str
     filtering_dist: str
 
-def in_finngen(linecols:List[str],finngen_col:str,header_ord:Dict[str,int])->bool:
-    """Check if the line is in finngen data
-    """
-    if linecols[header_ord[finngen_col]] != "NA":
-        return True
-    return False
 
-def part_of_stronger_hit(linecols:List[str],
+def part_of_stronger_hit(locus:Locus,
     data:pd.DataFrame,
     r2_threshold:float,
     region_width:int,
-    af_col:str,
     af_threshold: float,
-    header_ord:Dict[str,int]
     )->Optional[FilteredOut]:
+    """
+    Check if a locus is near a stronger signal, and if it is, return a FilteredOut object with information about the (to be removed) locus and its remover
+    """
     #get values from line
-    chrom = str(linecols[header_ord["chrom"]])
-    pos=int(linecols[header_ord["pos"]])
-    pos_min = pos-region_width
-    pos_max = pos+region_width
-    locus_id = str(linecols[header_ord["locus_id"]])
-    pval = linecols[header_ord["pval"]]
-    af = float(linecols[header_ord[af_col]])
+    pos_min = locus.p-region_width
+    pos_max = locus.p+region_width
 
-    if af < af_threshold:
+    if locus.af < af_threshold:
         #larger hits 
         #   - are in same chromosome, within the region
         #   - have a smaller r2 than the r2 threshold
-        larger_hits_in_region= ( (data["locus_id"]!=locus_id)&
-            (data["chrom"].astype(str)==chrom) &
+        larger_hits_in_region= ( (data["locus_id"]!=locus.locid)&
+            (data["chrom"].astype(str)==locus.c) &
             (data["pos"] <= pos_max) &
             (data["pos"] >= pos_min) &
             (data["lead_r2_threshold"].astype(float) <= r2_threshold) )
@@ -62,11 +61,11 @@ def part_of_stronger_hit(linecols:List[str],
             most_significant_hit = possible_strong_hits.loc[most_significant_idx,:]
             sig_locus_id = most_significant_hit["locus_id"]
             sig_ld = most_significant_hit["lead_r2_threshold"]
-            sig_distance = abs(most_significant_hit["pos"]-pos)
+            sig_distance = abs(most_significant_hit["pos"]-locus.p)
             return FilteredOut(
-                locus_id,
-                pval,
-                str(af),
+                locus.locid,
+                str(locus.pval),
+                str(locus.af),
                 str(sig_locus_id),
                 str(sig_ld),
                 str(sig_distance)
@@ -111,17 +110,28 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
             for line in infile:
 
                 line_cols = line.strip("\n").split("\t")
-                #determine whether the line is in finngen or not
-                locus_id = line_cols[header_ord["locus_id"]]
 
-                if not in_finngen(line_cols,fg_specific_column,header_ord):
+                #if finngen-specific values are not present for this line, then the locus is not in finngen data and we don't care about it -> filter out
+                if line_cols[header_ord[fg_specific_column]] == "NA":
                     not_in_fg.append(NotInFinnGen(
-                        locus_id,
+                        line_cols[header_ord["locus_id"]],
                         line_cols[header_ord["pval"]]
                     ))
                     continue
 
-                stronger_hit = part_of_stronger_hit(line_cols,data,r2_threshold,width,af_col,af_threshold,header_ord)
+                #build locus
+
+                locus = Locus(
+                    str(line_cols[header_ord["locus_id"]]),
+                    str(line_cols[header_ord["chrom"]]),
+                    int(line_cols[header_ord["pos"]]),
+                    str(line_cols[header_ord["ref"]]),
+                    str(line_cols[header_ord["alt"]]),
+                    float(line_cols[header_ord["pval"]]),
+                    float(line_cols[header_ord[af_col]])
+                )
+
+                stronger_hit = part_of_stronger_hit(locus,data,r2_threshold,width,af_threshold)
                 if stronger_hit:
                     filtered_out.append(stronger_hit)
                 else:
