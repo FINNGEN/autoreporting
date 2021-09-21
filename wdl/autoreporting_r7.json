@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r7_data/autoreporting/release/inputs/split_data_input_array",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:bb0bf7b",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:471d999",
     "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu3/wgs_all",
     "autoreporting.locus_width_kb":2000,
 

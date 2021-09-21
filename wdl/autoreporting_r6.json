@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r6_data/autoreporting/inputs/r6_summary_cred_rerun_autorep",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:bb0bf7b",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:471d999",
     "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu3/wgs_all",
     "autoreporting.locus_width_kb":2000,
 

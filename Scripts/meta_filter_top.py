@@ -57,8 +57,7 @@ def part_of_stronger_hit(locus:Locus,
 
         if larger_hits_in_region.any():
             possible_strong_hits = data.loc[larger_hits_in_region,:]
-            most_significant_idx = possible_strong_hits["pval"].idxmin()
-            most_significant_hit = possible_strong_hits.loc[most_significant_idx,:]
+            most_significant_hit = possible_strong_hits.loc[possible_strong_hits["pval"].idxmin(),:]
             sig_locus_id = most_significant_hit["locus_id"]
             sig_ld = most_significant_hit["lead_r2_threshold"]
             sig_distance = abs(most_significant_hit["pos"]-locus.p)
