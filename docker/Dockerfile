@@ -13,3 +13,4 @@ ADD Scripts /usr/local/bin
 RUN chmod +x /usr/local/bin/main.py
 COPY Scripts/wdl_processing_scripts/process_serial.py /usr/local/bin
 RUN chmod +x /usr/local/bin/process_serial.py
+RUN chmod +x /usr/local/bin/meta_filter_top.py /usr/local/bin/post_process_hits.py 
