@@ -170,16 +170,31 @@ class CSSummaryReader(CSAccess):
             h_order = {a:i for (i,a) in enumerate(headers)}
             for dataline in cred_file:
                 data=dataline.strip().split("\t")
+                #if the cs is not good, then it will have no variants. In that case, add the lead variant as the only cs variant
+                if data[h_order["good_cs"]] == "False":
+                    csvars = [
+                        CSVariant(
+                            _v_parser(data[h_order["v"]]),
+                            float(data[h_order["cs_specific_prob"]]),
+                            1.0
+                        )
+                    ]
+                else:
+                    csvars = []
+                if data[h_order["good_cs"]] == "False":
+                    good_cs=False
+                else:
+                    good_cs = True
                 credsets.append(
                     CS(
-                        [],
+                        csvars,
                         _v_parser(data[h_order["v"]]),
                         data[h_order["region"]],
                         int(data[h_order["cs"]]),
                         float(data[h_order["cs_log10bf"]]),
                         float(data[h_order["cs_min_r2"]]),
                         int(data[h_order["cs_size"]]),
-                        bool(data[h_order["good_cs"]])
+                        good_cs
                     )
                 )
         # create credible set group dictionary
