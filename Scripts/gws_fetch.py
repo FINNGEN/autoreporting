@@ -5,10 +5,12 @@ from subprocess import Popen, PIPE
 import sys,os,io
 import pandas as pd, numpy as np
 import scipy.stats as stats
-from typing import Dict, List
+from typing import Dict, List, Optional
 from autoreporting_utils import *
 from data_access.linkage import PlinkLD, OnlineLD, Variant, LDData
 from data_access.db import LDAccess
+from data_access.db import PhenoData
+from data_access.phenotype_information import FGPhenoInfo
 from data_access.db import CSAccess, CS, CSVariant
 from data_access.cs import cs_to_df
 from data_access.csfactory import csfactory
@@ -294,9 +296,7 @@ def fetch_gws(gws_fpath: str,
                 ignore_region: str,
                 cred_set_data: CSAccess,
                 ld_api: LDAccess, 
-                extra_cols: List[str],
-                pheno_name: str,
-                pheno_data_file :str):
+                extra_cols: List[str]):
     """Filter and group variants.
     Args:
         gws_fpath (str): summary statistic filename
@@ -313,8 +313,6 @@ def fetch_gws(gws_fpath: str,
         cred_set_file (str): Credible set filename
         ld_api (LDAccess): ld api object 
         extra_cols (List[str]): Extra columns to include in results
-        pheno_name (str): Phenotype name
-        pheno_data_file (str): Phenotype info file
     Returns:
         (pd.DataFrame): Filtered and grouped variants
     """
@@ -458,25 +456,24 @@ def fetch_gws(gws_fpath: str,
             retval = df_p1.sort_values(["locus_id","#variant"])
             retval["r2_to_lead"]=np.nan
 
-    #add phenotype name
-    retval["phenotype"] = pheno_name
-    #add phenotype data
-    #load phenotype datafile
-    if pheno_data_file != "":
-        pheno_data = pd.read_csv(pheno_data_file,sep="\t")
-        pheno_row = pheno_data[pheno_data["phenocode"] == pheno_name].iloc[0]
-        retval["longname"] = pheno_row["name"]
-        retval["category"] = pheno_row["category"]
-        retval["n_cases"] = pheno_row["num_cases"]
-        retval["n_controls"] = pheno_row["num_controls"]
-    else:
-        retval["longname"] = np.nan
-        retval["category"] = np.nan
-        retval["n_cases"] = np.nan
-        retval["n_controls"] = np.nan
-
     return retval
-    
+
+
+def add_pheno_info(df: pd.DataFrame, phenotype:str,phenoinfo: Optional[PhenoData])->pd.DataFrame:
+    if phenoinfo:
+        df["phenotype"] = pheno_info.name
+        df["longname"] = pheno_info.longname
+        df["category"] = pheno_info.category
+        df["n_cases"] = pheno_info.ncases
+        df["n_controls"] = pheno_info.ncases
+    else:
+        df["phenotype"] = phenotype
+        df["longname"] = np.nan
+        df["category"] = np.nan
+        df["n_cases"] = np.nan
+        df["n_controls"] = np.nan
+    return df
+
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="Fetch and group genome-wide significant variants from summary statistic")
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed summary statistic")
@@ -529,6 +526,17 @@ if __name__=="__main__":
         dynamic_r2 = False
         r2_thresh = args.ld_r2
 
+    #phenoinfo
+    if args.pheno_info_file != "":
+        try:
+            pheno_dao = FGPhenoInfo(args.pheno_info_file)
+            pheno_info = pheno_dao.get_pheno_info(args.pheno_name)
+        except:
+            print("phenotype info loading failed")
+            raise
+    else:
+        pheno_info = None
+
     fetch_df = fetch_gws(
         gws_fpath=args.gws_fpath,
         sig_tresh_1=args.sig_treshold,
@@ -538,14 +546,17 @@ if __name__=="__main__":
         locus_width=args.loc_width,
         sig_tresh_2=args.sig_treshold_2,
         dynamic_r2=dynamic_r2,
-        ld_r2=r2,
+        ld_r2=r2_thresh,
         overlap=args.overlap,
         columns=columns,
         ignore_region=args.ignore_region,
         cred_set_data=cs_access,
         ld_api=ld_api,
         extra_cols=args.extra_cols,
-        pheno_name=args.pheno_name,
-        pheno_data_file =args.pheno_info_file
+        pheno_name=args.pheno_name
     )
+
+    #add phenoinfo
+    fetch_df = add_pheno_info(fetch_df,args.pheno_name,pheno_info)
+
     fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")

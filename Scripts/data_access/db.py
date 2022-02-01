@@ -140,3 +140,26 @@ class CSAccess(object):
             (List[CS]): List of credible sets. Each credible set contains variants.
         """
         return
+
+class PhenoData(NamedTuple):
+    """Phenotype information data object
+    """
+    name: str
+    longname: str
+    category: str
+    ncases: int
+    ncontrols: int
+
+class PhenoInfoDAO(object):
+    """
+    Abstract class for phenotype information
+    """
+    @abc.abstractmethod
+    def get_pheno_info(self, phenotype: str) -> PhenoData:
+        """Return phenotype information
+        Args:
+            phenotype (str): phenotype name
+        Returns:
+            (PhenoData): phenotype information
+        """
+        pass

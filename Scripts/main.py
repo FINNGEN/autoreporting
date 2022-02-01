@@ -6,6 +6,8 @@ import numpy as np
 import gws_fetch, compare, annotate,autoreporting_utils,top_report
 from data_access import datafactory, csfactory
 from data_access.linkage import PlinkLD, OnlineLD
+from data_access.db import PhenoData
+from data_access.phenotype_information import FGPhenoInfo
 
 def main(args):
     print("input file: {}".format(args.gws_fpath))
@@ -48,6 +50,17 @@ def main(args):
         cs_access = csfactory.csfactory(args.cred_set_file)
     else:
         cs_access=None
+
+    #phenoinfo
+    if args.pheno_info_file != "":
+        try:
+            pheno_dao = FGPhenoInfo(args.pheno_info_file)
+            pheno_info = pheno_dao.get_pheno_info(args.pheno_name)
+        except:
+            print("phenotype info loading failed")
+            raise
+    else:
+        pheno_info = None
     ###########################
     ###Filter and Group SNPs###
     ###########################
@@ -69,11 +82,10 @@ def main(args):
         ignore_region=args.ignore_region,
         cred_set_data=cs_access,
         ld_api=ld_api,
-        extra_cols=args.extra_cols,
-        pheno_name=args.pheno_name,
-        pheno_data_file =args.pheno_info_file
+        extra_cols=args.extra_cols
     )
     
+    fetch_df = gws_fetch.add_pheno_info(fetch_df,args.pheno_name,pheno_info)
     #write fetch_df as a file, so that other parts of the script work
     if type(fetch_df) != type(None):
         fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
