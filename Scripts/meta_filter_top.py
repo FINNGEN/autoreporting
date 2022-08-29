@@ -130,14 +130,14 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
             else:
                 outfile.write('\t'.join([str(i) for i in line.fillna('NA')]) + '\n')
             
-    with open(output+".not_in_finngen","w") as nofg:
+    with open(output+".not_in_finngen","w", encoding="utf-8") as nofg:
         not_in_finngen_header = "\t".join(["locus","pval"])
         nofg.write(f"{not_in_finngen_header}\n")
         for loc in not_in_fg:
             join = "\t".join([loc.locid,loc.pval])
             nofg.write(f"{join}\n")
 
-    with open(output+".filtered","w") as weak_hits:
+    with open(output+".filtered","w", encoding="utf-8") as weak_hits:
         weak_hits_header = "\t".join([
             "locus",
             "pval",
