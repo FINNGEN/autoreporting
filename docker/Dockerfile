@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
 COPY requirements.txt /usr/local/requirements.txt
-RUN apt-get update && apt-get install -qqy wget unzip bzip2 curl python3.6 python3-venv python3-pip\
+RUN apt-get update && apt-get install -qqy wget unzip bzip2 curl libbz2-dev liblzma-dev python3.6 python3-venv python3-pip\
 && apt-get install curl tabix python3 python3-pip zlib1g-dev --yes && \
     apt-get clean
 RUN pip3 install -r usr/local/requirements.txt
