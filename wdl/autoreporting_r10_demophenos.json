@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "gs://r10-data/autoreporting/inputs/R_10_demopheno_matrix.tsv",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:cb92bfc",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:9ff070e-r10-jm",
     "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu4.2/plink/sisu4.2",
     "autoreporting.locus_width_kb":2000,
 
@@ -30,12 +30,11 @@
     "autoreporting.report.strict_group_r2":0.5,
     "autoreporting.report.custom_dataresource":"gs://r10-data/autoreporting/inputs/custom-catalog-2022-08-25.tsv",
     "autoreporting.report.dummy_file":"gs://misc-analysis/EMPTY_FILE",
-    "autoreporting.report.phenotype_info_file":"gs://r10-data/autoreporting/inputs/R10_pheno_n.tsv",
+    "autoreporting.report.phenotype_info_file":"gs://r10-data/autoreporting/inputs/R10_pheno_n.demopheno.tsv",
     "autoreporting.report.allele_vcf_file":"gs://autoreporting_resources/dbsnp_vcf/dbsnp_hg38p13_b153_numerical.vcf.gz",
 
     "autoreporting.post_process_top_reports.r2_threshold":0.02,
     "autoreporting.post_process_top_reports.af_col":"lead_af_alt",
     "autoreporting.post_process_top_reports.af_threshold":0.01,
     "autoreporting.post_process_top_reports.in_fg_col":"lead_af_alt"
-
 }
