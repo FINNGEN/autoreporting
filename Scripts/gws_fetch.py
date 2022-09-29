@@ -462,14 +462,15 @@ def fetch_gws(gws_fpath: str,
     retval["phenotype"] = pheno_name
     #add phenotype data
     #load phenotype datafile
-    if pheno_data_file != "":
+    try:
         pheno_data = pd.read_csv(pheno_data_file,sep="\t")
         pheno_row = pheno_data[pheno_data["phenocode"] == pheno_name].iloc[0]
         retval["longname"] = pheno_row["name"]
         retval["category"] = pheno_row["category"]
         retval["n_cases"] = pheno_row["num_cases"]
         retval["n_controls"] = pheno_row["num_controls"]
-    else:
+    except:
+        print(f"Error in reading phenotype {pheno_name} data from phenotype datafile {pheno_data_file}. Either the file did not exist, or the endpoint was not present in the file. Filling the values with NA")
         retval["longname"] = np.nan
         retval["category"] = np.nan
         retval["n_cases"] = np.nan
