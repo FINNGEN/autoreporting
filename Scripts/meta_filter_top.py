@@ -95,55 +95,49 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
     if "lead_r2_threshold" not in data.columns:
         data["lead_r2_threshold"] = 5.0/stats.chi2.isf(data["pval"],df=1)
     
-    not_in_fg=[]
+    not_in_fg = []
     filtered_out = []
     
-    with open(summstat) as infile:
-        with open(output,"w") as outfile:
+    with open(output, "w", encoding="utf-8") as outfile:
 
-            headerline = infile.readline()
-            header_ord = {a:i for i,a in enumerate(headerline.strip("\n").split("\t"))}
+        outfile.write('\t'.join(data.columns) + '\n')
 
-            outfile.write(headerline)
+        for _, line in data.iterrows():
 
-            for line in infile:
+            #if finngen-specific values are not present for this line, then the locus is not in finngen data and we don't care about it -> filter out
+            if line[fg_specific_column] == "NA":
+                not_in_fg.append(NotInFinnGen(
+                    line["locus_id"],
+                    line["pval"]
+                ))
+                continue
 
-                line_cols = line.strip("\n").split("\t")
+            #build locus
 
-                #if finngen-specific values are not present for this line, then the locus is not in finngen data and we don't care about it -> filter out
-                if line_cols[header_ord[fg_specific_column]] == "NA":
-                    not_in_fg.append(NotInFinnGen(
-                        line_cols[header_ord["locus_id"]],
-                        line_cols[header_ord["pval"]]
-                    ))
-                    continue
+            locus = Locus(
+                str(line["locus_id"]),
+                str(line["chrom"]),
+                int(line["pos"]),
+                str(line["ref"]),
+                str(line["alt"]),
+                float(line["pval"]),
+                float(line[af_col])
+            )
 
-                #build locus
-
-                locus = Locus(
-                    str(line_cols[header_ord["locus_id"]]),
-                    str(line_cols[header_ord["chrom"]]),
-                    int(line_cols[header_ord["pos"]]),
-                    str(line_cols[header_ord["ref"]]),
-                    str(line_cols[header_ord["alt"]]),
-                    float(line_cols[header_ord["pval"]]),
-                    float(line_cols[header_ord[af_col]])
-                )
-
-                stronger_hit = part_of_stronger_hit(locus,data,r2_threshold,width,af_threshold)
-                if stronger_hit:
-                    filtered_out.append(stronger_hit)
-                else:
-                    outfile.write(line)
-                
-    with open(output+".not_in_finngen","w") as nofg:
+            stronger_hit = part_of_stronger_hit(locus,data,r2_threshold,width,af_threshold)
+            if stronger_hit:
+                filtered_out.append(stronger_hit)
+            else:
+                outfile.write('\t'.join([str(i) for i in line.fillna('NA')]) + '\n')
+            
+    with open(output+".not_in_finngen","w", encoding="utf-8") as nofg:
         not_in_finngen_header = "\t".join(["locus","pval"])
         nofg.write(f"{not_in_finngen_header}\n")
         for loc in not_in_fg:
             join = "\t".join([loc.locid,loc.pval])
             nofg.write(f"{join}\n")
 
-    with open(output+".filtered","w") as weak_hits:
+    with open(output+".filtered","w", encoding="utf-8") as weak_hits:
         weak_hits_header = "\t".join([
             "locus",
             "pval",
