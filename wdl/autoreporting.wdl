@@ -58,6 +58,7 @@ task report {
     File allele_vcf_tbi = allele_vcf_file+".tbi"
 
     command <<<
+        set -euxo pipefail
         python3 <<CODE
         import subprocess, shlex, sys
         from subprocess import PIPE
