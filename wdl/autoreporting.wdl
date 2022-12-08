@@ -179,7 +179,7 @@ task report {
         docker: "${docker}"
         cpu: "${cpus}"
         memory: "${memory} GB"
-        disks: "local-disk 100 HDD"
+        disks: "local-disk 120 HDD"
         zones: "europe-west1-b europe-west1-c europe-west1-d"
         preemptible: 2
     }
