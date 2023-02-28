@@ -3,6 +3,7 @@ from subprocess import Popen, PIPE
 import pandas as pd, numpy as np #typing: ignore
 import pysam
 from typing import List, Dict, NamedTuple
+import gzip
 """
 Utility functions that are used in the scripts, put here for keeping the code clearer
 """
@@ -85,7 +86,12 @@ def load_pysam_df(df,fpath,columns,chrom_prefix="",na_value=".") -> pd.DataFrame
             rows = []
         data = [a.strip('\n').split('\t') for a in rows]
         tbxlst.extend(data)
-    header = tb.header[0].split('\t')
+
+    #header = tb.header[0].split('\t')
+    with gzip.open(fpath) as f:
+        header_temp = f.readline().decode()
+    header = header_temp.strip("\n").split("\t")
+ 
     out_df = pd.DataFrame(tbxlst, columns = header)
     out_df=out_df.replace(na_value,np.nan)
     out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
@@ -102,7 +108,10 @@ def load_pysam_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_v
             rows = []
         data = [a.strip('\n').split('\t') for a in rows]
         tbxlst.extend(data)
-    header = tb.header[0].split('\t')
+    #header = tb.header[0].split('\t')
+    with gzip.open(fpath) as f:
+        header_temp = f.readline().decode()
+    header = header_temp.strip("\n").split("\t")
     out_df = pd.DataFrame(tbxlst, columns = header)
     out_df=out_df.replace(na_value,np.nan)
     out_df[out_df.columns]=out_df[out_df.columns].apply(pd.to_numeric,errors="ignore")
