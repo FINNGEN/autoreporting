@@ -1,0 +1,25 @@
+from typing import List, Dict, NamedTuple,Any,Optional, Union
+from data_access.db import Variant
+import abc
+
+#a single annotation for a single variant
+Col = str
+Value = Union[str,int,float]
+VariantAnnotation = Dict[Col,Value]
+#a single variant might have multiple instances of annotations, e.g. if there are multiple gwas catalog its for a single variant
+Annotation = List[VariantAnnotation]
+
+class AnnotationSource:
+    @abc.abstractmethod
+    def annotate_variants(self,variants:List[Variant])->Dict[Variant,Annotation]:
+        pass
+
+    @staticmethod
+    def get_name() -> str:
+        """Unique identifier for the annotation
+        """
+        pass
+
+    @staticmethod
+    def get_output_columns() -> List[str]:
+        pass
