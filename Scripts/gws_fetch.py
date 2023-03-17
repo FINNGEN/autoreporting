@@ -339,7 +339,7 @@ def fetch_gws(gws_fpath: str,
             return None
         cs_leads = cs_df.loc[cs_df[["cs_id","cs_prob"]].reset_index().groupby("cs_id").max()["index"],:]
         cs_ranges = cs_leads[[columns["chrom"],columns["pos"]]].copy()
-        cs_ranges["min"] = cs_ranges[columns["pos"]]-locus_width_bp
+        cs_ranges["min"] = cs_ranges[columns["pos"]].apply(lambda x:max(0,x-locus_width_bp))
         cs_ranges["max"] = cs_ranges[columns["pos"]]+locus_width_bp
         cs_ranges=cs_ranges.rename(columns={columns["chrom"]:"chrom"}).drop(columns=columns["pos"])
         #make an X and 23 version of ranges
