@@ -1,8 +1,8 @@
-from Scripts.annotation_model import Value
-from Scripts.group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, GnomadExomeAnnotation, GnomadGenomeAnnotation, PreviousReleaseAnnotation
-from Scripts.grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
-from Scripts.grouping import ld_threshold
-from Scripts.data_access.db import Variant
+from annotation_model import Value
+from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, GnomadExomeAnnotation, GnomadGenomeAnnotation, PreviousReleaseAnnotation
+from grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
+from grouping import ld_threshold
+from data_access.db import Variant
 from typing import Any, Dict, Optional, TextIO, NamedTuple, List, Tuple, TypeVar, cast
 from collections import defaultdict
 from copy import deepcopy

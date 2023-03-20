@@ -5,7 +5,7 @@ import gzip
 import pysam
 from typing import List, Dict
 from functools import partial
-from Scripts.data_access.db import AlleleDB, Location, VariantData, Variant
+from data_access.db import AlleleDB, Location, VariantData, Variant
 
 #NOTE: Is this used anywhere?
 def _partial_filter(chrom: str, pos: int, cpra: List[str]):

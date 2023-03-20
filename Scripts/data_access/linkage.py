@@ -3,9 +3,9 @@ import argparse,shlex,subprocess, glob, time
 from subprocess import Popen, PIPE
 from typing import List, Text, Dict,Any, Optional
 import pandas as pd, numpy as np # type: ignore
-from Scripts.data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
-from Scripts.data_access.db import LDAccess, LDData, Variant
-from Scripts.autoreporting_utils import create_variant_column
+from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
+from data_access.db import LDAccess, LDData, Variant
+from autoreporting_utils import create_variant_column
 
 
 class OnlineLD(LDAccess):

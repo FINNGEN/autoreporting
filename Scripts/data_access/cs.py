@@ -3,7 +3,7 @@ import os.path as path
 from typing import List, Dict
 from collections import defaultdict
 import pandas as pd # type: ignore
-from Scripts.data_access.db import Variant, CSVariant, CS, CSAccess
+from data_access.db import Variant, CSVariant, CS, CSAccess
 
 def _v_parser(s:str)->Variant:
     """

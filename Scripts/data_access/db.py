@@ -5,7 +5,7 @@ import abc
 from typing import List, Text, Dict,Any, Optional, NamedTuple
 from io import StringIO
 import pandas as pd #type: ignore
-from Scripts.autoreporting_utils import Region
+from autoreporting_utils import Region
 
 class ExtDB(object):
     """Abstract base class for association searches

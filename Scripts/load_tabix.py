@@ -1,5 +1,5 @@
 from typing import Any, Dict, List,Generator,NamedTuple
-from Scripts.data_access.db import Variant
+from data_access.db import Variant
 import pysam
 import os
 import sys

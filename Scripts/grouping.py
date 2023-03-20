@@ -1,9 +1,9 @@
 from typing import Any, Dict, List, Optional, Sequence
 import scipy.stats as stats # type: ignore
-from Scripts.grouping_model import CSInfo,  Var, CSLocus, Locus, GroupingOptions, Grouping, PeakLocus, LDMode
-from Scripts.load_tabix import TabixResource
-from Scripts.data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
-from Scripts.data_access.csfactory import csfactory
+from grouping_model import CSInfo,  Var, CSLocus, Locus, GroupingOptions, Grouping, PeakLocus, LDMode
+from load_tabix import TabixResource
+from data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
+from data_access.csfactory import csfactory
 
 
 def ld_threshold(ld_thresh:float, mode: LDMode,pval:float)->float:

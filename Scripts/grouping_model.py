@@ -1,6 +1,6 @@
-from Scripts.annotation_model import Annotation, AnnotationSource
+from annotation_model import Annotation, AnnotationSource
 from typing import Any, List, Dict, NamedTuple, Optional, Tuple
-from Scripts.data_access.db import Variant, CS
+from data_access.db import Variant, CS
 from enum import Enum, unique
 import abc
 from functools import cmp_to_key

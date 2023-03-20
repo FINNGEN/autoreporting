@@ -1,5 +1,5 @@
 
-from Scripts.grouping_model import GroupingOptions, PhenoInfo
+from grouping_model import GroupingOptions, PhenoInfo
 from enum import Enum, unique
 from typing import NamedTuple, Optional
 import sys 

@@ -1,5 +1,5 @@
 from typing import List, Dict, NamedTuple,Any,Optional, Union
-from Scripts.data_access.db import Variant
+from data_access.db import Variant
 import abc
 
 #a single annotation for a single variant

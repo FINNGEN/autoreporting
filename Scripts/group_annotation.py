@@ -1,12 +1,12 @@
 import re
-from Scripts.autoreporting_utils import Region
-from Scripts.data_access.datafactory import db_factory
+from autoreporting_utils import Region
+from data_access.datafactory import db_factory
 from typing import NamedTuple, Optional, List, Dict
 
-from Scripts.grouping_model import CSInfo, PhenoData, Var, Locus
-from Scripts.data_access.db import CSAccess, Variant, CS
-from Scripts.annotation_model import Annotation, AnnotationSource, Value, VariantAnnotation
-from Scripts.load_tabix import tb_resource_manager, TabixResource, TabixOptions
+from grouping_model import CSInfo, PhenoData, Var, Locus
+from data_access.db import CSAccess, Variant, CS
+from annotation_model import Annotation, AnnotationSource, Value, VariantAnnotation
+from load_tabix import tb_resource_manager, TabixResource, TabixOptions
 # implement all concrete annotation sources here
 # care needs to be taken to make sure that loading an annotation for a variant is a fallible operation, i.e. 
 # the annotation might not actually exist for that variant

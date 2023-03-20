@@ -4,9 +4,9 @@
 
 #How about just an object that has e.g. a dict for those
 from typing import List, Dict, Any, Optional, Sequence
-from Scripts.data_access.db import ExtDB
-from Scripts.data_access import custom_catalog, gwcatalog_api, alleledb
-from Scripts.autoreporting_utils import *
+from data_access.db import ExtDB
+from data_access import custom_catalog, gwcatalog_api, alleledb
+from autoreporting_utils import *
 
 #TODO: change into ExtDB because it kinda already is
 class CompoundDB(ExtDB):

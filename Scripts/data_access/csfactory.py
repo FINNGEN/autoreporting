@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from Scripts.data_access.cs import CSFullReader, CSSummaryReader, CSAccess
+from data_access.cs import CSFullReader, CSSummaryReader, CSAccess
 
 
 def csfactory(cred_set_file:str)->CSAccess:

@@ -6,8 +6,8 @@ from typing import List, Text, Dict, Any, Optional, NamedTuple
 from io import StringIO
 from itertools import groupby
 import pandas as pd, numpy as np # type: ignore
-from Scripts.data_access.db import ExtDB, AlleleDB, Location, VariantData, Variant, Rsid, RsidVar
-from Scripts.autoreporting_utils import Region
+from data_access.db import ExtDB, AlleleDB, Location, VariantData, Variant, Rsid, RsidVar
+from autoreporting_utils import Region
 from multiprocessing.dummy import Pool as ThreadPool
 
 class RequestError(Exception):
