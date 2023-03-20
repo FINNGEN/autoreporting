@@ -1,9 +1,16 @@
-from typing import Any, Dict, List,Generator
-from data_access.db import Variant
+from typing import Any, Dict, List,Generator,NamedTuple
+from Scripts.data_access.db import Variant
 import pysam
 import os
 import sys
 import contextlib
+
+class TabixOptions(NamedTuple):
+    fname: str
+    c:str
+    p:str
+    r:str
+    a:str
 
 class TabixResource:
     """Load variants from tabix-indexed resource
@@ -11,13 +18,18 @@ class TabixResource:
     - The resource has c,p,r,a in it.
 
     """
-    def __init__(self,fname,c,p,r,a):
+    def __init__(self,opts:TabixOptions):
         #check that this file and its tabix file exist
-        self.fname = fname
-        if not os.path.exists(fname):
-            raise Exception(f"Resource {fname} does not to exist")
-        self.fileobject = pysam.TabixFile(fname,encoding="utf-8")
-        self.cpra = [c,p,r,a]
+        self.fname = opts.fname
+        if not os.path.exists(opts.fname):
+            raise Exception(f"Resource {opts.fname} does not to exist")
+        self.fileobject = pysam.TabixFile(opts.fname,encoding="utf-8")
+        self.cpra = [
+            opts.c,
+            opts.p,
+            opts.r,
+            opts.a
+        ]
         self.header = self.fileobject.header[-1].split("\t")
 
     def load_region(self, sequence:str, start:int, end:int, data_columns:List[str])-> Dict[Variant,List[str]]:
@@ -58,7 +70,8 @@ class TabixResource:
 def tb_resource_manager(fname, c,p,r,a) -> Generator:
     """Context manager helper for TabixResource
     """
-    obj = TabixResource(fname,c,p,r,a)
+    opts = TabixOptions(fname,c,p,r,a)
+    obj = TabixResource(opts)
     try:
         yield obj
     finally:

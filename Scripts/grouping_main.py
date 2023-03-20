@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-from grouping_report import generate_top_report, generate_variant_report,TopReportOptions,VariantReportOptions
+from Scripts.grouping_report import generate_top_report, generate_variant_report,TopReportOptions,VariantReportOptions
 import argparse,shlex,subprocess
-import pandas as pd 
+import pandas as pd # type: ignore
 import numpy as np
-from data_access import datafactory, csfactory
-from data_access.linkage import PlinkLD, OnlineLD
-from grouping import form_groups
-from grouping_model import Grouping, LDMode, PhenoInfo, PhenoData, SummstatColumns,GroupingOptions,CSInfo,Var,Locus,PeakLocus,CSLocus
-from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, TabixOptions, annotate, GnomadExomeAnnotation, GnomadGenomeAnnotation, CatalogAnnotation
-from phenoinfo import get_phenotype_data, PhenoInfoOptions
-from load_tabix import TabixResource, tb_resource_manager
-from data_access.csfactory import csfactory
-from data_access.db import Variant, CSAccess
+from Scripts.data_access.linkage import PlinkLD, OnlineLD
+from Scripts.grouping import form_groups
+from Scripts.grouping_model import Grouping, LDMode, PhenoInfo, PhenoData, SummstatColumns,GroupingOptions,CSInfo,Var,Locus,PeakLocus,CSLocus
+from Scripts.group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, GnomadExomeAnnotation, GnomadGenomeAnnotation, CatalogAnnotation
+from Scripts.phenoinfo import get_phenotype_data, PhenoInfoOptions
+from Scripts.load_tabix import TabixResource, tb_resource_manager,TabixOptions
+from Scripts.data_access.csfactory import csfactory
+from Scripts.data_access.db import Variant, CSAccess
 import os
 from typing import Optional, List
 
@@ -68,17 +67,17 @@ def main(args):
         args.overlap
     )
 
-    ### Annotation options
-    # extra columns come from summstat_resource
-    #previous release
-    prevrel_opts = PreviousReleaseOptions(args.previous_release_path,
-        column_names.c,
-        column_names.p,
-        column_names.r,
-        column_names.a,
-        column_names.pval,
-        column_names.beta)
-    prevrel_annotation = PreviousReleaseAnnotation(prevrel_opts)
+    ### Annotation resources
+    prevrel_annotation = None
+    if args.previous_release_path:
+        prevrel_opts = PreviousReleaseOptions(args.previous_release_path,
+            column_names.c,
+            column_names.p,
+            column_names.r,
+            column_names.a,
+            column_names.pval,
+            column_names.beta)
+        prevrel_annotation = PreviousReleaseAnnotation(prevrel_opts)
     extra_cols_annotation = ExtraColAnnotation(TabixOptions(
         args.gws_fpath,
         column_names.c,
@@ -158,44 +157,7 @@ def main(args):
         
         ### group
         loci = form_groups(summstat_resource,gr_opts,cs_access,ld_api)
-        if os.path.exists("./quickstart_df.tsv"):
-            fetch_df = pd.read_csv("./quickstart_df.tsv",sep="\t")
-        list_of_loci  = pandas_df_to_loci(fetch_df,args.grouping,args.grouping_method,cs_access)
-        
-        #compare
-        #TESTING
-        #TODO: delet this
-        locd = {a.lead.id:a for a in loci}
-        locd2 = {a.lead.id:a for a in list_of_loci}
-        keys = [a.id for a in sorted([b.lead for b in loci],key=lambda x:x.pval)]
-        for key in keys:
-            l1  = locd[key]
-            if key not in locd2:
-                print(f"Key {key} not in l2: Instead the following were there: {[a for a in locd2.keys()]}")
-                continue
-            l2 = locd2[key]
-            if l1.lead.id != l2.lead.id:
-                print(f"leads different: {l1.lead} {l2.lead}")
-            l1cs = [a.id for a in l1.cs]
-            l2cs = [a.id for a in l2.cs]
-            if set(l1cs) != set(l2cs):
-                print(f"cs different: {l1cs} {l2cs}")
-            l1ld = [a.id for a in l1.ld_partners]
-            l2ld = [a.id for a in l2.ld_partners]
-            if set(l1ld) != set(l2ld):
-                print(f"ld partners different for {key}")
-                l1s = set(l1ld)
-                l2s = set(l2ld)
-                l1_ = len(l1ld)
-                l2_ = len(l2ld)
-                li = len(l1s.intersection(l2s))
-                diff1 = len(l1s.difference(l2s))
-                diff2 = len(l2s.difference(l1s))
-                print(f"set intersection {li}, diff1 {diff1}, diff2 {diff2}, 1size {l1_} 2size {l2_}")
-                for v in l1.ld_partners:
-                    print(v)
 
-        raise NotImplementedError
         ### create phenotype
         phenodata = PhenoData(phenotype_info,loci)
         ### annotate
@@ -205,70 +167,6 @@ def main(args):
             generate_variant_report(phenodata,report_file,variant_report_options)
             generate_top_report(phenodata,top_file,top_report_options)
     
-
-def pandas_df_to_loci(pandas_df,group:bool,grouping_method:str,csaccess:Optional[CSAccess])->List[Locus]:
-    output = []
-    #get locus ids
-    csd = {}
-    if csaccess:
-        for c in csaccess.get_cs():
-            csd[c.lead] = CSInfo(
-                c.region,
-                c.lead,
-                c.number,
-                c.bayes,
-                c.min_r2,
-                c.size,
-                c.good_cs
-            )
-    if not group:
-        #amount of locus ids should be the same as the amount of variants
-        #therefore, we can just take the locus ids, make them into variants, take pval and beta and that's it
-        for row in pandas_df[["locus_id","pval","beta"]].itertuples():
-            identifier = row.locus_id
-            s = identifier.replace("chr","").split("_")
-            output.append(
-                PeakLocus(
-                    Var(Variant(s[0],int(s[1]),s[2],s[3]),row.pval,row.beta,None),
-                    None,
-                    Grouping.NONE
-                )
-            )
-    else:
-        locus_ids = list(pandas_df["locus_id"].unique())
-        for l in locus_ids:
-            if grouping_method == "simple":
-                #lead var is lead var, and the range vars is every other var
-                lead_var_row = pandas_df[(pandas_df["locus_id"]==l)&(pandas_df["#variant"]==l)].iloc[0]
-                s = l.replace("chr","").split("_")
-                lead_var = Var(Variant(s[0],int(s[1]),s[2],s[3] ),float(lead_var_row["pval"]),float(lead_var_row["beta"]),None)
-                range_var_df = pandas_df[(pandas_df["locus_id"]==l)&(pandas_df["#variant"] != l)][["#variant","locus_id","pval","beta"]]
-                range_vals = [(a._1.replace("chr","").split("_"),a.pval,a.beta) for a in range_var_df.itertuples()]
-                range_vars = [Var(Variant(a[0][0],int(a[0][1]),a[0][2],a[0][3]),float(a[1]),float(a[2]),None ) for a in range_vals]
-                grouping = Grouping.RANGE
-                output.append(PeakLocus(lead_var, range_vars,grouping))
-            elif grouping_method == "ld":
-                lead_var_row = pandas_df[(pandas_df["locus_id"]==l)&(pandas_df["#variant"]==l)].iloc[0]
-                s = l.replace("chr","").split("_")
-                lead_var = Var(Variant(s[0],int(s[1]),s[2],s[3] ),float(lead_var_row["pval"]),float(lead_var_row["beta"]),1.0)
-                ld_var_df = pandas_df[(pandas_df["locus_id"]==l) & (pandas_df["#variant"] != l)][["#variant","locus_id","pval","beta","r2_to_lead"]]
-                ld_vals = [(a._1.replace("chr","").split("_"),a.pval,a.beta,a.r2_to_lead) for a in ld_var_df.itertuples()]
-                ld_partners = [Var(Variant(a[0][0],int(a[0][1]),a[0][2],a[0][3]),float(a[1]),float(a[2]),float(a[3]) ) for a in ld_vals]
-                grouping = Grouping.LD
-                output.append(PeakLocus(lead_var, ld_partners,grouping))
-            elif grouping_method == "cred":
-                lead_var_row = pandas_df[(pandas_df["locus_id"]==l)&(pandas_df["#variant"]==l)].iloc[0]
-                s = l.replace("chr","").split("_")
-                lead_var = Var(Variant(s[0],int(s[1]),s[2],s[3] ),float(lead_var_row["pval"]),float(lead_var_row["beta"]),1.0)
-                cs_var_df = pandas_df[(pandas_df["locus_id"]==l)& (pandas_df["cs_id"] == lead_var_row["cs_id"])][["#variant","locus_id","pval","beta","r2_to_lead"]]
-                cs_vals = [(a._1.replace("chr","").split("_"),a.pval,a.beta,a.r2_to_lead) for a in cs_var_df.itertuples()]
-                cs = [Var(Variant(a[0][0],int(a[0][1]),a[0][2],a[0][3]),float(a[1]),float(a[2]),float(a[3]) ) for a in cs_vals]
-                ld_var_df = pandas_df[(pandas_df["locus_id"]==l)& (pandas_df["cs_id"] != lead_var_row["cs_id"])& (pandas_df["#variant"] != l)][["#variant","locus_id","pval","beta","r2_to_lead"]]
-                ld_vals = [(a._1.replace("chr","").split("_"),a.pval,a.beta,a.r2_to_lead) for a in ld_var_df.itertuples()]
-                ld_partners = [Var(Variant(a[0][0],int(a[0][1]),a[0][2],a[0][3]),float(a[1]),float(a[2]),float(a[3]) ) for a in ld_vals]
-                cs_info = csd[lead_var.id]
-                output.append(CSLocus(lead_var,cs,cs_info,ld_partners))
-    return output
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="FINNGEN automatic hit reporting tool")

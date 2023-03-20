@@ -1,6 +1,6 @@
 import argparse,shlex,subprocess, os
 from subprocess import Popen, PIPE
-import pandas as pd, numpy as np #typing: ignore
+import pandas as pd, numpy as np # type: ignore
 import pysam
 from typing import List, Dict, NamedTuple
 """
@@ -139,9 +139,10 @@ def prune_regions(regions:List[Region])->List[Region]:
     out=[]
     #create chromosome divided intervals
     chromosomes = set([r.chrom for r in regions])
-    cdict = {a:[] for a in sorted(chromosomes)}
-    _=[cdict[r.chrom].append(r) for r in regions]
-    for chrom, c_regions in cdict.items():
+    cdict:dict[str,List[Region]] = {a:[] for a in sorted(chromosomes)}
+    for r in regions:
+        cdict[r.chrom].append(r)
+    for _chrom, c_regions in cdict.items():
         sorted_regions = sorted(c_regions, key=lambda x:x.start)
         out.append(sorted_regions[0])
         for s_r in sorted_regions:

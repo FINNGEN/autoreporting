@@ -1,8 +1,8 @@
 import abc
 from typing import List, Text, Dict,Any
-import pandas as pd, numpy as np
-from data_access.db import ExtDB
-from autoreporting_utils import Region
+import pandas as pd, numpy as np # type: ignore
+from Scripts.data_access.db import ExtDB
+from Scripts.autoreporting_utils import Region
 
 class CustomCatalog(ExtDB):
     def __init__(self, fname: str, pval_threshold: float, padding: int):

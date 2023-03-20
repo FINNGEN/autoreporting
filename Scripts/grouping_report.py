@@ -1,12 +1,12 @@
-from annotation_model import Value
-from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, GnomadExomeAnnotation, GnomadGenomeAnnotation, PreviousReleaseAnnotation
-from grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
-from grouping import ld_threshold
-from data_access.db import Variant
-from typing import TextIO, NamedTuple, List
+from Scripts.annotation_model import Value
+from Scripts.group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, GnomadExomeAnnotation, GnomadGenomeAnnotation, PreviousReleaseAnnotation
+from Scripts.grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
+from Scripts.grouping import ld_threshold
+from Scripts.data_access.db import Variant
+from typing import Any, Dict, Optional, TextIO, NamedTuple, List, Tuple, TypeVar, cast
 from collections import defaultdict
 from copy import deepcopy
-import scipy.stats as stats
+import scipy.stats as stats # type: ignore
 import math
 
 class VariantReportOptions(NamedTuple):
@@ -41,6 +41,8 @@ def format_value(value:Value)->str:
     elif type(value) == str:
         return value
     elif type(value) == bool:
+        return str(value)
+    elif type(value) == Variant:
         return str(value)
     else:
         raise Exception(f"unsupported type of value: {type(value)} for value {value}")
@@ -102,8 +104,8 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
         vars:List[Var] = []
         locus_v_lists = locus.get_vars()
         lead = locus_v_lists.lead
-        ld_partners = locus_v_lists.ld_partners if locus_v_lists.ld_partners != None else []
-        cs_vars = locus_v_lists.cs if locus_v_lists.cs != None else []
+        ld_partners = locus_v_lists.ld_partners if locus_v_lists.ld_partners is not None else []
+        cs_vars = locus_v_lists.cs if locus_v_lists.cs is not None else []
         vars.extend(ld_partners)
         vars.extend(cs_vars)
         vars.append(lead)
@@ -117,7 +119,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
         for v in vars:
             list_of_cols = []
             #init cols with by default no value for a column
-            cols = defaultdict(lambda:None)
+            cols:Dict[str,Value] = defaultdict(lambda:None)
             #variant cols
             cols[options.summstat_options.c] = v.id.chrom
             cols[options.summstat_options.p] = v.id.pos
@@ -142,9 +144,9 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
                             cs_data = [a for a in annot[v.id] if a["lead_variant"]==lead.id][0]
                         except:
                             raise Exception(f"Variant {v.id} is in credible set but does not have cs data in annotation. Check implementation.")
-                        cs_lead = cs_data["lead_variant"]
-                        cs_number = cs_data["number"]
-                        cols["cs_id"] = f"chr{cs_lead.chrom}_{cs_lead.pos}_{cs_lead.ref}_{cs_lead.alt}_{cs_number}"
+                        cs_lead = cs_data["lead_variant"] if isinstance(cs_data["lead_variant"],Variant) else None
+                        cs_number = cs_data["number"] if isinstance(cs_data["number"],int) else None
+                        cols["cs_id"] = f"chr{cs_lead.chrom}_{cs_lead.pos}_{cs_lead.ref}_{cs_lead.alt}_{cs_number}" if isinstance(cs_lead,Variant) else None
                         cols["cs_region"] = cs_data["region"]
                         cols["cs_number"] = cs_data["number"]
                         cols["cs_prob"] = cs_data["prob"]
@@ -163,10 +165,10 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
                         #NOTE: this picks the largest prob cs for this variant. In ideal circumstances, a variant
                         # would always have only one cs which it belongs to, but 
                         # in practice this is not always enforced in region selection. 
-                        cs_data = sorted(annot[v.id],key = lambda x:float(x["cs_prob"]))[-1]
-                        cs_lead = cs_data["lead_variant"]
-                        cs_number = cs_data["number"]
-                        cols["cs_id"] = f"chr{cs_lead.chrom}_{cs_lead.pos}_{cs_lead.ref}_{cs_lead.alt}_{cs_number}"
+                        cs_data = sorted(annot[v.id],key = lambda x:float(x["cs_prob"]))[-1] #type:ignore
+                        cs_lead = cs_data["lead_variant"] if isinstance(cs_data["lead_variant"],Variant) else None
+                        cs_number = cs_data["number"] if isinstance(cs_data["number"],int) else None
+                        cols["cs_id"] = f"chr{cs_lead.chrom}_{cs_lead.pos}_{cs_lead.ref}_{cs_lead.alt}_{cs_number}" if isinstance(cs_lead,Variant) else None
                         cols["cs_region"] = cs_data["region"]
                         cols["cs_number"] = cs_data["number"]
                         cols["cs_prob"] = cs_data["prob"]
@@ -232,6 +234,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
                     output.write("\t".join(column_values)+"\n")
 
 get_varid = lambda variant: f"chr{variant.chrom}_{variant.pos}_{variant.ref}_{variant.alt}"
+
 
 def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions):
     """Generate and write the top report (group aggregation report) from available data.
@@ -305,12 +308,12 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
     debug_out = []
     for locus in data.loci:
         #column values for the row
-        cols = defaultdict(lambda:None)
+        cols:Dict[str,Value] = defaultdict(lambda:None)
 
         locus_vars = locus.get_vars()
         lead = locus_vars.lead
-        ld_partners = locus_vars.ld_partners if locus_vars.ld_partners != None else []
-        cs_vars = locus_vars.cs if locus_vars.cs != None else []
+        ld_partners = locus_vars.ld_partners if locus_vars.ld_partners is not None else []
+        cs_vars = locus_vars.cs if locus_vars.cs is not None else []
 
         #phenotype cols
         cols["phenotype"] = phenotype
@@ -400,13 +403,13 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         if options.grouping_method == Grouping.LD:
             relaxed_set:set[Var] = set(cs_vars+ld_partners+[lead])
             strict_set:set[Var] = set([a for a in relaxed_set if 
-                (a.r2_to_lead != None) and (a.r2_to_lead >= options.strict_group) and (a.pval <= options.significance_threshold) ])
+                (a.r2_to_lead is not None) and (a.r2_to_lead >= options.strict_group) and (a.pval <= options.significance_threshold) ])
         elif options.grouping_method == Grouping.CS:
-            strict_set:set[Var] = set(cs_vars+[lead])
-            relaxed_set:set[Var] = set(ld_partners+cs_vars+[lead])
+            strict_set = set(cs_vars+[lead])
+            relaxed_set = set(ld_partners+cs_vars+[lead])
         else:
-            relaxed_set:set[Var] = set(ld_partners+ cs_vars+[lead])
-            strict_set:set[Var] = set([a for a in relaxed_set if a.pval <= options.significance_threshold])        
+            relaxed_set = set(ld_partners+ cs_vars+[lead])
+            strict_set = set([a for a in relaxed_set if a.pval <= options.significance_threshold])        
         
         #functional strict & relaxed
         if FGAnnotation.get_name() in data.annotations:
@@ -419,14 +422,14 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 fg_ann[a.id][0]["functional_category"],
                 fg_ann[a.id][0]["most_severe_gene"],
                 a.r2_to_lead
-            ) for a in func_vars_strict],key=lambda x:x[3],reverse=True)
+            ) for a in func_vars_strict if a.r2_to_lead is not None],key=lambda x:x[3],reverse=True)
             #functional set of variants, relaxed
             func_data_relaxed = sorted([(
                 get_varid(a.id),
                 fg_ann[a.id][0]["functional_category"],
                 fg_ann[a.id][0]["most_severe_gene"],
                 a.r2_to_lead
-            ) for a in func_vars_relaxed],key=lambda x:x[3],reverse=True)
+            ) for a in func_vars_relaxed if a.r2_to_lead is not None],key=lambda x:x[3],reverse=True)
             cols["functional_variants_strict"] = ";".join([f"{a[0]}|{a[1]}|{a[2]}|{a[3]}" for a in func_data_strict])
             cols["functional_variants_relaxed"] = ";".join([f"{a[0]}|{a[1]}|{a[2]}|{a[3]}" for a in func_data_relaxed])
         
@@ -439,7 +442,8 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
             try:
                 cs_vars_extended = set(cs_vars+[lead])
                 cs_data = {a.id:cs_ann[a.id][0]  for a in cs_vars_extended}
-                sorted_cs_vars = sorted([(a,cs_data[a.id]["prob"]) for a in cs_vars_extended],key=lambda x:x[1],reverse=True)
+                _temp_lst:List[Tuple[Var,float]] = [(a,cast(float,cs_data[a.id]["prob"]) ) for a in cs_vars_extended ]
+                sorted_cs_vars = sorted(_temp_lst,key=lambda x:x[1],reverse=True)
                 cols["credible_set_variants"] = ";".join([f"{get_varid(a[0].id)}|{a[1]:.3g}|{a[0].r2_to_lead:.3g}" for a in sorted_cs_vars])
             except Exception as e:
                 raise Exception("Error: bug")
@@ -450,11 +454,11 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
             cat_ann = data.annotations[CatalogAnnotation.get_name()]
             #strict
             trait_vars_strict = [a for a in strict_set if a.id in cat_ann]
-            all_traits_strict = {}
+            all_traits_strict:Dict[str,float] = {}
             for v in trait_vars_strict:
                 for item in cat_ann[v.id]:
-                    if v.r2_to_lead > all_traits_strict.get(item["trait_name"],0.0):
-                        all_traits_strict[item["trait_name"]] = v.r2_to_lead
+                    if cast(float,v.r2_to_lead) > all_traits_strict.get(cast(str,item["trait_name"]),0.0):
+                        all_traits_strict[cast(str,item["trait_name"])] = cast(float,v.r2_to_lead)
             trait_data_strict = sorted(
                 [
                     (trait_name,r2) for trait_name,r2 in all_traits_strict.items()
@@ -462,11 +466,11 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 key=lambda x:x[1],reverse=True
             )
             trait_vars_relaxed = [a for a in relaxed_set if a.id in cat_ann]
-            all_traits_relaxed = {}
+            all_traits_relaxed:dict[str,float] = {}
             for v in trait_vars_relaxed:
                 for item in cat_ann[v.id]:
-                    if v.r2_to_lead > all_traits_relaxed.get(item["trait_name"],0.0):
-                        all_traits_relaxed[item["trait_name"]] = v.r2_to_lead
+                    if cast(float,v.r2_to_lead) > all_traits_relaxed.get(cast(str,item["trait_name"]),0.0):
+                        all_traits_relaxed[cast(str,item["trait_name"])] = cast(float,v.r2_to_lead)
             trait_data_relaxed = sorted(
                 [
                     (trait_name,r2) for trait_name,r2 in all_traits_relaxed.items()

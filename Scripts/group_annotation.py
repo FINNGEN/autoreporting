@@ -1,14 +1,12 @@
 import re
-from numpy.lib.shape_base import _column_stack_dispatcher
-from autoreporting_utils import Region
-from data_access.datafactory import db_factory
+from Scripts.autoreporting_utils import Region
+from Scripts.data_access.datafactory import db_factory
 from typing import NamedTuple, Optional, List, Dict
-import sys
-import pysam
-from grouping_model import CSInfo, PhenoData, Var, Locus
-from data_access.db import CSAccess, Variant, CS
-from annotation_model import Annotation, AnnotationSource, VariantAnnotation
-from load_tabix import tb_resource_manager, TabixResource
+
+from Scripts.grouping_model import CSInfo, PhenoData, Var, Locus
+from Scripts.data_access.db import CSAccess, Variant, CS
+from Scripts.annotation_model import Annotation, AnnotationSource, Value, VariantAnnotation
+from Scripts.load_tabix import tb_resource_manager, TabixResource, TabixOptions
 # implement all concrete annotation sources here
 # care needs to be taken to make sure that loading an annotation for a variant is a fallible operation, i.e. 
 # the annotation might not actually exist for that variant
@@ -38,12 +36,6 @@ def generate_chrom_ranges(variants:List[Variant])->Dict[str, Dict[str,int]]:
             chr_d[v.chrom]["end"] = max(chr_d[v.chrom]["end"],v.pos)
     return chr_d
 
-class TabixOptions(NamedTuple):
-    fname: str
-    c:str
-    p:str
-    r:str
-    a:str
 
 class TabixAnnotation(AnnotationSource):
     def __init__(self,opts: TabixOptions):
@@ -149,7 +141,7 @@ class ExtraColAnnotation(TabixAnnotation):
         
 
     def _create_annotation(self,cols:List[str],hdi:Dict[str,int])->Annotation:
-        annotation = {a:cols[hdi[a]] for a in self.extra_columns}
+        annotation:VariantAnnotation = {a:cols[hdi[a]] for a in self.extra_columns}
         return [annotation]
 
     @staticmethod
@@ -180,7 +172,7 @@ class CSAnnotation(AnnotationSource):
             var_annot = []
             cs_in_which_it_is = [a for a in self.csdata if v in [b.variant for b in a.variants]]
             for cs in cs_in_which_it_is:
-                annotation = {}
+                annotation:Dict[str,Value] = {}
                 annotation["region"] = cs.region
                 annotation["lead_variant"] = cs.lead
                 annotation["number"] = cs.number
@@ -379,7 +371,7 @@ class GnomadGenomeAnnotation(TabixAnnotation):
         enrichment_nfe = calculate_enrichment(nfe_ac_values,nfe_an_values,af_fin)
         enrichment_nfe_est = calculate_enrichment(nfe_est_ac_values,nfe_est_an_values,af_fin)
         #fill in values to annotation
-        annotation = { self.colrename(a):float(cols[hdi[a]]) if cols[hdi[a]]!="NA" else float("nan") for a in self.columns }
+        annotation:Dict[str,Value] = { self.colrename(a):float(cols[hdi[a]]) if cols[hdi[a]]!="NA" else float("nan") for a in self.columns }
         annotation["GENOME_FI_enrichment_nfe"] = enrichment_nfe
         annotation["GENOME_FI_enrichment_nfe_est"] = enrichment_nfe_est
         return [annotation]
@@ -437,7 +429,7 @@ class GnomadExomeAnnotation(TabixAnnotation):
         enrichment_nfe_swe = calculate_enrichment(nfe_swe_ac_values,nfe_swe_an_values,af_fin)
         enrichment_nfe_est_swe = calculate_enrichment(nfe_est_swe_ac_values,nfe_est_swe_an_values,af_fin)
         #fill in values to annotation
-        annotation = {self.colrename(a):float(cols[hdi[a]]) for a in self.columns}
+        annotation:Dict[str,Value] = {self.colrename(a):float(cols[hdi[a]]) for a in self.columns}
         annotation["EXOME_FI_enrichment_nfe"] = enrichment_nfe
         annotation["EXOME_FI_enrichment_nfe_est"] = enrichment_nfe_est
         annotation["EXOME_FI_enrichment_nfe_swe"] = enrichment_nfe_swe
@@ -509,7 +501,7 @@ class CatalogAnnotation(AnnotationSource):
         data=self.inner.associations_for_regions(regs)
         #format data according to variant
         #variants are identified by "chrom","pos","ref","alt"
-        output = {}
+        output:Dict[Variant,Annotation] = {}
 
         mapping_variant_set = {construct_mapping_variant(v):v for v in variants}
         mset='^[acgtACGT-]+$'

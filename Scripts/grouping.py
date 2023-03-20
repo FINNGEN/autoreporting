@@ -1,12 +1,9 @@
-from group_annotation import CSAnnotation
-import argparse
-from typing import Any, Dict, List, Optional
-import scipy.stats as stats
-from grouping_model import CSInfo, PhenoData, Var, CSLocus, Locus, GroupingOptions, Grouping, PeakLocus, LDMode
-from load_tabix import TabixResource, tb_resource_manager
-from data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
-from data_access.linkage import PlinkLD, OnlineLD
-from data_access.csfactory import csfactory
+from typing import Any, Dict, List, Optional, Sequence
+import scipy.stats as stats # type: ignore
+from Scripts.grouping_model import CSInfo,  Var, CSLocus, Locus, GroupingOptions, Grouping, PeakLocus, LDMode
+from Scripts.load_tabix import TabixResource
+from Scripts.data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
+from Scripts.data_access.csfactory import csfactory
 
 
 def ld_threshold(ld_thresh:float, mode: LDMode,pval:float)->float:
@@ -33,7 +30,7 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
         except:
             raise Exception(f"Fatal Error: Credible set lead variant {c} was not found in the summary statistic resource. Can not continue.")
     csleads_by_pval = sorted([(key,value)for key,value in cs_pvals.items()],key=lambda x:x[1])
-    variants_that_can_not_be_included = set()
+    variants_that_can_not_be_included:set[Variant] = set()
     for lead_var,lead_pval in csleads_by_pval:
         # get LD partners
         #dynamic/static r2 thresh decision
@@ -217,7 +214,7 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
         ))
     return output
 
-def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptions)->List[Variant]:
+def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptions)->List[Var]:
     p1_pile = []
     cpra = [
         options.column_names.c,
@@ -246,7 +243,7 @@ def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptio
             p1_pile.append(var)
     return p1_pile
 
-def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_access: CSAccess, ld_access:LDAccess) -> List[Locus]:
+def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_access: CSAccess, ld_access:LDAccess) -> Sequence[Locus]:
     """Group summary statistics according to grouping options 
     """
     #load cs
@@ -254,7 +251,7 @@ def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_ac
     if group_type == Grouping.NONE:
         #filter summstat to gws variants only
         vars = filter_gws_variants(summstat_resource,gr_opts)
-        loci = [PeakLocus(v,None,Grouping.NONE) for v in vars]
+        loci:Sequence[Locus] = [PeakLocus(v,None,Grouping.NONE) for v in vars]
     elif group_type == Grouping.RANGE:
         #range-based grouping
         loci = simple_grouping(summstat_resource,gr_opts)

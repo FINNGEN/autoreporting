@@ -5,7 +5,7 @@ import abc
 from typing import List, Text, Dict,Any, Optional, NamedTuple
 from io import StringIO
 import pandas as pd #type: ignore
-from autoreporting_utils import Region
+from Scripts.autoreporting_utils import Region
 
 class ExtDB(object):
     """Abstract base class for association searches
@@ -72,7 +72,7 @@ class LDAccess(object):
         Returns: 
             (List[LDData]):List of variant associations
         """
-        return
+        pass
 
 class Location(NamedTuple):
     """Chromosomal position
@@ -112,7 +112,7 @@ class AlleleDB(object):
         Returns:
             (List[VariantData]): As many of those locations 
         """
-        return
+        pass
 
 class CSVariant(NamedTuple):
     variant:Variant
@@ -139,4 +139,4 @@ class CSAccess(object):
         Returns:
             (List[CS]): List of credible sets. Each credible set contains variants.
         """
-        return
+        pass

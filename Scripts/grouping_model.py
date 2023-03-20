@@ -1,6 +1,6 @@
-from annotation_model import Annotation
+from Scripts.annotation_model import Annotation, AnnotationSource
 from typing import Any, List, Dict, NamedTuple, Optional, Tuple
-from data_access.db import Variant, CS
+from Scripts.data_access.db import Variant, CS
 from enum import Enum, unique
 import abc
 from functools import cmp_to_key
@@ -40,11 +40,11 @@ class GroupingOptions(NamedTuple):
     overlap: bool
 
 class PhenoInfo(NamedTuple):
-    name: str
-    longname: str
-    cases: int
-    controls: int
-    category: str
+    name: Optional[str]
+    longname: Optional[str]
+    cases: Optional[int]
+    controls: Optional[int]
+    category: Optional[str]
 
 class Var(NamedTuple):
     id:Variant
@@ -105,7 +105,7 @@ class CSLocus(Locus):
         if self.ld_partners:
             for v in self.ld_partners:
                 output.add(v.id)
-        return output
+        return list(output)
 
     def type(self)->Grouping:
         return Grouping.CS
@@ -128,7 +128,7 @@ class PeakLocus(Locus):
         if self.ld_partners:
             for v in self.ld_partners:
                 output.add(v.id)
-        return output
+        return list(output)
 
     def get_vars(self):
         return LocusVariants(self.lead,None,self.ld_partners)
@@ -148,14 +148,14 @@ class PhenoData:
     def __init__(self,phenoinfo:PhenoInfo,loci:List[Locus]):
         self.phenoinfo = phenoinfo
         self.loci = loci
-        self.annotations = {}
+        self.annotations: Dict[str,Dict[Variant,Annotation]] = {}
 
     def get_variants(self)->List[Variant]:
         
-        out = set()
+        out:set[Variant] = set()
         for l in self.loci:
             out = out.union(l.variants())
         return sorted(list(out),key=cmp_to_key(_varcmp))
 
-    def add_annotation(self,annotation_name,annotation:Annotation):
+    def add_annotation(self,annotation_name,annotation:Dict[Variant,Annotation]):
         self.annotations[annotation_name]=annotation
