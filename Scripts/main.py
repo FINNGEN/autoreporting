@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 from Scripts.grouping_report import generate_top_report, generate_variant_report,TopReportOptions,VariantReportOptions
 import argparse,shlex,subprocess
-import pandas as pd # type: ignore
-import numpy as np
 from Scripts.data_access.linkage import PlinkLD, OnlineLD
 from Scripts.grouping import form_groups
 from Scripts.grouping_model import Grouping, LDMode, PhenoInfo, PhenoData, SummstatColumns,GroupingOptions,CSInfo,Var,Locus,PeakLocus,CSLocus
@@ -11,7 +9,6 @@ from Scripts.phenoinfo import get_phenotype_data, PhenoInfoOptions
 from Scripts.load_tabix import TabixResource, tb_resource_manager,TabixOptions
 from Scripts.data_access.csfactory import csfactory
 from Scripts.data_access.db import Variant, CSAccess
-import os
 from typing import Optional, List
 
 def groupingModeFactory(method:str,group:bool):
