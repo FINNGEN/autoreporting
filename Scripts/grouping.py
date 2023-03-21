@@ -35,7 +35,6 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
         # get LD partners
         #dynamic/static r2 thresh decision
         ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_pval)
-        print(lead_var,lead_pval,ld_thresh)
         ld_partners = ld_api.get_range(lead_var,options.range,ld_thresh)
         ld_partners = [a for a in ld_partners if a.variant1 == lead_var]
         # get locus in summary statistic

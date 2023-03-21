@@ -423,7 +423,7 @@ class GnomadExomeAnnotation(TabixAnnotation):
         nfe_swe_an_values = [int(cols[hdi[a]]) for a in self.nfe_swe_an]
         nfe_est_swe_ac_values = [int(cols[hdi[a]]) for a in self.nfe_est_swe_ac]
         nfe_est_swe_an_values = [int(cols[hdi[a]]) for a in self.nfe_est_swe_an]
-        af_fin = float(cols[hdi[self.af_fin]])
+        af_fin = float(cols[hdi[self.af_fin]]) if cols[hdi[self.af_fin]] != "NA" else float("nan")
         enrichment_nfe = calculate_enrichment(nfe_ac_values,nfe_an_values,af_fin)
         enrichment_nfe_est = calculate_enrichment(nfe_est_ac_values,nfe_est_an_values,af_fin)
         enrichment_nfe_swe = calculate_enrichment(nfe_swe_ac_values,nfe_swe_an_values,af_fin)
