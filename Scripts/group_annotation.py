@@ -429,7 +429,7 @@ class GnomadExomeAnnotation(TabixAnnotation):
         enrichment_nfe_swe = calculate_enrichment(nfe_swe_ac_values,nfe_swe_an_values,af_fin)
         enrichment_nfe_est_swe = calculate_enrichment(nfe_est_swe_ac_values,nfe_est_swe_an_values,af_fin)
         #fill in values to annotation
-        annotation:Dict[str,Value] = {self.colrename(a):float(cols[hdi[a]]) for a in self.columns}
+        annotation:Dict[str,Value] = {self.colrename(a):float(cols[hdi[a]]) if cols[hdi[a]]!="NA" else float("nan") for a in self.columns }
         annotation["EXOME_FI_enrichment_nfe"] = enrichment_nfe
         annotation["EXOME_FI_enrichment_nfe_est"] = enrichment_nfe_est
         annotation["EXOME_FI_enrichment_nfe_swe"] = enrichment_nfe_swe

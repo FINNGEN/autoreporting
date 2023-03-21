@@ -145,8 +145,6 @@ task report {
                     f"{efo_cmd} " #efo
                     f"{ignore_cmd} " #ignore
                     f"--custom-dataresource {custom_dataresource} "
-                    f"--fetch-out {pheno_id}.fetch.out "
-                    f"--annotate-out {pheno_id}.annotate.out "
                     f"--report-out {pheno_id}.report.out "
                     f"--top-report-out {pheno_id}.top.out "
                     )
