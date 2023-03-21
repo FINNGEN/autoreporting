@@ -179,7 +179,7 @@ task report {
         docker: "${docker}"
         cpu: "${cpus}"
         memory: "${memory} GB"
-        disks: "local-disk 100 HDD"
+        disks: "local-disk 150 HDD"
         zones: "europe-west1-b europe-west1-c europe-west1-d"
         preemptible: 2
     }
@@ -223,7 +223,7 @@ task post_process_top_reports {
         docker: "${docker}"
         cpu: "4"
         memory: "30 GB"
-        disks: "local-disk 100 HDD"
+        disks: "local-disk 150 HDD"
         zones: "europe-west1-b europe-west1-c europe-west1-d"
         preemptible: 2
     }
