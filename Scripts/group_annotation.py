@@ -84,7 +84,7 @@ class TabixAnnotation(AnnotationSource):
                 hdr = tabix_resource.header
                 hdi = {a:i for i,a in enumerate(hdr)}
                 for original_v in variants:
-                    for l in tabix_resource.fileobject.fetch(self._chrom_to_source(original_v.chrom),original_v.pos-1,original_v.pos):
+                    for l in tabix_resource.fileobject.fetch(self._chrom_to_source(original_v.chrom),max(original_v.pos-1,0),original_v.pos):
                         cols = l.split("\t")
                         v = Variant(self._chrom_from_source(cols[hdi[self.cpra[0]]]),int(cols[hdi[self.cpra[1]]]),cols[hdi[self.cpra[2]]],cols[hdi[self.cpra[3]]] )
                         if v in variant_set:
@@ -219,22 +219,28 @@ class CSAnnotation(AnnotationSource):
             "lead_r2"
         ]
 
+def tryfloat(value: str) -> float:
+    return float(value) if value != "NA" else float("nan")
+
+def tryint(value: str) -> Optional[int]:
+    return int(value) if value !="NA" else None
+
 class FunctionalAnnotation(TabixAnnotation):
     def __init__(self,fname:str):
         opts = TabixOptions(fname,"chrom","pos","ref","alt")
         super().__init__(opts)
         self.columntypes = {
-            "enrichment_nfsee":float,
-            "fin.AF":float,
-            "fin.AN":int,
-            "fin.AC":int,
-            "fin.homozygote_count":int,
-            "fet_nfsee.odds_ratio":float,
-            "fet_nfsee.p_value":float,
-            "nfsee.AC":int,
-            "nfsee.AN":int,
-            "nfsee.AF":float,
-            "nfsee.homozygote_count":int
+            "enrichment_nfsee":tryfloat,
+            "fin.AF":tryfloat,
+            "fin.AN":tryint,
+            "fin.AC":tryint,
+            "fin.homozygote_count":tryint,
+            "fet_nfsee.odds_ratio":tryfloat,
+            "fet_nfsee.p_value":tryfloat,
+            "nfsee.AC":tryint,
+            "nfsee.AN":tryint,
+            "nfsee.AF":tryfloat,
+            "nfsee.homozygote_count":tryint
         }
         self.variant_switch = 1_000_000
         #make sure all columns are in 
@@ -255,7 +261,7 @@ class FunctionalAnnotation(TabixAnnotation):
 
     def _create_annotation(self,cols:List[str], hdi: Dict[str,int])->Annotation:
         try:
-            annotation = {key:valuetype(cols[hdi[key]]) for key, valuetype in self.columntypes.items()}
+            annotation:Dict[str,Value] = {key:valuetype(cols[hdi[key]]) for key, valuetype in self.columntypes.items()}
         except:
             print(cols)
             raise
@@ -304,7 +310,7 @@ class FGAnnotation(TabixAnnotation):
         functional_category = cols[hdi[self.colnames["most_severe_consequence"]]] if cols[hdi[self.colnames["most_severe_consequence"]]] in FUNCTIONAL_CATEGORIES else "NA"
         fg_info = cols[hdi[self.colnames["FG_INFO"]]]
         infocol_names = [a for a in hdi.keys() if a.startswith("INFO_")]
-        infocol_values = [float(cols[hdi[a]]) for a in infocol_names]
+        infocol_values = [tryfloat(cols[hdi[a]]) for a in infocol_names]
         n_info_gt_0_6 = len([a for a in infocol_values if a > 0.6])/len(infocol_values)
         return [{
             self.out_columns[0]:most_severe_gene,
@@ -371,7 +377,7 @@ class GnomadGenomeAnnotation(TabixAnnotation):
         enrichment_nfe = calculate_enrichment(nfe_ac_values,nfe_an_values,af_fin)
         enrichment_nfe_est = calculate_enrichment(nfe_est_ac_values,nfe_est_an_values,af_fin)
         #fill in values to annotation
-        annotation:Dict[str,Value] = { self.colrename(a):float(cols[hdi[a]]) if cols[hdi[a]]!="NA" else float("nan") for a in self.columns }
+        annotation:Dict[str,Value] = { self.colrename(a):tryfloat(cols[hdi[a]]) for a in self.columns }
         annotation["GENOME_FI_enrichment_nfe"] = enrichment_nfe
         annotation["GENOME_FI_enrichment_nfe_est"] = enrichment_nfe_est
         return [annotation]
@@ -423,13 +429,13 @@ class GnomadExomeAnnotation(TabixAnnotation):
         nfe_swe_an_values = [int(cols[hdi[a]]) for a in self.nfe_swe_an]
         nfe_est_swe_ac_values = [int(cols[hdi[a]]) for a in self.nfe_est_swe_ac]
         nfe_est_swe_an_values = [int(cols[hdi[a]]) for a in self.nfe_est_swe_an]
-        af_fin = float(cols[hdi[self.af_fin]]) if cols[hdi[self.af_fin]] != "NA" else float("nan")
+        af_fin = tryfloat(cols[hdi[self.af_fin]])
         enrichment_nfe = calculate_enrichment(nfe_ac_values,nfe_an_values,af_fin)
         enrichment_nfe_est = calculate_enrichment(nfe_est_ac_values,nfe_est_an_values,af_fin)
         enrichment_nfe_swe = calculate_enrichment(nfe_swe_ac_values,nfe_swe_an_values,af_fin)
         enrichment_nfe_est_swe = calculate_enrichment(nfe_est_swe_ac_values,nfe_est_swe_an_values,af_fin)
         #fill in values to annotation
-        annotation:Dict[str,Value] = {self.colrename(a):float(cols[hdi[a]]) if cols[hdi[a]]!="NA" else float("nan") for a in self.columns }
+        annotation:Dict[str,Value] = {self.colrename(a):tryfloat(cols[hdi[a]]) for a in self.columns }
         annotation["EXOME_FI_enrichment_nfe"] = enrichment_nfe
         annotation["EXOME_FI_enrichment_nfe_est"] = enrichment_nfe_est
         annotation["EXOME_FI_enrichment_nfe_swe"] = enrichment_nfe_swe
