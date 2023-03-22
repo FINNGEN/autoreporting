@@ -8,6 +8,7 @@ from collections import defaultdict
 from copy import deepcopy
 import scipy.stats as stats # type: ignore
 import math
+from time_decorator import timefunc
 
 class VariantReportOptions(NamedTuple):
     summstat_options: SummstatColumns
@@ -46,7 +47,7 @@ def format_value(value:Value)->str:
         return str(value)
     else:
         raise Exception(f"unsupported type of value: {type(value)} for value {value}")
-
+@timefunc
 def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReportOptions):
     """Generate and write the variant report from available data.
     Inputs:
@@ -235,7 +236,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
 
 get_varid = lambda variant: f"chr{variant.chrom}_{variant.pos}_{variant.ref}_{variant.alt}"
 
-
+@timefunc
 def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions):
     """Generate and write the top report (group aggregation report) from available data.
     Inputs:

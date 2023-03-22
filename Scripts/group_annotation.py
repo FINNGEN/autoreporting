@@ -10,6 +10,7 @@ from load_tabix import tb_resource_manager, TabixResource, TabixOptions
 # implement all concrete annotation sources here
 # care needs to be taken to make sure that loading an annotation for a variant is a fallible operation, i.e. 
 # the annotation might not actually exist for that variant
+from time_decorator import timefunc
 
 FUNCTIONAL_CATEGORIES=[
         "transcript_ablation",
@@ -60,7 +61,8 @@ class TabixAnnotation(AnnotationSource):
         """Override this to create annotation
         """
         raise Exception("Override _create_annotation for the annotation")
-
+    
+    @timefunc
     def annotate_variants(self, variants: List[Variant]) -> Dict[Variant, Annotation]:
         """Annotate a list of variants with the previous release's p-value and beta
         """
@@ -153,7 +155,7 @@ class CSAnnotation(AnnotationSource):
     def __init__(self, cs_access: CSAccess):
         self.cs_access = cs_access
         
-
+    @timefunc
     def annotate_variants(self, variants: List[Variant]) -> Dict[Variant, Annotation]:
         """Annotation has the following pieces of data:
         region:
@@ -493,6 +495,7 @@ class CatalogAnnotation(AnnotationSource):
         self.col_rename = {a:a for a in self.cols}
         self.col_rename["pval"] = "pval_trait"
 
+    @timefunc
     def annotate_variants(self,variants:List[Variant]) -> Dict[Variant,Annotation]:
         #generate chromosomal regions, that might be the best for now.
         # The gwas catalog/custom catalog data is not so big, so it will greatly limit 

@@ -4,7 +4,7 @@ from grouping_model import CSInfo,  Var, CSLocus, Locus, GroupingOptions, Groupi
 from load_tabix import TabixResource
 from data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
 from data_access.csfactory import csfactory
-
+from time_decorator import timefunc
 
 def ld_threshold(ld_thresh:float, mode: LDMode,pval:float)->float:
     if mode == LDMode.DYNAMIC:
@@ -242,6 +242,7 @@ def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptio
             p1_pile.append(var)
     return p1_pile
 
+@timefunc
 def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_access: CSAccess, ld_access:LDAccess) -> Sequence[Locus]:
     """Group summary statistics according to grouping options 
     """

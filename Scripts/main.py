@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 from grouping_report import generate_top_report, generate_variant_report,TopReportOptions,VariantReportOptions
-import argparse,shlex,subprocess
+import argparse
 from data_access.linkage import PlinkLD, OnlineLD
 from grouping import form_groups
-from grouping_model import Grouping, LDMode, PhenoInfo, PhenoData, SummstatColumns,GroupingOptions,CSInfo,Var,Locus,PeakLocus,CSLocus
+from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,GroupingOptions
 from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, GnomadExomeAnnotation, GnomadGenomeAnnotation, CatalogAnnotation
 from phenoinfo import get_phenotype_data, PhenoInfoOptions
-from load_tabix import TabixResource, tb_resource_manager,TabixOptions
+from load_tabix import tb_resource_manager,TabixOptions
 from data_access.csfactory import csfactory
-from data_access.db import Variant, CSAccess
 from typing import Optional, List
+
 
 def groupingModeFactory(method:str,group:bool):
     if not group:
@@ -154,7 +154,7 @@ def main(args):
         
         ### group
         loci = form_groups(summstat_resource,gr_opts,cs_access,ld_api)
-
+        
         ### create phenotype
         phenodata = PhenoData(phenotype_info,loci)
         ### annotate
