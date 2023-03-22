@@ -1,16 +1,15 @@
-import abc
-import argparse,shlex,subprocess, glob, time
-from subprocess import Popen, PIPE
-from typing import List, Text, Dict,Any, Optional
+import shlex,subprocess, glob
+from subprocess import PIPE
+from typing import List,  Optional
 import pandas as pd, numpy as np # type: ignore
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 from data_access.db import LDAccess, LDData, Variant
-from autoreporting_utils import create_variant_column
 
 
 class OnlineLD(LDAccess):
-    def __init__(self,url):
+    def __init__(self,url,panel="sisu42"):
         self.url=url
+        self.panel=panel
 
     def get_range(self, variant: Variant, bp_range: int, ld_threshold: Optional[float]=None) -> List[LDData]:
         """Get LD data for a range around one variant
@@ -18,7 +17,7 @@ class OnlineLD(LDAccess):
         window = 2* bp_range 
         window = max(min(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
         variant_str="{}:{}:{}:{}".format(variant.chrom, variant.pos, variant.ref, variant.alt)
-        params={"variant":variant_str,"panel":"sisu3","variant":variant_str,"window":window}
+        params={"variant":variant_str,"panel":self.panel,"variant":variant_str,"window":window}
         if ld_threshold:
             params["r2_thresh"]=ld_threshold
         try:
