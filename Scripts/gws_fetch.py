@@ -352,6 +352,9 @@ def fetch_gws(gws_fpath: str,
         summ_stat_variants = summ_stat_variants_x if summ_stat_variants_x.shape[0] > summ_stat_variants_23.shape[0] else summ_stat_variants_23
         summ_stat_variants = df_replace_value(summ_stat_variants,columns["chrom"],"X","23")#finally in chrom 23 
         
+        # fix if there are some NA values
+        summ_stat_variants[columns["pval"]] = pd.to_numeric(summ_stat_variants[columns["pval"]], errors="coerce")
+        
         #filter them by p-value threshold 2. Merge credset will take care of cs variants that are filtered out.
         summ_stat_variants= summ_stat_variants.loc[summ_stat_variants[columns["pval"]]<=sig_tresh_2,:]
         
