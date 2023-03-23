@@ -107,9 +107,12 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
     hdi = {a:i for i,a in enumerate(hd)}
     for l in summstat_resource.fileobject.fetch():
         cols = l.split("\t")
-        pval = float(cols[hdi[cpra[4]]])
-        if pval < options.p2_threshold:
+        try:
+            pval = float(cols[hdi[cpra[4]]])
             beta = float(cols[hdi[cpra[5]]])
+        except:
+            continue
+        if pval < options.p2_threshold:
             var = Var(Variant(
                 cols[hdi[cpra[0]]],
                 int(cols[hdi[cpra[1]]]),
@@ -163,9 +166,12 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     hdi = {a:i for i,a in enumerate(hd)}
     for l in summstat_resource.fileobject.fetch():
         cols = l.split("\t")
-        pval = float(cols[hdi[cpra[4]]])
-        if pval < options.p2_threshold:
+        try:
+            pval = float(cols[hdi[cpra[4]]])
             beta = float(cols[hdi[cpra[5]]])
+        except:
+            continue
+        if pval < options.p2_threshold:
             var = Var(Variant(
                 cols[hdi[cpra[0]]],
                 int(cols[hdi[cpra[1]]]),
@@ -227,9 +233,12 @@ def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptio
     hdi = {a:i for i,a in enumerate(hd)}
     for l in summstat_resource.fileobject.fetch():
         cols = l.split("\t")
-        pval = float(cols[hdi[cpra[4]]])
-        if pval < options.p1_threshold:
+        try:
+            pval = float(cols[hdi[cpra[4]]])
             beta = float(cols[hdi[cpra[5]]])
+        except:
+            continue
+        if pval < options.p1_threshold:
             var = Var(Variant(
                 cols[hdi[cpra[0]]],
                 int(cols[hdi[cpra[1]]]),
