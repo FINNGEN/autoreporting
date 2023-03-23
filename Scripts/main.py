@@ -52,7 +52,7 @@ def main(args):
             ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
-    
+    args.sig_treshold_2 = max(args.sig_treshold, args.sig_treshold_2)
     gr_opts = GroupingOptions(args.gws_fpath,
         gr_mode,
         column_names,
