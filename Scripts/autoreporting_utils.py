@@ -103,8 +103,10 @@ def load_pysam_ranges(df: pd.DataFrame, fpath: str, chrom_prefix: str = "", na_v
     tbxlst=[]
     for _,row in df.iterrows():
         try:
-            rows = tb.fetch("{}{}".format(chrom_prefix,row["chrom"]),int(row["min"])-1,int(row["max"]))
-        except:
+            rows = tb.fetch("{}{}".format(chrom_prefix,row["chrom"]),max(int(row["min"])-1,0),int(row["max"]))
+        except Exception as ex:
+            print(f"Exception with loading pysam range {row}]")
+            print(ex)
             rows = []
         data = [a.strip('\n').split('\t') for a in rows]
         tbxlst.extend(data)
