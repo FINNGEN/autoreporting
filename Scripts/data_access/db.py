@@ -2,9 +2,7 @@
 
 ## File that contains abstract classes for different DAOs
 import abc
-from typing import List, Text, Dict,Any, Optional, NamedTuple
-from io import StringIO
-import pandas as pd #type: ignore
+from typing import List, Dict,Any, Optional, NamedTuple
 from autoreporting_utils import Region
 
 class ExtDB(object):
