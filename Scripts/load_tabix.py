@@ -1,4 +1,5 @@
-from typing import Any, Dict, List,Generator,NamedTuple
+import gzip
+from typing import Dict, List,Generator,NamedTuple
 from data_access.db import Variant
 import pysam
 import os
@@ -30,7 +31,14 @@ class TabixResource:
             opts.r,
             opts.a
         ]
-        self.header = self.fileobject.header[-1].split("\t")
+        #if header is stored in tabix-compatible format, use that
+        if len(self.fileobject.header) != 0:
+            self.header = self.fileobject.header[-1].split("\t")
+        #else load from head of file
+        else:
+            with gzip.open(opts.fname) as f:
+                header = f.readline().decode()
+                self.header = header.strip("\n").split("\t")
 
     def load_region(self, sequence:str, start:int, end:int, data_columns:List[str])-> Dict[Variant,List[str]]:
         """Load data columns for a region
