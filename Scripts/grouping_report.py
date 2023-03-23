@@ -25,10 +25,6 @@ class TopReportOptions(NamedTuple):
     r2_threshold: float
     
 
-class Formatter:
-    def __init__(self,float_decimals:int) -> None:
-        self.none_standin = "NA"
-        self.float_format = f"{{:.{float_decimals}f}}"
 
 def format_value(value:Value)->str:
     if value is None:
@@ -44,7 +40,7 @@ def format_value(value:Value)->str:
     elif type(value) == bool:
         return str(value)
     elif type(value) == Variant:
-        return str(value)
+        return f"chr{value.chrom}_{value.pos}_{value.ref}_{value.alt}"
     else:
         raise Exception(f"unsupported type of value: {type(value)} for value {value}")
 @timefunc
