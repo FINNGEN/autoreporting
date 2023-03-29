@@ -1,32 +1,49 @@
 #!/usr/bin/env python3
-
-import argparse,shlex,subprocess
-import pandas as pd 
-import numpy as np
-import gws_fetch, compare, annotate,autoreporting_utils,top_report
-from data_access import datafactory, csfactory
+from grouping_report import generate_top_report, generate_variant_report,TopReportOptions,VariantReportOptions
+import argparse
 from data_access.linkage import PlinkLD, OnlineLD
+from grouping import form_groups
+from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,GroupingOptions
+from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, GnomadExomeAnnotation, GnomadGenomeAnnotation, CatalogAnnotation
+from phenoinfo import get_phenotype_data, PhenoInfoOptions
+from load_tabix import tb_resource_manager,TabixOptions
+from data_access.csfactory import csfactory
+from typing import Optional, List
+
+
+def groupingModeFactory(method:str,group:bool):
+    if not group:
+        return Grouping.NONE
+    if method=="simple":
+        return Grouping.RANGE
+    elif method=="ld":
+        return Grouping.LD
+    elif method=="cred":
+        return Grouping.CS
+    else:
+        raise Exception(f"Unknown grouping method {method} passed to --grouping-method")
+
+def ldModeFactory(ld_chisq):
+    if ld_chisq != None:
+        return LDMode.DYNAMIC
+    return LDMode.CONSTANT
 
 def main(args):
     print("input file: {}".format(args.gws_fpath))
-    args.fetch_out = "{}{}".format(args.prefix,args.fetch_out)
-    args.annotate_out = "{}{}".format(args.prefix,args.annotate_out)
-    args.report_out = "{}{}".format(args.prefix,args.report_out)
-    args.top_report_out = "{}{}".format(args.prefix,args.top_report_out)
-    args.ld_report_out = "{}{}".format(args.prefix,args.ld_report_out)
-    args.sig_treshold_2=max(args.sig_treshold_2,args.sig_treshold)
-    args.strict_group_r2 = max(args.strict_group_r2,args.ld_r2)
-    columns=autoreporting_utils.columns_from_arguments(args.column_labels)
-
-    assoc_db = datafactory.db_factory(args.use_gwascatalog,
-                                                    args.custom_dataresource,
-                                                    args.database_choice,
-                                                    args.localdb_path,
-                                                    args.gwascatalog_pad,
-                                                    args.gwascatalog_pval,
-                                                    args.gwascatalog_threads,
-                                                    args.allele_db_file)
-
+    ### Construct options & resources
+    # grouping mode
+    gr_mode = groupingModeFactory(args.grouping_method,args.grouping)
+    #summstat columns
+    column_names = SummstatColumns(args.column_labels[0],args.column_labels[1],args.column_labels[2],args.column_labels[3],args.column_labels[4],args.column_labels[5])
+    #range
+    loc_range = args.loc_width*1000
+    # ld mode
+    ld_mode = ldModeFactory(args.dynamic_r2_chisq)
+    if ld_mode == LDMode.DYNAMIC:
+        r2_threshold = args.dynamic_r2_chisq
+    else:
+        r2_threshold = args.ld_r2
+    # ld resource
     ld_api=None
     if args.grouping_method != "simple":
         if args.ld_api_choice == "plink":
@@ -35,92 +52,118 @@ def main(args):
             ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
-    
-    #parse r2 
-    if args.dynamic_r2_chisq != None:
-        dynamic_r2 = True
-        r2_thresh =  args.dynamic_r2_chisq
-    else:
-        dynamic_r2 = False
-        r2_thresh = args.ld_r2
+    args.sig_treshold_2 = max(args.sig_treshold, args.sig_treshold_2)
+    gr_opts = GroupingOptions(args.gws_fpath,
+        gr_mode,
+        column_names,
+        loc_range,
+        ld_mode,
+        r2_threshold,
+        args.sig_treshold,
+        args.sig_treshold_2,
+        args.overlap
+    )
 
+    ### Annotation resources
+    prevrel_annotation = None
+    if args.previous_release_path:
+        prevrel_opts = PreviousReleaseOptions(args.previous_release_path,
+            column_names.c,
+            column_names.p,
+            column_names.r,
+            column_names.a,
+            column_names.pval,
+            column_names.beta)
+        prevrel_annotation = PreviousReleaseAnnotation(prevrel_opts)
+    extra_cols_annotation = ExtraColAnnotation(TabixOptions(
+        args.gws_fpath,
+        column_names.c,
+        column_names.p,
+        column_names.r,
+        column_names.a,
+    ),args.extra_cols) if args.extra_cols else None
+    # functional annotation
+    functional_annotation = None
+    if args.functional_path:
+        functional_annotation = FunctionalAnnotation(args.functional_path)
+    # finngen annotation
+    fg_annotation = None
+    if args.finngen_path:
+        fg_annotation = FGAnnotation(args.finngen_path)
+    # gnomad exome annotation
+    gnomad_genome_annotation = None
+    if args.gnomad_genome_path:
+        gnomad_genome_annotation = GnomadGenomeAnnotation(args.gnomad_genome_path)
+    # gnomad genome annotations
+    gnomad_exome_annotation = None
+    if args.gnomad_exome_path:
+        gnomad_exome_annotation = GnomadExomeAnnotation(args.gnomad_exome_path)
+    #gwas catalog annotation
+    catalog_annotation = CatalogAnnotation(args.use_gwascatalog,
+                                                    args.custom_dataresource,
+                                                    args.database_choice,
+                                                    args.localdb_path,
+                                                    args.gwascatalog_pad,
+                                                    args.gwascatalog_pval,
+                                                    args.gwascatalog_threads,
+                                                    args.allele_db_file)
+
+    ### Report options
+    top_report_options = TopReportOptions(args.strict_group_r2,
+        args.sig_treshold,
+        gr_mode,
+        args.efo_traits,
+        args.extra_cols,
+        ld_mode,
+        r2_threshold)
+    variant_report_options = VariantReportOptions(column_names,args.extra_cols,False)
+
+    ### create resources for grouping
+    # cs resource
     if args.cred_set_file:
-        cs_access = csfactory.csfactory(args.cred_set_file)
+        cs_access = csfactory(args.cred_set_file)
     else:
         cs_access=None
-    ###########################
-    ###Filter and Group SNPs###
-    ###########################
-    print("filter & group SNPs")
-    args.annotate_fpath=args.fetch_out
-    args.compare_fname=args.annotate_out
-    fetch_df = gws_fetch.fetch_gws(
-        gws_fpath=args.gws_fpath,
-        sig_tresh_1=args.sig_treshold,
-        prefix=args.prefix,
-        group=args.grouping,
-        grouping_method=args.grouping_method,
-        locus_width=args.loc_width,
-        sig_tresh_2=args.sig_treshold_2,
-        dynamic_r2=dynamic_r2,
-        ld_r2=r2_thresh,
-        overlap=args.overlap,
-        columns=columns,
-        ignore_region=args.ignore_region,
-        cred_set_data=cs_access,
-        ld_api=ld_api,
-        extra_cols=args.extra_cols,
-        pheno_name=args.pheno_name,
-        pheno_data_file =args.pheno_info_file
-    )
-    
-    #write fetch_df as a file, so that other parts of the script work
-    if type(fetch_df) != type(None):
-        fetch_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.fetch_out,sep="\t",index=False,float_format="%.3g")
-    else:
-        return
+    cs_annotation = None if cs_access == None else CSAnnotation(cs_access)
 
-    ###########################
-    #######Annotate SNPs#######
-    ###########################
-    if (args.gnomad_exome_path == None) or (args.gnomad_genome_path == None) or (args.finngen_path==None):
-        print("Annotation files missing, skipping gnomad & finngen annotation...")
-        #args.compare_fname=args.annotate_fpath
-        annotate_df = fetch_df
-    else:
-        print("Annotate SNPs")
-        #annotate_df = annotate.annotate(fetch_df,args)
-        annotate_df = annotate.annotate(
-            df=fetch_df,
-            gnomad_genome_path=args.gnomad_genome_path,
-            gnomad_exome_path=args.gnomad_exome_path,
-            finngen_path=args.finngen_path,
-            functional_path=args.functional_path,
-            previous_release_path=args.previous_release_path,
-            prefix=args.prefix,
-            columns=columns
-        )
-    annotate_df.fillna("NA").replace("","NA").to_csv(path_or_buf=args.annotate_out,sep="\t",index=False,float_format="%.3g")
-    
-    ###########################
-    ######Compare results######
-    ###########################
-    print("Compare results to previous findings")
-    [report_df,ld_out_df] = compare.compare(annotate_df, ld_check=args.ld_check,
-                                    plink_mem=args.plink_mem, ld_panel_path=args.ld_panel_path, prefix=args.prefix,
-                                    ldstore_threads=args.ldstore_threads, ld_threshold=args.ld_threshold, cache_gwas=args.cache_gwas, columns=columns,
-                                    association_db=assoc_db)
+    #join all annotation resources
+    annotation_resources = [a for a in (
+            prevrel_annotation,
+            extra_cols_annotation,
+            functional_annotation,
+            fg_annotation,
+            gnomad_genome_annotation,
+            gnomad_exome_annotation,
+            catalog_annotation,
+            cs_annotation
+        ) if a != None
+    ]
 
-    if type(report_df) != type(None):
-        report_df.fillna("NA").replace("","NA").to_csv(args.report_out,sep="\t",index=False,float_format="%.3g")
-        print("Create top report")
-        #create top report
-        #top level df 
-        top_df=top_report.create_top_level_report(report_df,efo_traits=args.efo_traits,columns=columns,grouping_method=args.grouping_method,
-                                            significance_threshold=args.sig_treshold,strict_ld_threshold=args.strict_group_r2, extra_cols=args.extra_cols,dynamic_r2=dynamic_r2, ld_r2_threshold=r2_thresh)
-        top_df.fillna("NA").replace("","NA").to_csv(args.top_report_out,sep="\t",index=False,float_format="%.3g")
-    if type(ld_out_df) != type(None):
-        ld_out_df.to_csv(args.ld_report_out,sep="\t",float_format="%.3g")
+    #create phenotype info
+    pheno_options = None
+    if args.pheno_info_file != "":
+        pheno_options = PhenoInfoOptions(args.pheno_info_file,args.pheno_name)
+    phenotype_info = get_phenotype_data(pheno_options)
+
+    #summary statistic resource
+    with tb_resource_manager(args.gws_fpath,
+        gr_opts.column_names.c,
+        gr_opts.column_names.p,
+        gr_opts.column_names.r,
+        gr_opts.column_names.a) as summstat_resource:
+        
+        ### group
+        loci = form_groups(summstat_resource,gr_opts,cs_access,ld_api)
+        
+        ### create phenotype
+        phenodata = PhenoData(phenotype_info,loci)
+        ### annotate
+        phenodata = annotate(phenodata,annotation_resources)
+        ### create report
+        with open(args.report_out,"w") as report_file, open(args.top_report_out,"w") as top_file:
+            generate_variant_report(phenodata,report_file,variant_report_options)
+            generate_top_report(phenodata,top_file,top_report_options)
+    
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="FINNGEN automatic hit reporting tool")
@@ -149,7 +192,7 @@ if __name__=="__main__":
     parser.add_argument("--pheno-name",dest="pheno_name",type=str,default="",help="Phenotype name")
     parser.add_argument("--pheno-info-file",dest="pheno_info_file",type=str,default="",help="Phenotype information file path")
     parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")
-    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL"),nargs=5,default=["#chrom","pos","ref","alt","pval","beta","maf","maf_cases","maf_controls"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta maf maf_cases maf_controls'.")
+    parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA"),nargs=6,default=["#chrom","pos","ref","alt","pval","beta"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta'.")
     
     #annotate
     parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
@@ -157,7 +200,7 @@ if __name__=="__main__":
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")
-    parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Annotation output filename, default is annotate_out.tsv")
+    #parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Annotation output filename, default is annotate_out.tsv")
     
     #compare results
     parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")

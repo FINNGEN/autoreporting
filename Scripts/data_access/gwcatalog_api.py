@@ -5,7 +5,7 @@ import os
 from typing import List, Text, Dict, Any, Optional, NamedTuple
 from io import StringIO
 from itertools import groupby
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np # type: ignore
 from data_access.db import ExtDB, AlleleDB, Location, VariantData, Variant, Rsid, RsidVar
 from autoreporting_utils import Region
 from multiprocessing.dummy import Pool as ThreadPool
@@ -229,8 +229,8 @@ def _resolve_alleles(rsids: List[Rsid], variantdata: List[VariantData])->List[Rs
         (List[RsidVar]): List of RsidVar objects (Namedtuple with fields variant:Variant,rsid:str)
     """
     #form dataframe
-    vardf = [(a.variant.chrom, a.variant.pos, a.variant.ref, ','.join([a.variant.alt]+a.other_alts), a.rsid) for a in variantdata]
-    vardf = pd.DataFrame(vardf,columns=["chrom","pos","ref","alt","rsid"])
+    _vardf = [(a.variant.chrom, a.variant.pos, a.variant.ref, ','.join([a.variant.alt]+a.other_alts), a.rsid) for a in variantdata]
+    vardf = pd.DataFrame(_vardf,columns=["chrom","pos","ref","alt","rsid"])
     df = pd.DataFrame([(a.location.chromosome,a.location.position, a.rsid) for a in rsids ],columns=["chrom","pos","rsid"]).drop_duplicates()
     vardf = vardf.drop_duplicates()
     #ensure both have same types

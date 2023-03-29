@@ -1,6 +1,6 @@
 import abc
 from typing import List, Text, Dict,Any
-import pandas as pd, numpy as np
+import pandas as pd, numpy as np # type: ignore
 from data_access.db import ExtDB
 from autoreporting_utils import Region
 

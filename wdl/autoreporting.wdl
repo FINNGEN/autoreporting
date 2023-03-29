@@ -67,10 +67,10 @@ task report {
         empty_file = "${dummy_file}"
         pheno_id="${phenotype_name}"
         plink_path = "${ld_panel_bed}".replace(".bed","")
-        gnomad_exome="${gnomad_exome}"
-        gnomad_genome="${gnomad_genome}"
-        finngen_annotation="${finngen_annotation}"
-        functional_annotation="${functional_annotation}"
+        gnomad_exome="--gnomad-exome-path ${gnomad_exome}" if "${gnomad_exome}" != empty_file else "" 
+        gnomad_genome="--gnomad-genome-path ${gnomad_genome}" if "${gnomad_genome}" != empty_file else "" 
+        finngen_annotation="--finngen-path  ${finngen_annotation}" if "${finngen_annotation}" != empty_file else "" 
+        functional_annotation="--functional-path ${functional_annotation}" if "${functional_annotation}" != empty_file else "" 
         previous_release="--previous-release-path ${previous_release}" if "${previous_release}" != empty_file else "" 
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
 
@@ -125,10 +125,10 @@ task report {
                     f"--ld-panel-path {plink_path} "
                     f"{ld_opts} "#ld opts
                     f"--plink-memory {plink_memory} "
-                    f"--finngen-path {finngen_annotation} "
-                    f"--functional-path {functional_annotation} "
-                    f"--gnomad-genome-path {gnomad_genome} "
-                    f"--gnomad-exome-path {gnomad_exome} "
+                    f"{finngen_annotation} "
+                    f"{functional_annotation} "
+                    f"{gnomad_genome} "
+                    f"{gnomad_exome} "
                     f"{previous_release} "
                     f"{credset} "
                     f"--use-gwascatalog "
@@ -145,8 +145,6 @@ task report {
                     f"{efo_cmd} " #efo
                     f"{ignore_cmd} " #ignore
                     f"--custom-dataresource {custom_dataresource} "
-                    f"--fetch-out {pheno_id}.fetch.out "
-                    f"--annotate-out {pheno_id}.annotate.out "
                     f"--report-out {pheno_id}.report.out "
                     f"--top-report-out {pheno_id}.top.out "
                     )

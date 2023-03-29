@@ -1,24 +1,23 @@
-import abc
-import argparse,shlex,subprocess, glob, time
-from subprocess import Popen, PIPE
-from typing import List, Text, Dict,Any, Optional
-import pandas as pd, numpy as np
+import shlex,subprocess, glob
+from subprocess import PIPE
+from typing import List,  Optional
+import pandas as pd, numpy as np # type: ignore
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 from data_access.db import LDAccess, LDData, Variant
-from autoreporting_utils import create_variant_column
 
 
 class OnlineLD(LDAccess):
-    def __init__(self,url):
+    def __init__(self,url,panel="sisu42"):
         self.url=url
+        self.panel=panel
 
     def get_range(self, variant: Variant, bp_range: int, ld_threshold: Optional[float]=None) -> List[LDData]:
         """Get LD data for a range around one variant
         """
         window = 2* bp_range 
         window = max(min(window, 5000000), 100000)#range in api.finngen.fi is [100 000, 5 000 000]
-        variant="{}:{}:{}:{}".format(variant.chrom, variant.pos, variant.ref, variant.alt)
-        params={"variant":variant,"panel":"sisu3","variant":variant,"window":window}
+        variant_str="{}:{}:{}:{}".format(variant.chrom, variant.pos, variant.ref, variant.alt)
+        params={"variant":variant_str,"panel":self.panel,"variant":variant_str,"window":window}
         if ld_threshold:
             params["r2_thresh"]=ld_threshold
         try:
@@ -65,9 +64,11 @@ class PlinkLD(LDAccess):
         self.path=path
         self.memory=memory
 
-    def get_range(self, variant: Variant, bp_range: int, ld_threshold:Optional[float]=None)->List[LDData]:
-        if not ld_threshold:
+    def get_range(self, variant: Variant, bp_range: int, ld_threshold_:Optional[float]=None)->List[LDData]:
+        if not ld_threshold_:
             ld_threshold = 0.0
+        else:
+            ld_threshold = ld_threshold_
         chromosome = variant.chrom
         snp = "chr{}_{}_{}_{}".format(
             variant.chrom.replace("23","X"),
@@ -80,7 +81,7 @@ class PlinkLD(LDAccess):
         plink_cmd = f"plink --allow-extra-chr --bfile {self.path} --chr {chromosome} --r2 gz --ld-snp {snp} --ld-window-r2 {ld_threshold} --ld-window-kb {kb_range} --ld-window 100000 --out {plink_name} --memory {self.memory}"
         pr = subprocess.Popen(shlex.split(plink_cmd),stdout=PIPE,stderr=subprocess.STDOUT,encoding='ASCII')
         pr.wait()
-        plink_log = pr.stdout.readlines()
+        plink_log = pr.stdout.readlines() if pr.stdout is not None else []
         if pr.returncode != 0:
             if any([ True for a in plink_log if "Error: No valid variants specified by --ld-snp/--ld-snps/--ld-snp-list." in a]):
                 print("PLINK FAILURE. Variants not found in LD panel for chromosome {}".format(chromosome))

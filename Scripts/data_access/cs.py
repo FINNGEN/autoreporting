@@ -2,7 +2,7 @@ import gzip
 import os.path as path
 from typing import List, Dict
 from collections import defaultdict
-import pandas as pd
+import pandas as pd # type: ignore
 from data_access.db import Variant, CSVariant, CS, CSAccess
 
 def _v_parser(s:str)->Variant:
@@ -164,7 +164,7 @@ class CSSummaryReader(CSAccess):
         Read credible set information from cred and snp files
         """
         #read credible sets
-        credsets = []
+        credsets:list[CS] = []
         with open(self.cred_path,"r") as cred_file:
             headers = cred_file.readline().strip().split("\t")
             h_order = {a:i for (i,a) in enumerate(headers)}
@@ -222,7 +222,7 @@ class CSSummaryReader(CSAccess):
         return credsets
 
 
-def cs_to_df(cs:List[CS],columns: Dict[str,str])->pd.DataFrame():
+def cs_to_df(cs:List[CS],columns: Dict[str,str])->pd.DataFrame:
     """Kludge to convert from list of CS to a dataframe containing the same information.
     """
     output_columns = [
