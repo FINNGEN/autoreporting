@@ -295,10 +295,12 @@ def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_ac
                     cs_pvalbetadict.get(v.variant,(float("nan"),float("nan")))[1],
                     ld_dict.get(v.variant,float("nan"))
                 )
-                for v in c.variants]
+                for v in c.variants if v.variant != c.lead]
             lead_var = Var(c.lead,cs_pvalbetadict.get(c.lead,(float("nan"),float("nan")))[0],
                     cs_pvalbetadict.get(c.lead,(float("nan"),float("nan")))[1],
                     1.0)
+            #add lead var to cs vars
+            vs.append(lead_var)
             cs_groups[lead_var] = vs
 
             #add csinfo for csinfos
