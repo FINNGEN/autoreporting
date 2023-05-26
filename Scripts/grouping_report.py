@@ -309,6 +309,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
 
         locus_vars = locus.get_vars()
         lead = locus_vars.lead
+        cols["locus_id"] = get_varid(lead)
         ld_partners = locus_vars.ld_partners if locus_vars.ld_partners is not None else []
         cs_vars = locus_vars.cs if locus_vars.cs is not None else []
 
