@@ -241,17 +241,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         options: TopReportOptions contains all relevant meta-information for e.g. column names etc.
     """
     ### List all columns that are created
-    columns = [
-        "phenotype",
-        "phenotype_abbreviation",
-        "locus_id",
-        "Cases",
-        "Controls",
-        "chrom",
-        "pos",
-        "ref",
-        "alt",
-        "pval",
+    lead_cols = [
         "lead_r2_threshold",
         "lead_beta_previous_release",
         "lead_pval_previous_release",
@@ -263,7 +253,24 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         "lead_sebeta",
         "lead_af_alt",
         "lead_af_alt_cases",
-        "lead_af_alt_controls",
+        "lead_af_alt_controls"
+    ] 
+    if ExtraColAnnotation.get_name() in data.annotations:
+        for c in options.extra_columns:
+            lead_c_name = f"lead_{c}"
+            if lead_c_name not in lead_cols:
+                lead_cols.append(lead_c_name)
+    columns = [
+        "phenotype",
+        "phenotype_abbreviation",
+        "locus_id",
+        "Cases",
+        "Controls",
+        "chrom",
+        "pos",
+        "ref",
+        "alt",
+        "pval"] + lead_cols + [
         "gnomAD_functional_category",
         "gnomAD_enrichment_nfsee",
         "gnomAD_fin.AF",
