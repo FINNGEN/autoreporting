@@ -57,6 +57,16 @@ task report {
     File allele_vcf_file
     File allele_vcf_tbi = allele_vcf_file+".tbi"
 
+    Float disk_size_f = size(summ_stat,"G")+
+        size(previous_release,"G")+
+        size(gnomad_exome,"G")+
+        size(gnomad_genome,"G")+
+        size(finngen_annotation,"G")+
+        size(functional_annotation,"G")+
+        size(ld_panel_bed,"G")+
+        size(allele_vcf_file,"G")
+    Int disk_size = ceil(disk_size_f*1.25)+25
+
     command <<<
         set -euxo pipefail
         python3 <<CODE
@@ -177,7 +187,7 @@ task report {
         docker: "${docker}"
         cpu: "${cpus}"
         memory: "${memory} GB"
-        disks: "local-disk 100 HDD"
+        disks: "local-disk ${disk_size} HDD"
         zones: "europe-west1-b europe-west1-c europe-west1-d"
         preemptible: 2
     }
