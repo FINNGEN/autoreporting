@@ -120,8 +120,8 @@ class PreviousReleaseAnnotation(TabixAnnotation):
 
     def _create_annotation(self,cols:List[str],hdi:Dict[str,int])->Annotation:
         #get pval and beta
-        pval = float(cols[hdi[self.pval_col]])
-        beta = float(cols[hdi[self.beta_col]])
+        pval = tryfloat(cols[hdi[self.pval_col]])
+        beta = tryfloat(cols[hdi[self.beta_col]])
         return [{"pval_previous_release":pval,"beta_previous_release":beta}]
 
     @staticmethod
