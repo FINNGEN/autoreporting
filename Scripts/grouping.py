@@ -38,9 +38,12 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
         ld_partners = ld_api.get_range(lead_var,options.range,ld_thresh)
         ld_partners = [a for a in ld_partners if a.variant1 == lead_var]
         # get locus in summary statistic
-        summstat_data = {a:{"pval":float(b[0]),"beta":float(b[1])} for a,b in summstat_resource.load_region(lead_var.chrom,lead_var.pos-options.range,lead_var.pos+options.range,[
-            options.column_names.pval,options.column_names.beta
-        ]).items()}
+        summstat_data = {}
+        for var, vardata in  summstat_resource.load_region(lead_var.chrom,lead_var.pos-options.range,lead_var.pos+options.range,[options.column_names.pval,options.column_names.beta]).items():
+            try:
+                summstat_data[var] = {"pval":float(vardata[0]),"beta":float(vardata[1])}
+            except:
+                continue
         #filter by p-value
         summstat_data = {a:b for a,b in summstat_data.items() if b["pval"]<= options.p2_threshold}
         #filter ld partners by summstat_data.
@@ -276,7 +279,11 @@ def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_ac
         cs_variants = list(set([a.variant for credset in cs for a in credset.variants]))
         cs_pvalbetadict = {}
         for v in cs_variants:
-            cs_pvalbetadict.update( {a:[float(c) for c in b] for a,b in summstat_resource.load_region(v.chrom,v.pos,v.pos+1,[gr_opts.column_names.pval,gr_opts.column_names.beta]).items()} )
+            for var, data in summstat_resource.load_region(v.chrom,v.pos,v.pos+1,[gr_opts.column_names.pval,gr_opts.column_names.beta]).items():
+                try:
+                    cs_pvalbetadict[var] = [float(d) for d in data]
+                except:
+                    continue
         cs_groups = {}
         cs_infos = {}
         #get pval, beta, r2 for credible set variants
