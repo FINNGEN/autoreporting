@@ -264,6 +264,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         "phenotype",
         "phenotype_abbreviation",
         "locus_id",
+        "rsids",
         "Cases",
         "Controls",
         "chrom",
@@ -309,7 +310,6 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
     controls = data.phenoinfo.controls
 
     output.write("\t".join(columns)+"\n")
-    debug_out = []
     for locus in data.loci:
         #column values for the row
         cols:Dict[str,Value] = defaultdict(lambda:None)
@@ -352,6 +352,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 cols["lead_most_severe_gene"] = fg_ann[lead.id][0]["most_severe_gene"]
                 cols["lead_most_severe_consequence"] = fg_ann[lead.id][0]["most_severe_consequence"]
                 cols["gnomAD_functional_category"] = fg_ann[lead.id][0]["functional_category"]
+                cols["rsids"] = fg_ann[lead.id][0]["rsids"]
         #lead enrichment
         if GnomadGenomeAnnotation.get_name() in data.annotations:
             gen_ann = data.annotations[GnomadGenomeAnnotation.get_name()]
@@ -508,5 +509,3 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
             )
         except:
             raise
-        debug_out.append(cols)
-    return debug_out
