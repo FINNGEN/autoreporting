@@ -480,7 +480,7 @@ class Gnomad4Annotation(TabixAnnotation):
         annotation:Dict[str,Value] = {}
         annotation["GNOMAD_AF_fin"] = tryfloat(cols[hdi["AF_fin"]])
         annotation["GNOMAD_AF_nfe"] = tryfloat(cols[hdi["AF_nfe"]])
-        annotation["GNOMAD_AF_fin"] = tryfloat(cols[hdi["enrichment_nfe"]])
+        annotation["GNOMAD_FI_enrichment_nfe"] = tryfloat(cols[hdi["enrichment_nfe"]])
         return [annotation]
 
     def _chrom_to_source(self,chrom:str)->str:

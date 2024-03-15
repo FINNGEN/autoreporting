@@ -163,7 +163,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
                         #NOTE: this picks the largest prob cs for this variant. In ideal circumstances, a variant
                         # would always have only one cs which it belongs to, but 
                         # in practice this is not always enforced in region selection. 
-                        cs_data = sorted(annot[v.id],key = lambda x:float(x["cs_prob"]))[-1] #type:ignore
+                        cs_data = sorted(annot[v.id],key = lambda x:float(x["prob"]))[-1] #type:ignore
                         cs_lead = cs_data["lead_variant"] if isinstance(cs_data["lead_variant"],Variant) else None
                         cs_number = cs_data["number"] if isinstance(cs_data["number"],int) else None
                         cols["cs_id"] = f"chr{cs_lead.chrom}_{cs_lead.pos}_{cs_lead.ref}_{cs_lead.alt}_{cs_number}" if isinstance(cs_lead,Variant) else None
