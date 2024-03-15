@@ -6,8 +6,7 @@
 
     "autoreporting.report.memory":6,
     "autoreporting.report.cpus":2,
-    "autoreporting.report.gnomad_exome":"gs://gnomad2/lifted_picard_b38/exomes/gnomad.2.1.1.exomes.b38.tsv.gz",
-    "autoreporting.report.gnomad_genome":"gs://gnomad2/lifted_picard_b38/genomes/gnomad.2.1.1.genomes.b38.tsv.gz",
+    "autoreporting.report.gnomad":"gs://finngen-commons/gnomad/gnomad4/gnomad.v4.0.munged.sites.tsv.bgz",
     "autoreporting.report.finngen_annotation":"RELEASE_ANNOTATION_FILE",
     "autoreporting.report.functional_annotation":"gs://finngen_commons/annotations/fin_enriched_genomes_select_columns.txt.gz",
     "autoreporting.report.column_names":["#chrom","pos","ref","alt","pval","beta"],

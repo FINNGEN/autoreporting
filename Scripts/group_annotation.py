@@ -470,6 +470,39 @@ class GnomadExomeAnnotation(TabixAnnotation):
             "EXOME_FI_enrichment_nfe_est_swe",
         ]
 
+class Gnomad4Annotation(TabixAnnotation):
+    def __init__(self,fname: str):
+        super().__init__(TabixOptions(fname,"#chr","pos","ref","alt"))
+        self.variant_switch = 500_000
+
+
+    def _create_annotation(self, cols: List[str], hdi: Dict[str, int]) -> Annotation:
+        annotation:Dict[str,Value] = {}
+        annotation["GNOMAD_AF_fin"] = tryfloat(cols[hdi["AF_fin"]])
+        annotation["GNOMAD_AF_nfe"] = tryfloat(cols[hdi["AF_nfe"]])
+        annotation["GNOMAD_AF_fin"] = tryfloat(cols[hdi["enrichment_nfe"]])
+        return [annotation]
+
+    def _chrom_to_source(self,chrom:str)->str:
+        """If chromosome needs modification to match tabix source, e.g. adding chr, override this
+        """
+        return chrom.replace("23","X").replace("23","Y")
+
+    def _chrom_from_source(self,chrom:str)->str:
+        """If chromosome needs modification from tabix source, e.g. removing chr, override this
+        """
+        return chrom.replace("X","23").replace("Y","24")
+
+    @staticmethod
+    def get_name():
+        return "gnomad_4"
+
+    @staticmethod
+    def get_output_columns() -> List[str]:
+        return ["GNOMAD_AF_fin",
+        "GNOMAD_AF_nfe",
+        "GNOMAD_FI_enrichment_nfe"]
+
 def map_alleles(a1,a2):
     """
     Flips alleles to the A strand if necessary and orders them lexicogaphically
