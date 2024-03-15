@@ -397,9 +397,9 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 "good_cs":"good_cs",
                 "min_r2":"credible_set_min_r2_value"
             }
-            cols["cs_id"] = get_varid(lead.id)+"_"+str(cs_ann[lead.id][0]["number"])
 
             if lead.id in cs_ann:
+                cols["cs_id"] = get_varid(lead.id)+"_"+str(cs_ann[lead.id][0]["number"])
                 for c in cs_ann_cols:
                     cols[cs_ann_col_d[c]] = cs_ann[lead.id][0][c]
         
