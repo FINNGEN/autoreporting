@@ -1,19 +1,14 @@
-"""Build the timefunc decorator."""
-
 import time
 import functools
 
 
-def timefunc(func):
-    """timefunc's doc"""
+def timefunc(f):
 
-    @functools.wraps(func)
-    def time_closure(*args, **kwargs):
-        """time_wrapper's doc string"""
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        time_elapsed = time.perf_counter() - start
-        print(f"Function: {func.__name__}, Time: {time_elapsed}")
-        return result
+    @functools.wraps(f)
+    def tc(*args, **kwargs):
+        time_start = time.perf_counter()
+        res = f(*args, **kwargs)
+        print(f"Function: {f.__name__}, Time: {time.perf_counter()-time_start}")
+        return res
 
-    return time_closure
+    return tc
