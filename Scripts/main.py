@@ -4,7 +4,7 @@ import argparse
 from data_access.linkage import PlinkLD, OnlineLD
 from grouping import form_groups
 from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,GroupingOptions
-from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, GnomadExomeAnnotation, GnomadGenomeAnnotation, CatalogAnnotation, Gnomad4Annotation
+from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, CatalogAnnotation, Gnomad4Annotation
 from phenoinfo import get_phenotype_data, PhenoInfoOptions
 from load_tabix import tb_resource_manager,TabixOptions
 from data_access.csfactory import csfactory

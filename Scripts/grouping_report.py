@@ -1,5 +1,5 @@
 from annotation_model import Value
-from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, GnomadExomeAnnotation, GnomadGenomeAnnotation, PreviousReleaseAnnotation, Gnomad4Annotation
+from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, Gnomad4Annotation
 from grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
 from grouping import ld_threshold
 from data_access.db import Variant
