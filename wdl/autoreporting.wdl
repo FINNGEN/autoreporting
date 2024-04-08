@@ -11,10 +11,6 @@ task report {
     File previous_release = input_file_list[3]
     File previous_release_tbi =previous_release+".tbi" 
 
-    #File gnomad_exome
-    #File gnomad_exome_tb=gnomad_exome+".tbi"
-    #File gnomad_genome
-    #File gnomad_genome_tb=gnomad_genome+".tbi"
     File gnomad
     File gnomad_tbi = gnomad+".tbi"
     String ld_panel
@@ -61,8 +57,7 @@ task report {
 
     Float disk_size_f = size(summ_stat,"G")+
         size(previous_release,"G")+
-        size(gnomad_exome,"G")+
-        size(gnomad_genome,"G")+
+        size(gnomad,"G")+
         size(finngen_annotation,"G")+
         size(functional_annotation,"G")+
         size(ld_panel_bed,"G")+
@@ -79,8 +74,6 @@ task report {
         empty_file = "${dummy_file}"
         pheno_id="${phenotype_name}"
         plink_path = "${ld_panel_bed}".replace(".bed","")
-        #gnomad_exome="--gnomad-exome-path ${gnomad_exome}" if "${gnomad_exome}" != empty_file else "" 
-        #gnomad_genome="--gnomad-genome-path ${gnomad_genome}" if "${gnomad_genome}" != empty_file else "" 
         gnomad="--gnomad-path ${gnomad}" if "${gnomad}" != empty_file else ""
         finngen_annotation="--finngen-path  ${finngen_annotation}" if "${finngen_annotation}" != empty_file else "" 
         functional_annotation="--functional-path ${functional_annotation}" if "${functional_annotation}" != empty_file else "" 
