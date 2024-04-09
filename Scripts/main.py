@@ -4,7 +4,7 @@ import argparse
 from data_access.linkage import PlinkLD, OnlineLD
 from grouping import form_groups
 from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,GroupingOptions
-from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, GnomadExomeAnnotation, GnomadGenomeAnnotation, CatalogAnnotation
+from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, CatalogAnnotation, Gnomad4Annotation
 from phenoinfo import get_phenotype_data, PhenoInfoOptions
 from load_tabix import tb_resource_manager,TabixOptions
 from data_access.csfactory import csfactory
@@ -91,13 +91,17 @@ def main(args):
     if args.finngen_path:
         fg_annotation = FGAnnotation(args.finngen_path)
     # gnomad exome annotation
-    gnomad_genome_annotation = None
-    if args.gnomad_genome_path:
-        gnomad_genome_annotation = GnomadGenomeAnnotation(args.gnomad_genome_path)
+    #gnomad_genome_annotation = None
+    #if args.gnomad_genome_path:
+    #    gnomad_genome_annotation = GnomadGenomeAnnotation(args.gnomad_genome_path)
     # gnomad genome annotations
-    gnomad_exome_annotation = None
-    if args.gnomad_exome_path:
-        gnomad_exome_annotation = GnomadExomeAnnotation(args.gnomad_exome_path)
+    #gnomad_exome_annotation = None
+    #if args.gnomad_exome_path:
+    #    gnomad_exome_annotation = GnomadExomeAnnotation(args.gnomad_exome_path)
+    # gnomad 4 annotation
+    gnomad_four_annotation = None
+    if args.gnomad_path:
+        gnomad_four_annotation = Gnomad4Annotation(args.gnomad_path)
     #gwas catalog annotation
     catalog_annotation = CatalogAnnotation(args.use_gwascatalog,
                                                     args.custom_dataresource,
@@ -132,8 +136,9 @@ def main(args):
             extra_cols_annotation,
             functional_annotation,
             fg_annotation,
-            gnomad_genome_annotation,
-            gnomad_exome_annotation,
+            #gnomad_genome_annotation,
+            #gnomad_exome_annotation,
+            gnomad_four_annotation,
             catalog_annotation,
             cs_annotation
         ) if a != None
@@ -195,8 +200,9 @@ if __name__=="__main__":
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA"),nargs=6,default=["#chrom","pos","ref","alt","pval","beta"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta'.")
     
     #annotate
-    parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
-    parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
+    parser.add_argument("--gnomad-path",dest="gnomad_path",type=str,help="Gnomad 4 annotation filepath")
+    #parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
+    #parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")

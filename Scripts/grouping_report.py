@@ -1,5 +1,5 @@
 from annotation_model import Value
-from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, GnomadExomeAnnotation, GnomadGenomeAnnotation, PreviousReleaseAnnotation
+from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, Gnomad4Annotation
 from grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
 from grouping import ld_threshold
 from data_access.db import Variant
@@ -55,8 +55,9 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
     annotation_columns = [
         a for colsource in 
             (
-                GnomadGenomeAnnotation.get_output_columns(),
-                GnomadExomeAnnotation.get_output_columns(),
+                #GnomadGenomeAnnotation.get_output_columns(),
+                #GnomadExomeAnnotation.get_output_columns(),
+                Gnomad4Annotation.get_output_columns(),
                 FunctionalAnnotation.get_output_columns(),
                 FGAnnotation.get_output_columns(),
                 PreviousReleaseAnnotation.get_output_columns(),
@@ -162,7 +163,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
                         #NOTE: this picks the largest prob cs for this variant. In ideal circumstances, a variant
                         # would always have only one cs which it belongs to, but 
                         # in practice this is not always enforced in region selection. 
-                        cs_data = sorted(annot[v.id],key = lambda x:float(x["cs_prob"]))[-1] #type:ignore
+                        cs_data = sorted(annot[v.id],key = lambda x:float(x["prob"]))[-1] #type:ignore
                         cs_lead = cs_data["lead_variant"] if isinstance(cs_data["lead_variant"],Variant) else None
                         cs_number = cs_data["number"] if isinstance(cs_data["number"],int) else None
                         cols["cs_id"] = f"chr{cs_lead.chrom}_{cs_lead.pos}_{cs_lead.ref}_{cs_lead.alt}_{cs_number}" if isinstance(cs_lead,Variant) else None
@@ -190,8 +191,9 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
 
             #single annotations
             single_annotation_dict = {
-                GnomadGenomeAnnotation.get_name():GnomadGenomeAnnotation.get_output_columns(),
-                GnomadExomeAnnotation.get_name():GnomadExomeAnnotation.get_output_columns(),
+                #GnomadGenomeAnnotation.get_name():GnomadGenomeAnnotation.get_output_columns(),
+                #GnomadExomeAnnotation.get_name():GnomadExomeAnnotation.get_output_columns(),
+                Gnomad4Annotation.get_name():Gnomad4Annotation.get_output_columns(),
                 FunctionalAnnotation.get_name():FunctionalAnnotation.get_output_columns(),
                 FGAnnotation.get_name():FGAnnotation.get_output_columns(),
                 PreviousReleaseAnnotation.get_name():PreviousReleaseAnnotation.get_output_columns(),
@@ -354,10 +356,10 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 cols["gnomAD_functional_category"] = fg_ann[lead.id][0]["functional_category"]
                 cols["rsids"] = fg_ann[lead.id][0]["rsids"]
         #lead enrichment
-        if GnomadGenomeAnnotation.get_name() in data.annotations:
-            gen_ann = data.annotations[GnomadGenomeAnnotation.get_name()]
-            if lead.id in gen_ann:
-                cols["lead_enrichment"] = gen_ann[lead.id][0]["GENOME_FI_enrichment_nfe_est"]
+        if Gnomad4Annotation.get_name() in data.annotations:
+            gnomad_ann = data.annotations[Gnomad4Annotation.get_name()]
+            if lead.id in gnomad_ann:
+                cols["lead_enrichment"] = gnomad_ann[lead.id][0]["GNOMAD_FI_enrichment_nfe"]
         if FunctionalAnnotation.get_name() in data.annotations:
             func_ann = data.annotations[FunctionalAnnotation.get_name()]
             func_add_cols = [
@@ -395,9 +397,9 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 "good_cs":"good_cs",
                 "min_r2":"credible_set_min_r2_value"
             }
-            cols["cs_id"] = get_varid(lead.id)+"_"+str(cs_ann[lead.id][0]["number"])
 
             if lead.id in cs_ann:
+                cols["cs_id"] = get_varid(lead.id)+"_"+str(cs_ann[lead.id][0]["number"])
                 for c in cs_ann_cols:
                     cols[cs_ann_col_d[c]] = cs_ann[lead.id][0][c]
         
@@ -452,7 +454,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 sorted_cs_vars = sorted(_temp_lst,key=lambda x:x[1],reverse=True)
                 cols["credible_set_variants"] = ";".join([f"{get_varid(a[0].id)}|{a[1]:.3g}|{a[0].r2_to_lead:.3g}" for a in sorted_cs_vars])
             except Exception as e:
-                raise Exception("Error: bug")
+                raise Exception("Error: bug",e)
         
         #all traits & strict traits
         #Use CatalogAnnotation
