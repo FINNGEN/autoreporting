@@ -486,7 +486,7 @@ class Gnomad4Annotation(TabixAnnotation):
     def _chrom_to_source(self,chrom:str)->str:
         """If chromosome needs modification to match tabix source, e.g. adding chr, override this
         """
-        return chrom.replace("23","X").replace("23","Y")
+        return chrom.replace("23","X").replace("24","Y")
 
     def _chrom_from_source(self,chrom:str)->str:
         """If chromosome needs modification from tabix source, e.g. removing chr, override this
