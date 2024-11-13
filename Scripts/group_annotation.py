@@ -101,7 +101,7 @@ class TabixAnnotation(AnnotationSource):
                             "Skipping the missing sequences.")
                     print(msg,file=sys.stderr)
                 for original_v in variants:
-                    if v.chrom not in self.sequences:
+                    if original_v.chrom not in self.sequences:
                         continue
                     for l in tabix_resource.fileobject.fetch(self._chrom_to_source(original_v.chrom),max(original_v.pos-1,0),original_v.pos):
                         cols = l.split("\t")
