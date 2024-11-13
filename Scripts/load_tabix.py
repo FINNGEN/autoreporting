@@ -31,6 +31,7 @@ class TabixResource:
             opts.r,
             opts.a
         ]
+        self.sequences = set(self.fileobject.contigs)
         #if header is stored in tabix-compatible format, use that
         if len(self.fileobject.header) != 0:
             self.header = self.fileobject.header[-1].split("\t")
@@ -48,6 +49,9 @@ class TabixResource:
         #ensure all columns are in header
         if any([a for a in data_columns if a not in self.header]):
             raise Exception(f"columns {[a for a in data_columns if a not in self.header]} not in header! Header: {self.header}")
+        if sequence not in self.sequences:
+            raise ValueError((f"Error in tabix file loading: The sequence {sequence} is not in tabix-indexed file {self.fname}. List of available sequences: {[a for a in self.sequences]}.\n"
+                              f"Error occurred with region {sequence}:{start}-{end}"))
         hdi = {a:i for i,a in enumerate(self.header)}
         col_idx = [hdi[a] for a in data_columns ]
         out = {}

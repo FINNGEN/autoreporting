@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "INPUT_MATRIX",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:b5d9980",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:8480dd2",
     "autoreporting.ld_panel":"gs://misc-analysis/EMPTY_FILE",
     "autoreporting.locus_width_kb":2000,
 
