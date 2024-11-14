@@ -9,6 +9,7 @@ from phenoinfo import get_phenotype_data, PhenoInfoOptions
 from load_tabix import tb_resource_manager,TabixOptions
 from data_access.csfactory import csfactory
 from typing import Optional, List
+import os
 
 
 def groupingModeFactory(method:str,group:bool):
@@ -165,10 +166,17 @@ def main(args):
         ### annotate
         phenodata = annotate(phenodata,annotation_resources)
         ### create report
-        with open(args.report_out,"w") as report_file, open(args.top_report_out,"w") as top_file:
+
+        report_fname = create_fname(args.report_out)
+        top_fname = create_fname(args.top_report_out)
+        with open(report_fname,"w") as report_file, open(top_fname,"w") as top_file:
             generate_variant_report(phenodata,report_file,variant_report_options)
             generate_top_report(phenodata,top_file,top_report_options)
     
+
+def create_fname(path:str,prefix:str)->str:
+    head,tail = os.path.split(path)
+    return os.path.join(head,f"{prefix}{tail}")
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser(description="FINNGEN automatic hit reporting tool")
