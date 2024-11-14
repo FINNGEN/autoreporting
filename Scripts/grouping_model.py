@@ -4,6 +4,7 @@ from data_access.db import Variant, CS
 from enum import Enum, unique
 import abc
 from functools import cmp_to_key
+from time_decorator import timefunc
 
 @unique
 class Grouping(Enum):
@@ -149,7 +150,8 @@ class PhenoData:
         self.phenoinfo = phenoinfo
         self.loci = loci
         self.annotations: Dict[str,Dict[Variant,Annotation]] = {}
-
+    
+    @timefunc
     def get_variants(self)->List[Variant]:
         
         out:set[Variant] = set()
