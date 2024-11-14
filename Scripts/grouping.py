@@ -95,8 +95,11 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
     # start with the highest p-value, group all those variants in either pile that are close enough to it
     # then remove from consideration, probably best to keep a set of already grouped, so as not to modify data.
     output = []
-    p1_pile:List[Var] = []
-    p2_pile:List[Var] = []
+    p1_piles:Dict[str,List[Var]] = {}
+    p2_piles:Dict[str,List[Var]] = {}
+    for s in summstat_resource.sequences:
+        p1_piles[s] = []
+        p2_piles[s] = []
     cpra = [
         options.column_names.c,
         options.column_names.p,
@@ -125,23 +128,25 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
                 beta,
                 None
             )
-            p2_pile.append(var)
+            p2_piles[cols[hdi[cpra[0]]]].append(var)
             if pval < options.p1_threshold:
-                p1_pile.append(var)
-    p1_pile = sorted(p1_pile,key=lambda x: (x.pval,x.id.chrom,x.id.pos),reverse=True)
-    while p1_pile:
-        lead_var = p1_pile.pop()
-        p2_rangevars = [a for a in p2_pile if (in_range(lead_var,a,options.range) and a != lead_var)]
-        remove_set = set(lead_var)
-        remove_set = remove_set.union(p2_rangevars)
-        #filter piles
-        p1_pile = [a for a in p1_pile if a not in remove_set]
-        if not options.overlap:
-            p2_pile = [a for a in p2_pile if a not in remove_set]
-        else:
-            p2_pile = [a for a in p2_pile if a != lead_var]
-        output.append(PeakLocus(lead_var,p2_rangevars,Grouping.RANGE))
-    #oh shit this need to be completed
+                p1_piles[cols[hdi[cpra[0]]]].append(var)
+    for chrom in p1_piles.keys():
+
+        p1_pile = sorted(p1_piles[chrom],key=lambda x: (x.pval,x.id.chrom,x.id.pos),reverse=True)
+        p2_pile = p2_piles[chrom]
+        while p1_pile:
+            lead_var = p1_pile.pop()
+            p2_rangevars = [a for a in p2_pile if (in_range(lead_var,a,options.range) and a != lead_var)]
+            remove_set = set(lead_var)
+            remove_set = remove_set.union(p2_rangevars)
+            #filter piles
+            p1_pile = [a for a in p1_pile if a not in remove_set]
+            if not options.overlap:
+                p2_pile = [a for a in p2_pile if a not in remove_set]
+            else:
+                p2_pile = [a for a in p2_pile if a != lead_var]
+            output.append(PeakLocus(lead_var,p2_rangevars,Grouping.RANGE))
     return output
 
 def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:GroupingOptions)->List[PeakLocus]:
@@ -154,8 +159,11 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     # in that case, actually should have all p1 vars in p2 pile.
     ## Init variables
     output = []
-    p1_pile:List[Var] = []
-    p2_pile:List[Var] = []
+    p1_piles:Dict[str,List[Var]] = {}
+    p2_piles:Dict[str,List[Var]] = {}
+    for s in summstat_resource.sequences:
+        p1_piles[s] = []
+        p2_piles[s] = []
     cpra = [
         options.column_names.c,
         options.column_names.p,
@@ -184,42 +192,44 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
                 beta,
                 1.0
             )
-            p2_pile.append(var)
+            p2_piles[cols[hdi[cpra[0]]]].append(var)
             if pval < options.p1_threshold:
-                p1_pile.append(var)
-    ## order p1 piel to be a stack with most significant variant at the top (i.e. last value)
-    p1_pile = sorted(p1_pile,key=lambda x: x.pval,reverse=True)
-    ## Grouping algorithm
-    while p1_pile:
-        lead_var = p1_pile.pop()
-        lead_variant = lead_var.id
-        #static/dynamic r2
-        ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval)
-        ld_data = ld_api.get_range(lead_variant,options.range,ld_thresh)
-        ld_data = [a for a in ld_data if (a.variant1 == lead_variant) and (a.variant2 != lead_variant)]
-        ld_data_varset = set([a.variant2 for a in ld_data])
-        #filter p2 pile by ld data. 
-        ld_partners= [a for a in p2_pile if a.id in ld_data_varset]
-        ## ld_partner_set = set(ld_partners)
-        #Now, ld_partner_idscontains all of the required ld partners:
-        # The definition for ld partners is 1) pval < p2_threshold, 2) in sufficient LD with the lead var
-        # could also be done by loading a tabix region for each of the LD regions... oh well
-        #join r2 value from ld_data to ld partners
-        #first, do a index dict
-        ld_index_dict = {a.variant2:i for i,a in enumerate(ld_data) }
-        #after that getting the right LD value from ld data is trivial, since the LD data is filtered to be variant1 = lead variant
-        ld_partners = [Var(a.id,a.pval,a.beta,ld_data[ld_index_dict[a.id]].r2) for a in ld_partners]
-        #filter all p2 variants out of p1 variants. This along with the pop in the beginning ensures convergence
-        p1_pile = [a for a in p1_pile if a.id not in ld_data_varset]
-        #if not overlap, filter the p2_pile not to contain the already joined ld partners.
-        if not options.overlap:
-            p2_pile = [a for a in p2_pile if a.id not in ld_data_varset]
-        ## Form locus
-        output.append(PeakLocus(
-            lead_var,
-            ld_partners,
-            Grouping.LD
-        ))
+                p1_piles[cols[hdi[cpra[0]]]].append(var)
+    for seq in p1_piles.keys():
+        ## order p1 pile to be a stack with most significant variant at the top (i.e. last value)
+        p1_pile = sorted(p1_piles[seq],key=lambda x: x.pval,reverse=True)
+        p2_pile = p2_piles[seq]
+        ## Grouping algorithm
+        while p1_pile:
+            lead_var = p1_pile.pop()
+            lead_variant = lead_var.id
+            #static/dynamic r2
+            ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval)
+            ld_data = ld_api.get_range(lead_variant,options.range,ld_thresh)
+            ld_data = [a for a in ld_data if (a.variant1 == lead_variant) and (a.variant2 != lead_variant)]
+            ld_data_varset = set([a.variant2 for a in ld_data])
+            #filter p2 pile by ld data. 
+            ld_partners= [a for a in p2_pile if a.id in ld_data_varset]
+            ## ld_partner_set = set(ld_partners)
+            #Now, ld_partner_idscontains all of the required ld partners:
+            # The definition for ld partners is 1) pval < p2_threshold, 2) in sufficient LD with the lead var
+            # could also be done by loading a tabix region for each of the LD regions... oh well
+            #join r2 value from ld_data to ld partners
+            #first, do a index dict
+            ld_index_dict = {a.variant2:i for i,a in enumerate(ld_data) }
+            #after that getting the right LD value from ld data is trivial, since the LD data is filtered to be variant1 = lead variant
+            ld_partners = [Var(a.id,a.pval,a.beta,ld_data[ld_index_dict[a.id]].r2) for a in ld_partners]
+            #filter all p2 variants out of p1 variants. This along with the pop in the beginning ensures convergence
+            p1_pile = [a for a in p1_pile if a.id not in ld_data_varset]
+            #if not overlap, filter the p2_pile not to contain the already joined ld partners.
+            if not options.overlap:
+                p2_pile = [a for a in p2_pile if a.id not in ld_data_varset]
+            ## Form locus
+            output.append(PeakLocus(
+                lead_var,
+                ld_partners,
+                Grouping.LD
+            ))
     return output
 
 def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptions)->List[Var]:
