@@ -4,6 +4,7 @@ from data_access.db import Variant, CS
 from enum import Enum, unique
 import abc
 from functools import cmp_to_key
+from time_decorator import timefunc
 
 @unique
 class Grouping(Enum):
@@ -60,7 +61,7 @@ class LocusVariants(NamedTuple):
 class Locus:
 
     @abc.abstractmethod
-    def variants(self) -> List[Variant]:
+    def variants(self) -> set[Variant]:
         pass
 
     @abc.abstractmethod
@@ -97,7 +98,7 @@ class CSLocus(Locus):
     def add_ld_partners(self, ld_partners:List[Var]):
         self.ld_partners = ld_partners
     
-    def variants(self) -> List[Variant]:
+    def variants(self) -> set[Variant]:
         output = set()
         output.add(self.lead.id)
         for v in self.cs:
@@ -105,7 +106,7 @@ class CSLocus(Locus):
         if self.ld_partners:
             for v in self.ld_partners:
                 output.add(v.id)
-        return list(output)
+        return output
 
     def type(self)->Grouping:
         return Grouping.CS
@@ -122,13 +123,13 @@ class PeakLocus(Locus):
         self.ld_partners = ld_partners
         self.locus_type = locus_type
     
-    def variants(self)->List[Variant]:
+    def variants(self)->set[Variant]:
         output = set()
         output.add(self.lead.id)
         if self.ld_partners:
             for v in self.ld_partners:
                 output.add(v.id)
-        return list(output)
+        return output
 
     def get_vars(self):
         return LocusVariants(self.lead,None,self.ld_partners)
@@ -149,13 +150,11 @@ class PhenoData:
         self.phenoinfo = phenoinfo
         self.loci = loci
         self.annotations: Dict[str,Dict[Variant,Annotation]] = {}
-
-    def get_variants(self)->List[Variant]:
-        
-        out:set[Variant] = set()
-        for l in self.loci:
-            out = out.union(l.variants())
-        return sorted(list(out),key=cmp_to_key(_varcmp))
+    
+    @timefunc
+    def get_variants(self)->set[Variant]:
+        loci = [l.variants() for l in self.loci]
+        return set().union(*loci)
 
     def add_annotation(self,annotation_name,annotation:Dict[Variant,Annotation]):
         self.annotations[annotation_name]=annotation
