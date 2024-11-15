@@ -189,12 +189,13 @@ class CSAnnotation(AnnotationSource):
         lead r2:
         """
         #CS can be indexed with region-number
-        cs_dict = {f"{c.region}-{c.number}":c for c in self.csdata}
-        variant_dict = {}
+        cs_dict:Dict[str,CS] = {f"{c.region}-{c.number}":c for c in self.csdata}
+        variant_dict:Dict[Variant,str] = {}
         for csid,cs in cs_dict.items():
             variant_dict[cs.lead] = csid
             for v in cs.variants:
                 variant_dict[v] = csid
+        print(len(variant_dict))
         output = {}
         for v in variants:
             var_annot = []
