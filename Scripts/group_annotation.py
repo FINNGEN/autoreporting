@@ -173,9 +173,10 @@ class ExtraColAnnotation(TabixAnnotation):
 class CSAnnotation(AnnotationSource):
     def __init__(self, cs_access: CSAccess):
         self.cs_access = cs_access
+        self.csdata = self.cs_access.get_cs()
         
     @timefunc
-    def annotate_variants(self, variants: List[Variant]) -> Dict[Variant, Annotation]:
+    def annotate_variants(self, variants: set[Variant]) -> Dict[Variant, Annotation]:
         """Annotation has the following pieces of data:
         region:
         cs number:
@@ -187,12 +188,18 @@ class CSAnnotation(AnnotationSource):
         prob:
         lead r2:
         """
-        self.csdata = self.cs_access.get_cs()
+        #CS can be indexed with region-number
+        cs_dict = {f"{c.region}-{c.number}":c for c in self.csdata}
+        variant_dict = {}
+        for csid,cs in cs_dict.items():
+            variant_dict[cs.lead] = csid
+            for v in cs.variants:
+                variant_dict[v] = csid
         output = {}
         for v in variants:
             var_annot = []
-            cs_in_which_it_is = [a for a in self.csdata if v in [b.variant for b in a.variants]]
-            for cs in cs_in_which_it_is:
+            cs = cs_dict.get(variant_dict.get(v,None),None)
+            if cs is not None:
                 annotation:Dict[str,Value] = {}
                 annotation["region"] = cs.region
                 annotation["lead_variant"] = cs.lead

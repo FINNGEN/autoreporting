@@ -168,7 +168,7 @@ def main(args):
         ### create report
 
         report_fname = create_fname(args.report_out,args.prefix)
-        top_fname = create_fname(args.top_report_out)
+        top_fname = create_fname(args.top_report_out,args.prefix)
         with open(report_fname,"w") as report_file, open(top_fname,"w") as top_file:
             generate_variant_report(phenodata,report_file,variant_report_options)
             generate_top_report(phenodata,top_file,top_report_options)
