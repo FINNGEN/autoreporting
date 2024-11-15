@@ -64,13 +64,16 @@ class TabixAnnotation(AnnotationSource):
         raise Exception("Override _create_annotation for the annotation")
     
     @timefunc
-    def annotate_variants(self, variants: List[Variant]) -> Dict[Variant, Annotation]:
+    def annotate_variants(self, variants: set[Variant]) -> Dict[Variant, Annotation]:
         """Annotate a list of variants with the previous release's p-value and beta
         """
         output = {}
         if len(variants) > self.variant_switch:
             #figure out chroms,starts,ends for each one region in chromosome
             chr_d = generate_chrom_ranges(variants)
+            chr_v_sets:Dict[str,set[Variant]] = {set() for _ in chr_d.keys()}
+            for v in variants:
+                chr_v_sets[v.chrom].add(v)
             if any([a not in self.sequences for a in chr_d.keys()]):
                 missing_sequences = [a for a in chr_d.keys() if a not in self.sequences]
                 msg = (f"Warning in annotation tabix file loading: The sequence(s) {missing_sequences} are missing from annotation {self.fname}. List of available sequences in annotation: {[a for a in self.sequences]}.\n"
@@ -80,10 +83,10 @@ class TabixAnnotation(AnnotationSource):
                 hdr = tabix_resource.header
                 hdi = {a:i for i,a in enumerate(hdr)}
                 for chrom_name, region in chr_d.items():
-                    chrom_v_set = set([a for a in variants if a.chrom == chrom_name])
                     if chrom_name not in self.sequences:
                         print(f"Skipping missing sequence {chrom_name} for annotation {self.fname}",file=sys.stderr)
                         continue
+                    chrom_v_set = chr_v_sets[chrom_name]
                     for l in tabix_resource.fileobject.fetch(self._chrom_to_source(chrom_name),region["start"],region["end"]):
                         cols = l.split("\t")
                         v = Variant(self._chrom_from_source(cols[hdi[self.cpra[0]]]),int(cols[hdi[self.cpra[1]]]),cols[hdi[self.cpra[2]]],cols[hdi[self.cpra[3]]] )
@@ -91,10 +94,9 @@ class TabixAnnotation(AnnotationSource):
                             output[v] = self._create_annotation(cols,hdi)
         else:
             with tb_resource_manager(self.fname,self.cpra[0],self.cpra[1],self.cpra[2],self.cpra[3]) as tabix_resource:
-                variant_set = set(variants)
                 hdr = tabix_resource.header
                 hdi = {a:i for i,a in enumerate(hdr)}
-                sequences_in_variants = set([a.chrom for a in variant_set])
+                sequences_in_variants = set([a.chrom for a in variants])
                 if any([a not in self.sequences for a in sequences_in_variants]):
                     missing_sequences = [a for a in sequences_in_variants if a not in self.sequences]
                     msg = (f"Warning in annotation tabix file loading: The sequence(s) {missing_sequences} are missing from annotation {self.fname}. List of available sequences in annotation: {[a for a in self.sequences]}.\n"
@@ -106,7 +108,7 @@ class TabixAnnotation(AnnotationSource):
                     for l in tabix_resource.fileobject.fetch(self._chrom_to_source(original_v.chrom),max(original_v.pos-1,0),original_v.pos):
                         cols = l.split("\t")
                         v = Variant(self._chrom_from_source(cols[hdi[self.cpra[0]]]),int(cols[hdi[self.cpra[1]]]),cols[hdi[self.cpra[2]]],cols[hdi[self.cpra[3]]] )
-                        if v in variant_set:
+                        if v in variants:
                             output[v] = self._create_annotation(cols,hdi)
         return output
     @staticmethod
