@@ -98,7 +98,7 @@ class CSLocus(Locus):
     def add_ld_partners(self, ld_partners:List[Var]):
         self.ld_partners = ld_partners
     
-    def variants(self) -> List[Variant]:
+    def variants(self) -> set[Variant]:
         output = set()
         output.add(self.lead.id)
         for v in self.cs:
@@ -106,7 +106,7 @@ class CSLocus(Locus):
         if self.ld_partners:
             for v in self.ld_partners:
                 output.add(v.id)
-        return list(output)
+        return output
 
     def type(self)->Grouping:
         return Grouping.CS
@@ -152,12 +152,9 @@ class PhenoData:
         self.annotations: Dict[str,Dict[Variant,Annotation]] = {}
     
     @timefunc
-    def get_variants(self)->List[Variant]:
-        
-        out:set[Variant] = set()
-        for l in self.loci:
-            out = out.union(l.variants())
-        return sorted(list(out),key=cmp_to_key(_varcmp))
+    def get_variants(self)->set[Variant]:
+        loci = [l.variants() for l in self.loci]
+        return set().union(*loci)
 
     def add_annotation(self,annotation_name,annotation:Dict[Variant,Annotation]):
         self.annotations[annotation_name]=annotation
