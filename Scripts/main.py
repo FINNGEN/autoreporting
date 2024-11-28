@@ -177,7 +177,6 @@ if __name__=="__main__":
     parser.add_argument("gws_fpath",type=str,help="Filepath of the compressed summary statistic file to be processed")
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix")
-    parser.add_argument("--fetch-out",dest="fetch_out",type=str,default="fetch_out.tsv",help="GWS output filename, default is fetch_out.tsv")
     parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
     parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
@@ -201,25 +200,15 @@ if __name__=="__main__":
     
     #annotate
     parser.add_argument("--gnomad-path",dest="gnomad_path",type=str,help="Gnomad 4 annotation filepath")
-    #parser.add_argument("--gnomad-genome-path",dest="gnomad_genome_path",type=str,help="Gnomad genome annotation file filepath")
-    #parser.add_argument("--gnomad-exome-path",dest="gnomad_exome_path",type=str,help="Gnomad exome annotation file filepath")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")
-    #parser.add_argument("--annotate-out",dest="annotate_out",type=str,default="annotate_out.tsv",help="Annotation output filename, default is annotate_out.tsv")
-    
-    #compare results
     parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
-    parser.add_argument("--check-for-ld",dest="ld_check",action="store_true",help="Whether to check for ld between the summary statistics and GWS results")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")
-    parser.add_argument("--ld-report-out",dest="ld_report_out",type=str,default="ld_report_out.rsv",help="LD check report output path")
     parser.add_argument("--gwascatalog-pval",default=5e-8,type=float,help="P-value cutoff for GWASCatalog searches")
     parser.add_argument("--gwascatalog-width-kb",dest="gwascatalog_pad",type=int,default=0,help="gwascatalog range padding")
     parser.add_argument("--gwascatalog-threads",dest="gwascatalog_threads",type=int,default=4,help="Number of concurrent queries to GWAScatalog API. Default 4. Increase if the gwascatalog api takes too long.")
-    parser.add_argument("--ldstore-threads",type=int,default=4,help="Number of threads to use with ldstore. Default 4")
-    parser.add_argument("--ld-threshold",type=float,default=0.9,help="ld threshold for including ld associations in ld report")
-    parser.add_argument("--cache-gwas",action="store_true",help="save gwascatalog results into gwas_out_mapping.tsv and load them from there if it exists. Use only for testing.")
     parser.add_argument("--local-gwascatalog",dest='localdb_path',type=str,help="Path to local GWAS Catalog file.")
     parser.add_argument("--db",dest="database_choice",type=str,choices=['local','gwas','summary_stats'],default="gwas",help="Database to use for comparison. use 'local','gwas' or 'summary_stats'.")
     parser.add_argument("--gwascatalog-allele-file",dest="allele_db_file",default="",help="GWAS Catalog alleles taken from here. Use dbSNP variation VCF file (current gwcat build hg38p13, b153).")

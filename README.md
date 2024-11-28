@@ -102,10 +102,10 @@ python3 Scripts/wdl_processing_scripts/pheno-credset_array.py --phenotype-list s
 In case you have finemapped the results and only want to analyse the results which had finemapping results, use the last argument `--only-cred`. If you did not finemap your results, do not include that flag.
 
 ### Fill in WDL parameters
-Fill in correct parameters in autoreporting_rN.json
+Fill in correct parameters in autoreporting.template.json
 - input array
 - correct docker image, latest is in template
-- annotation files, e.g. gnomad and variant annotations. Latest should be in template, but you can confirm from the team.
+- annotation files, e.g. gnomad and variant annotations. Latest should be in template, but you can confirm from the maintainer.
 - GWAS Catalog annotation files, like the gwas catalog release tsv and an allele vcf file
     - You can download the most recent GWAS Catalog annotation from https://www.ebi.ac.uk/gwas/docs/file-downloads (All associations v1.0.2)
 - custom data resource, i.e. betamatching external annotation from https://github.com/FINNGEN/betamatch-ext-data
@@ -121,53 +121,54 @@ Fill in correct parameters in autoreporting_rN.json
     - dummy file, used for missing data. Use the same value as you used in the array creation.
 
 
-###  4.1.1. <a name='Commandlinearguments'></a>Command-line arguments
+## Running the tool locally
+
+You can run the autoreporting tool locally by installing the dependencies noted above.
+Running the tool is as simple as 
+```sh
+python3 Scripts/main.py SUMMARY_STATISTIC [OPTIONS]
+```
+You can see all of the available options with `--help`:
+```sh
+python3 Scripts/main.py --help
+```
+
+###  Command-line arguments
 __NOTE: OUT OF DATE__
-Argument   |  Meaning   |   Example | Original script
+Argument   |  Meaning   |   Example 
 --- | --- | --- | ---
---sign-treshold | significance threshold for variants | --sign-treshold 5e-8 | gws_fetch.py
---prefix | a prefix for all of the output and temporary files. Useful in cases where there might be confusion between processes running in the same folder. A dot is inserted after the prefix if it is passed. | --prefix diabetes_r4 | main<span></span>.py
---fetch-out | output file path for filtered and/or grouped variants. 'fetch_out.csv' by default. | --fetch-out output.tsv | gws_fetch.py
---group | supplying this flag results in the variants being grouped into groups | --group | gws_fetch.py
---grouping-method | grouping method used if --group flag is supplied. options are 'simple', i.e. grouping based on range from gws variants, or 'ld', i.e. grouping using plink --clump |  --grouping-method simple \| ld \| cred | gws_fetch.py
---locus-width-kb | group widths in kb. In case of ld clumping, the value is supplied to plink --clump-kb. | --locus-width-kb 500 | gws_fetch.py
---alt-sign-treshold | optional alternate significance threshold for including less significant variants into groups. | --alt-sign-treshold 5e-6 | gws_fetch.py
---ld-panel-path | path to the LD panel, without panel file suffix. LD panel must be in plink's .bed format, as a single file. Accompanying .bim and .fam files must be in the same directory. | --ld-panel-path path_to_panel/plink_file | gws_fetch.py
---ld-r2 | plink clump-r2 argument, default 0.4 | --ld-r2 0.7 | gws_fetch.py
---dynamic-r2-chisq | If flag is passed, r2 threshold is set per peak so that leadvar_chisq*r2=value (default 5). | --dynamic-r2-chisq | gws_fetch.py
---ld-api | choose which LD calculation method you want to use. `online` requires no ld panel or plink usage. `plink` uses plink to calculate LD. | --ld-api plink \| online | gws_fetch.py
---plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 | gws_fetch.py
---overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap | gws_fetch.py
---ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 | gws_fetch.py
---credible-set-file| Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.| --credile-set-file file_containing_susie_snp_files | gws_fetch.py
---previous-release-path | path to previous release summary statistic. Must be tabixed. Required for annotation. | --previous-release-path path/prev_rel_pheno.gz | annotate<span></span>.py
---gnomad-genome-path | path to gnomAD genome annotation file. Must be tabixed. Required for annotation. | --gnomad-genome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
---gnomad-exome-path | path to gnomAD exome annotation file. Must be tabixed. Required for annotation. | --gnomad-exome-path gnomad_path/gnomad_file.tsv.gz | annotate<span></span>.py
---finngen-path | Path to FinnGen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
---functional-path | File path to functional annotation file | --functional-path path_to_file/annotation.tsv.gz | annotate<span></span>.py
---annotate-out | annotation output file, default 'annotate_out.csv' | --annotate-out annotation_output.tsv | annotate<span></span>.py
---use-gwascatalog | Add flag to compare results against GWAS Catalog associations | --use-gwascatalog | compare<span></span>.py
---custom-dataresource | Compare against associations defined in an additional file. | --custom-dataresource file.tsv | compare<span></span>.py
---raport-out | comparison output file, default 'raport_out.csv'. The final output of the script, in addition to the ld_raport_out.csv, if asked for. | --raport-out raport_out.tsv | compare<span></span>.py
---gwascatalog-pval | P-value to use for filtering results from GWAS Catalog. default 5e-8 | --gwascatalog-pval 5e-6 | compare<span></span>.py
---gwascatalog-width-kb | Buffer outside gws variants that is searched from GWAS Catalog, in kilobases. Default 25  | --gwascatalog-width-kb 50 | compare<span></span>.py
---gwascatalog-threads | Number of concurrent queries to gwasgatalog API. Default 4. Increase to speed up gwascatalog comparison. | --gwascatalog-threads 8 | compare<span></span>.py
---gwascatalog-allele-file | compressed & tabixed VCF file which contains alleles for rsids. Required for `gwas` and `local` gwascatalog dbs. Must be matching build and version with GWAS Catalog. Currently hg38.12 b153. | --gwascatalog-allele-file| compare<span></span>.py
---ld-raport-out | DEPRECATED ld check output file, default 'ld_raport_out.csv'. The final output of the script, in addition to the raport_out.csv. | --ld-raport-out ld_raport_out.tsv | compare<span></span>.py
---check-for-ld | DEPRECATED When supplied, gws variants and summary statistics (from file or GWAS Catalog) are tested for ld using LDstore.  | --check-for-ld | compare<span></span>.py
---ldstore-threads | DEPRECATED Number of threads to use with LDstore. At most the number of logical cores your processor has. Default 4.| --ldstore-threads 2 | compare<span></span>.py
---ld-treshold | DEPRECATED LD threshold for LDstore, above of which summary statistic variants in ld with our variants are included. Default 0.4 | --ld-treshold 0.8 | compare<span></span>.py
---cache-gwas | Save GWAScatalog results into gwas_out_mapping.csv, from which they are read. Useful in testing. Should not be used for production runs. | --cache-gwas | compare<span></span>.py
---column-labels | Specify summary file column names. Columns specified are: (chrom, pos, ref, alt, pval) . Default is '#chrom pos ref alt pval'. | --column-labels CHROM POS REF ALT PVAL | all scripts
---extra-cols | Include additional columns from the summary file in the analysis, for example effect size, rsid or allele frequencies. Values are added both to variant reports and group reports, with names like lead_COLNAME in group report. | --extra-cols beta sebeta rsid maf_cases maf_controls | gws_fetch.py
---top-report-out | Name of per-group aggregated report output | --top-report-out top_report.csv | compare<span></span>.py
---efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Ontology codes. | --efo-traits EFO_1 EFO_2 EFO_3 EFO_4 | compare<span></span>.py
---local-gwascatalog | File path to gwas catalog downloadable associations with mapped ontologies. | --local-gwascatalog gwascatalog-associations-with-ontologies.tsv | compare<span></span>.py
---db | Choose which comparison database to use: GWAS Catalog proper, GWAS Catalog's summary statistic api, or a local copy of GWAS Catalog. With local copy, you need to supply the --local-gwascatalog filepath | --db gwas \| summary_stats \| local | compare<span></span>.py
-gws_path |  Path to the tabixed and bgzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz | gws_fetch.py
-
-The same arguments are used in the smaller scripts that the main script uses.
-
+gws_path |  Path to the tabixed and bgzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz 
+--column-labels | Specify summary file column names. Columns specified are: (chrom, pos, ref, alt, pval, beta) . Default is '#chrom pos ref alt pval beta'. | --column-labels CHROM POS REF ALT PVAL BETA 
+--sign-treshold | significance threshold for variants | --sign-treshold 5e-8 
+--prefix | a prefix for all of the output files. Useful in cases where there might be confusion between processes running in the same folder. A dot is inserted after the prefix if it is passed. | --prefix diabetes_r4 
+--group | supplying this flag results in the variants being grouped into groups | --group 
+--grouping-method | grouping method used if --group flag is supplied. options are 'simple', i.e. grouping based on range from gws variants, or 'ld', i.e. grouping using plink --clump |  --grouping-method simple \| ld \| cred 
+--locus-width-kb | group widths in kb. In case of ld clumping, the value is supplied to plink --clump-kb. | --locus-width-kb 500 
+--alt-sign-treshold | optional alternate significance threshold for including less significant variants into groups. | --alt-sign-treshold 5e-6 
+--ld-panel-path | path to the LD panel, without panel file suffix. LD panel must be in plink's .bed format, as a single file. Accompanying .bim and .fam files must be in the same directory. | --ld-panel-path path_to_panel/plink_file 
+--ld-r2 | plink clump-r2 argument, default 0.4 | --ld-r2 0.7 
+--dynamic-r2-chisq | If flag is passed, r2 threshold is set per peak so that leadvar_chisq*r2=value (default 5). | --dynamic-r2-chisq 
+--ld-api | choose which LD calculation method you want to use. `online` requires no ld panel or plink usage. `plink` uses plink to calculate LD. | --ld-api plink \| online 
+--plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 
+--overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap 
+--ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 
+--credible-set-file| Add SuSiE credible sets, listed in a file of .snp files. One row per .snp file.| --credible-set-file file_containing_susie_snp_files 
+--previous-release-path | path to previous release summary statistic. Must be tabixed. Required for annotation. | --previous-release-path path/prev_rel_pheno.gz 
+--gnomad-path | path to gnomAD v4  genome annotation file.| --gnomad-path gnomad4_path/annotation.txt.gz
+--finngen-path | Path to FinnGen annotation file, containing e.g. most severe consequence and corresponding gene of the variants | --finngen-path path_to_file/annotation.tsv.gz 
+--functional-path | File path to functional annotation file | --functional-path path_to_file/annotation.tsv.gz 
+--use-gwascatalog | Add flag to compare results against GWAS Catalog associations | --use-gwascatalog 
+--custom-dataresource | Compare against associations defined in an additional file. | --custom-dataresource file.tsv 
+--report-out | comparison output file, default 'report_out.csv'. The final output of the script | --report-out output.tsv 
+--gwascatalog-pval | P-value to use for filtering results from GWAS Catalog. default 5e-8 | --gwascatalog-pval 5e-6 
+--gwascatalog-width-kb | Buffer outside gws variants that is searched from GWAS Catalog, in kilobases. Default 25  | --gwascatalog-width-kb 50 
+--gwascatalog-threads | Number of concurrent queries to gwasgatalog API. Default 4. Increase to speed up gwascatalog comparison. | --gwascatalog-threads 8 
+--gwascatalog-allele-file | compressed & tabixed VCF file which contains alleles for rsids. Required for `gwas` and `local` gwascatalog dbs. Must be matching build and version with GWAS Catalog. Currently hg38.12 b153. | --gwascatalog-allele-file
+--extra-cols | Include additional columns from the summary file in the analysis, for example effect size, rsid or allele frequencies. Values are added both to variant reports and group reports, with names like lead_COLNAME in group report. | --extra-cols sebeta rsid maf_cases maf_controls 
+--top-report-out | Name of per-group aggregated report output | --top-report-out top_report.csv 
+--efo-traits | specific traits that you want to concentrate on the top level locus report. Other found traits will be reported on a separate column from these. Use Experimental Factor Ontology codes. | --efo-traits EFO_1 EFO_2 EFO_3 EFO_4 
+--local-gwascatalog | File path to gwas catalog downloadable associations with mapped ontologies. | --local-gwascatalog gwascatalog-associations-with-ontologies.tsv 
+--db | Choose which comparison database to use: GWAS Catalog proper, GWAS Catalog's summary statistic api, or a local copy of GWAS Catalog. With local copy, you need to supply the --local-gwascatalog filepath | --db gwas \| summary_stats \| local 
 
 ###  4.1.2. <a name='Example'></a>Example
 __NOTE: OUT OF DATE__
@@ -188,8 +189,7 @@ ld_api=online                                               # Use LD calculation
 plink_mem=14000                                             # plink memory in MB
 ignore_region='6:23000000-38000000'                         # Result region to ignore: corresponds to MHC region
 credsetfile=path_to_cs/credible_set.SUSIE.snp.bgz           # SuSiE credible set output
-gnomad_genome=path_to_annotation/gnomad_genomes.gz          # gnomad genome annotation file
-gnomad_exome=path_to_annotation/gnomad_exomes.gz            # gnomad exome annotation file
+gnomad_path=path_to_annotation/gnomad.gz                    # gnomad v4 annotation file
 finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
 functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
 gwas_allele_path=path_to_allele_vcf/dbsnp_vcf.gz            # GWAS Catalog allele annotation file 
@@ -205,9 +205,8 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
         --ld-panel-path $ld_panel --ld-r2 $ld_r2 --ld-api $ld_api \
         --plink-memory $plink_mem --ignore-region $ignore_region \
         --credible-set-file $credsetfile \
-        --gnomad-genome-path $gnomad_genome \
-        --gnomad-exome-path $gnomad_exome \
         --finngen-path $finngen_ann \
+        --gnomad-path $gnomad_path
         --functional-path $functional_ann \
         --gwascatalog-allele-file  $gwas_allele_path \
         $use_gwascatalog --db $db --extra-cols $extracols
