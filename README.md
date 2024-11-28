@@ -171,7 +171,6 @@ gws_path |  Path to the tabixed and bgzipped summary statistic that is going to 
 --db | Choose which comparison database to use: GWAS Catalog proper, GWAS Catalog's summary statistic api, or a local copy of GWAS Catalog. With local copy, you need to supply the --local-gwascatalog filepath | --db gwas \| summary_stats \| local 
 
 ###  4.1.2. <a name='Example'></a>Example
-__NOTE: OUT OF DATE__
 
 For example, here's a simple bash script for running the tool with some of the more relevant parameters:
 ```
@@ -181,7 +180,7 @@ file=path_to_input/summary_statistic.gz                     # input file
 sig_p='5e-8'                                                # significance threshold
 sig_p2='0.001'                                              # alternate significance threshold, used with grouping
 prefix='analysis_prefix'                                    # output file prefix
-grouping_method=ld                                          # grouping method, one of [simple, ld, cred]
+grouping_method=cred                                        # grouping method, one of [simple, ld, cred]
 loc_w=1500                                                  # range for grouping, in kilobases
 ld_panel=path_to_ld/ld_panel                                # the path to the .bed LD panel, without file suffix
 ld_r2=0.1                                                   # grouping (ld, cred only) LD threshold
@@ -190,7 +189,7 @@ plink_mem=14000                                             # plink memory in MB
 ignore_region='6:23000000-38000000'                         # Result region to ignore: corresponds to MHC region
 credsetfile=path_to_cs/credible_set.SUSIE.snp.bgz           # SuSiE credible set output
 gnomad_path=path_to_annotation/gnomad.gz                    # gnomad v4 annotation file
-finngen_ann=path_to_annotation/R4_annotated_variants_v1.gz  # finngen annotation file
+finngen_ann=path_to_annotation/annotation.gz                # finngen annotation file
 functional_ann=path_to_annotation/functional_annotations.gz # annotation file with functional consequences
 gwas_allele_path=path_to_allele_vcf/dbsnp_vcf.gz            # GWAS Catalog allele annotation file 
 use_gwascatalog="--use-gwascatalog"                         # Compare against GWAS Catalog
@@ -214,6 +213,8 @@ python3 Scripts/main.py $file --sign-treshold $sig_p  \
 
 
 ##  5. <a name='Outputs'></a>Outputs
+
+__NOTE: OUT OF DATE__
 
 ### Top report
 The `top_report.tsv` file contains the group-level summary of an autoreporting run. This file is mostly useful as a first step in the analysis of a  phenotype. It is a tab-separated file with one row per one credible set/group of variants. The columns are as follows: 
