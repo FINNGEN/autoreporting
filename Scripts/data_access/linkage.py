@@ -1,9 +1,10 @@
-import shlex,subprocess, glob
+import shlex,subprocess, glob,os
 from subprocess import PIPE
 from typing import List,  Optional
 import pandas as pd, numpy as np # type: ignore
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 from data_access.db import LDAccess, LDData, Variant
+import pysam
 
 
 class OnlineLD(LDAccess):
@@ -104,3 +105,61 @@ class PlinkLD(LDAccess):
             for v in ld_df.to_dict('records')
         ]
         return ld_data
+
+class TabixLD(LDAccess):
+    def __init__(self,path_template:str):
+        #get header
+        #if not os.path.exists(self.path):
+        #    raise Exception(f"LD Tabix access: Resource {self.path} does not to exist")
+        
+        paths={str(a):path_template.replace("{TEMPLATE}",f"{a}") for a in range(1,23)}
+        exists = [(os.path.exists(a),a) for a in paths.values()]
+        # check that files are available
+        self.paths = {a:b for a,b in paths.items() if os.path.exists(b)}
+        if not all([a[0] for a in exists]):
+            print(f"Warning: When loading TabixLD, some chromosome files were not found for template {path_template}: {[a[1] for a in exists if not a[0]]}")
+        self.chrompos = [
+            "#chrom",
+            "pos"
+        ]
+        self.sequences = [a for a in paths.keys()]
+        self.fileobjects = {a:pysam.TabixFile(b,encoding="utf-8") for a,b in self.paths.items()}
+        self.header = self.fileobjects[self.sequences[0]].header[0].split("\t")
+        self.hdi= {a:i for i,a in enumerate(self.header)}
+
+        
+    
+    def get_range(self, variant: Variant, bp_range: int, ld_threshold_:Optional[float]=None)->List[LDData]:
+        variant_id=f"chr{variant.chrom.replace('chr','')}_{variant.pos}_{variant.ref}_{variant.alt}"
+        range_min = max(1,variant.pos-bp_range)
+        range_max = variant.pos+bp_range
+        start=max(variant.pos-1,0)
+        end=variant.pos
+        sequence = variant.chrom
+        if sequence not in self.sequences:
+            raise Exception(f"Error in fetching LD for variant {variant}: File for chromosome {sequence} not in available files.")
+        if not ld_threshold_:
+            ld_threshold = 0.0
+        else:
+            ld_threshold = ld_threshold_
+        iter = self.fileobjects[sequence].fetch(sequence, max(start-1,0),end)
+        data = []
+        for v in iter:
+            if v[self.hdi["variant1"]] == variant_id:
+                data.append(v)
+        lddata = []
+        for d in data:
+            variant1 = variant
+            v2_str = d[self.hdi["variant2"]].split("_")
+            variant2 = Variant(v2_str[0].replace("chr","").replace("X","23"),int(v2_str[1]),v2_str[2],v2_str[3])
+            r2 = float(d[self.hdi["r2"]])
+            if variant2.pos < range_max and variant2.pos > range_min and r2 > ld_threshold:
+                lddata.append(LDData(variant1,variant2,r2))
+        return lddata
+        
+
+    def close(self):
+        #NOTE: always call close after the resource is no longer needed
+        for _,b in self.fileobjects.items():
+            b.close()
+        

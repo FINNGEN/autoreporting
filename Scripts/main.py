@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from grouping_report import generate_top_report, generate_variant_report,TopReportOptions,VariantReportOptions
 import argparse
-from data_access.linkage import PlinkLD, OnlineLD
+from data_access.linkage import PlinkLD, OnlineLD, TabixLD
 from grouping import form_groups
 from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,GroupingOptions
 from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, CatalogAnnotation, Gnomad4Annotation
@@ -51,6 +51,8 @@ def main(args):
             ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
         elif args.ld_api_choice == "online":
             ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
+        elif args.ld_api_choice == "tabix":
+            ld_api = TabixLD(args.ld_panel_path)
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     args.sig_treshold_2 = max(args.sig_treshold, args.sig_treshold_2)
