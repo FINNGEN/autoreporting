@@ -112,7 +112,7 @@ class TabixLD(LDAccess):
         #if not os.path.exists(self.path):
         #    raise Exception(f"LD Tabix access: Resource {self.path} does not to exist")
         
-        paths={str(a):path_template.replace("{TEMPLATE}",f"{a}") for a in range(1,23)}
+        paths={str(a):path_template.replace("{CHROM}",f"{a}") for a in range(1,23)}
         exists = [(os.path.exists(a),a) for a in paths.values()]
         # check that files are available
         self.paths = {a:b for a,b in paths.items() if os.path.exists(b)}
@@ -144,9 +144,10 @@ class TabixLD(LDAccess):
             ld_threshold = ld_threshold_
         iter = self.fileobjects[sequence].fetch(sequence, max(start-1,0),end)
         data = []
-        for v in iter:
-            if v[self.hdi["variant1"]] == variant_id:
-                data.append(v)
+        for l in iter:
+            cols = l.split("\t")
+            if cols[self.hdi["variant1"]] == variant_id:
+                data.append(cols)
         lddata = []
         for d in data:
             variant1 = variant
@@ -155,6 +156,9 @@ class TabixLD(LDAccess):
             r2 = float(d[self.hdi["r2"]])
             if variant2.pos < range_max and variant2.pos > range_min and r2 > ld_threshold:
                 lddata.append(LDData(variant1,variant2,r2))
+        lddata.append(
+            LDData(variant1,variant1,1.0)
+        )
         return lddata
         
 
