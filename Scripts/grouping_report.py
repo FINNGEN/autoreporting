@@ -478,7 +478,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                 # get all cs variant pips
                 coding_vars = [a for a in cs_vars_2 if fg_ann.get(a.id,[{"functional_category":"NA"}])[0]["functional_category"]!="NA"]
                 if coding_vars:
-                    max_pip_coding_var = max([(a,cs_ann[a.id]["prob"]) for a in coding_vars],key=lambda x:x[1])[0]                    
+                    max_pip_coding_var = max([(a,cs_ann[a.id][0]["prob"]) for a in coding_vars],key=lambda x:x[1])[0]
                     #if extra col
                     # most severe gene and consequence
                     max_pip_coding_var_fg_ann = fg_ann[max_pip_coding_var.id][0]
