@@ -471,7 +471,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
             try:
                 cs_vars_2 = list(set(cs_vars+[lead]))
                 # get all cs variant pips
-                coding_vars = [a for a in cs_vars_2 if fg_ann.get(a.id,[{"functional_category":"NA"}[0]["functional_category"]!="NA"])]
+                coding_vars = [a for a in cs_vars_2 if fg_ann.get(a.id,[{"functional_category":"NA"}])[0]["functional_category"]!="NA"]
                 if coding_vars:
                     max_pip_coding_var = max([(a,cs_ann[a.id]["prob"]) for a in coding_vars],key=lambda x:x[1])[0]                    
                     #if extra col
