@@ -343,7 +343,7 @@ class FGAnnotation(TabixAnnotation):
         rsid = cols[hdi[self.colnames["rsids"]]]
         infocol_names = [a for a in hdi.keys() if a.startswith("INFO_")]
         infocol_values = [tryfloat(cols[hdi[a]]) for a in infocol_names]
-        n_info_gt_0_6 = len([a for a in infocol_values if a > 0.6])/len(infocol_values)
+        n_info_gt_0_6 = len([a for a in infocol_values if a > 0.6])/max(len(infocol_values),1 )
         return [{
             self.out_columns[0]:most_severe_gene,
             self.out_columns[1]:most_severe_consequence,
