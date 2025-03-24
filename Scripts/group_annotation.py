@@ -325,13 +325,15 @@ class FGAnnotation(TabixAnnotation):
             "FG_INFO",
             "n_INFO_gt_0_6",
             "functional_category",
-            "rsids"
+            "rsids",
+            "FG_AF"
         ]
         self.colnames = {
             "most_severe_gene":"gene_most_severe",
             "most_severe_consequence":"most_severe",
             "FG_INFO":"INFO",
-            "rsids":"rsid"
+            "rsids":"rsid",
+            "FG_AF":"AF"
         }
         self.variant_switch = 1_000_000
 
@@ -341,6 +343,7 @@ class FGAnnotation(TabixAnnotation):
         functional_category = cols[hdi[self.colnames["most_severe_consequence"]]] if cols[hdi[self.colnames["most_severe_consequence"]]] in FUNCTIONAL_CATEGORIES else "NA"
         fg_info = cols[hdi[self.colnames["FG_INFO"]]]
         rsid = cols[hdi[self.colnames["rsids"]]]
+        fg_af = cols[hdi[self.colnames["FG_AF"]]]
         infocol_names = [a for a in hdi.keys() if a.startswith("INFO_")]
         infocol_values = [tryfloat(cols[hdi[a]]) for a in infocol_names]
         n_info_gt_0_6 = len([a for a in infocol_values if a > 0.6])/max(len(infocol_values),1 )
@@ -350,7 +353,8 @@ class FGAnnotation(TabixAnnotation):
             self.out_columns[2]:fg_info,
             self.out_columns[3]:n_info_gt_0_6,
             self.out_columns[4]:functional_category,
-            self.out_columns[5]:rsid
+            self.out_columns[5]:rsid,
+            self.out_columns[6]:fg_af
         }]
 
     @staticmethod
@@ -364,7 +368,8 @@ class FGAnnotation(TabixAnnotation):
             "FG_INFO",
             "n_INFO_gt_0_6",
             "functional_category",
-            "rsids"
+            "rsids",
+            "FG_AF"
         ]
 
 def calculate_enrichment(nfe_AC:List[int],nfe_AN:List[int],fi_af:float):

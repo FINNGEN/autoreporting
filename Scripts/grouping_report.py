@@ -299,6 +299,7 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         "best_coding_var_consequence",
         "best_coding_var_gene",
         "best_coding_var_af",
+        "best_coding_var_eur_af",
         "best_coding_var_beta",
         "best_coding_var_p",
         "found_associations_strict",
@@ -465,13 +466,13 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         if options.grouping_method==Grouping.CS and \
         FGAnnotation.get_name() in data.annotations and \
         CSAnnotation.get_name() in data.annotations and \
-        ExtraColAnnotation.get_name() in data.annotations:
+        Gnomad4Annotation.get_name() in data.annotations:
             try:
                 fg_ann = data.annotations[FGAnnotation.get_name()]
                 cs_ann = data.annotations[CSAnnotation.get_name()]
-                extra_ann = data.annotations[ExtraColAnnotation.get_name()]
+                gnomad_ann = data.annotations[Gnomad4Annotation.get_name()]
             except Exception as e:
-                print("Error on creating best coding var in group report: One or more of the data resources not available!")
+                print(f"Error on creating best coding var in group report: One or more of the data resources not available! Looked for {[FGAnnotation.get_name(),CSAnnotation.get_name(),Gnomad4Annotation.get_name()]}")
                 raise e
             try:
                 cs_vars_2 = list(set(cs_vars+[lead]))
@@ -482,11 +483,12 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
                     #if extra col
                     # most severe gene and consequence
                     max_pip_coding_var_fg_ann = fg_ann[max_pip_coding_var.id][0]
-                    max_pip_coding_var_extra_ann = extra_ann.get(max_pip_coding_var.id,[{}])[0]
+                    max_pip_coding_var_gnomad_ann = gnomad_ann.get(max_pip_coding_var.id,[{}])[0]
                     cols["best_coding_var"] = max_pip_coding_var.id
                     cols["best_coding_var_consequence"] = max_pip_coding_var_fg_ann["most_severe_consequence"]
                     cols["best_coding_var_gene"] = max_pip_coding_var_fg_ann["most_severe_gene"]
-                    cols["best_coding_var_af"] = max_pip_coding_var_extra_ann.get("af_alt","NA")
+                    cols["best_coding_var_af"] = max_pip_coding_var_fg_ann.get("FG_AF","NA")
+                    cols["best_coding_var_eur_af"] = max_pip_coding_var_gnomad_ann.get("GNOMAD_AF_nfe","NA")
                     cols["best_coding_var_beta"] = max_pip_coding_var.beta
                     cols["best_coding_var_p"] = max_pip_coding_var.pval
             except Exception as e:
