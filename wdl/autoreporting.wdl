@@ -19,8 +19,8 @@ task report {
     File ld_panel_fam=ld_panel+".fam"
     File finngen_annotation
     File finngen_annotation_tb=finngen_annotation+".tbi"
-    File functional_annotation
-    File functional_annotation_tb=functional_annotation+".tbi"
+    #File functional_annotation
+    #File functional_annotation_tb=functional_annotation+".tbi"
 
     File? local_gwcatalog
 
@@ -59,7 +59,6 @@ task report {
         size(previous_release,"G")+
         size(gnomad,"G")+
         size(finngen_annotation,"G")+
-        size(functional_annotation,"G")+
         size(ld_panel_bed,"G")+
         size(allele_vcf_file,"G")
     Int disk_size = ceil(disk_size_f*1.25)+25
@@ -76,7 +75,6 @@ task report {
         plink_path = "${ld_panel_bed}".replace(".bed","")
         gnomad="--gnomad-path ${gnomad}" if "${gnomad}" != empty_file else ""
         finngen_annotation="--finngen-path  ${finngen_annotation}" if "${finngen_annotation}" != empty_file else "" 
-        functional_annotation="--functional-path ${functional_annotation}" if "${functional_annotation}" != empty_file else "" 
         previous_release="--previous-release-path ${previous_release}" if "${previous_release}" != empty_file else "" 
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
 
@@ -132,7 +130,6 @@ task report {
                     f"{ld_opts} "#ld opts
                     f"--plink-memory {plink_memory} "
                     f"{finngen_annotation} "
-                    f"{functional_annotation} "
                     f"{gnomad} "
                     f"{previous_release} "
                     f"{credset} "

@@ -54,7 +54,7 @@ class TabixAnnotation(AnnotationSource):
         return chrom
 
     def _chrom_from_source(self, chrom:str)->str:
-        """If chromoosme needs modification from tabix source, e.g. removing chr, override this
+        """If chromosome needs modification from tabix source, e.g. removing chr, override this
         """
         return chrom
 
@@ -256,6 +256,7 @@ def tryint(value: str) -> Optional[int]:
 
 class FunctionalAnnotation(TabixAnnotation):
     def __init__(self,fname:str):
+        raise Exception("This annotation has been deprecated")
         opts = TabixOptions(fname,"chrom","pos","ref","alt")
         super().__init__(opts)
         self.columntypes = {
@@ -319,19 +320,17 @@ class FunctionalAnnotation(TabixAnnotation):
 class FGAnnotation(TabixAnnotation):
     def __init__(self,fname:str):
         super().__init__(TabixOptions(fname,"chr","pos","ref","alt"))
-        self.out_columns = [
-            "most_severe_gene",
-            "most_severe_consequence",
-            "FG_INFO",
-            "n_INFO_gt_0_6",
-            "functional_category",
-            "rsids"
-        ]
+        self.out_columns = FGAnnotation.get_output_columns()
         self.colnames = {
             "most_severe_gene":"gene_most_severe",
             "most_severe_consequence":"most_severe",
             "FG_INFO":"INFO",
-            "rsids":"rsid"
+            "rsids":"rsid",
+            "AF":"AF",
+            "AC":"AC",
+            "AN":"AN",
+            "AC_Het":"AC_Het",
+            "AC_Hom":"AC_Hom"
         }
         self.variant_switch = 1_000_000
 
@@ -341,6 +340,11 @@ class FGAnnotation(TabixAnnotation):
         functional_category = cols[hdi[self.colnames["most_severe_consequence"]]] if cols[hdi[self.colnames["most_severe_consequence"]]] in FUNCTIONAL_CATEGORIES else "NA"
         fg_info = cols[hdi[self.colnames["FG_INFO"]]]
         rsid = cols[hdi[self.colnames["rsids"]]]
+        fg_af = cols[hdi[self.colnames["AF"]]]
+        fg_an = cols[hdi[self.colnames["AN"]]]
+        fg_ac = cols[hdi[self.colnames["AC"]]]
+        fg_ac_het = cols[hdi[self.colnames["AFC_Het"]]]
+        fg_ac_hom = cols[hdi[self.colnames["AC_Hom"]]]
         infocol_names = [a for a in hdi.keys() if a.startswith("INFO_")]
         infocol_values = [tryfloat(cols[hdi[a]]) for a in infocol_names]
         n_info_gt_0_6 = len([a for a in infocol_values if a > 0.6])/len(infocol_values)
@@ -350,7 +354,12 @@ class FGAnnotation(TabixAnnotation):
             self.out_columns[2]:fg_info,
             self.out_columns[3]:n_info_gt_0_6,
             self.out_columns[4]:functional_category,
-            self.out_columns[5]:rsid
+            self.out_columns[5]:rsid,
+            self.out_columns[6]:fg_af,
+            self.out_columns[7]:fg_an,
+            self.out_columns[8]:fg_ac,
+            self.out_columns[9]:fg_ac_het,
+            self.out_columns[10]:fg_ac_hom
         }]
 
     @staticmethod
@@ -364,7 +373,12 @@ class FGAnnotation(TabixAnnotation):
             "FG_INFO",
             "n_INFO_gt_0_6",
             "functional_category",
-            "rsids"
+            "rsids",
+            "AF",
+            "AN",
+            "AC",
+            "AC_Het",
+            "AC_Hom"
         ]
 
 def calculate_enrichment(nfe_AC:List[int],nfe_AN:List[int],fi_af:float):
@@ -382,6 +396,7 @@ def calculate_enrichment(nfe_AC:List[int],nfe_AN:List[int],fi_af:float):
 
 class GnomadGenomeAnnotation(TabixAnnotation):
     def __init__(self,fname: str):
+        raise Exception("This annotation has been deprecated")
         super().__init__(TabixOptions(fname,"#CHROM","POS","REF","ALT"))
         self.variant_switch = 1_000_000
         self.columns=["AF_fin",
@@ -433,6 +448,7 @@ class GnomadGenomeAnnotation(TabixAnnotation):
 
 class GnomadExomeAnnotation(TabixAnnotation):
     def __init__(self,fname: str):
+        raise Exception("This annotation has been deprecated")
         super().__init__(TabixOptions(fname,"#CHROM","POS","REF","ALT"))
         self.variant_switch = 50_000
         self.columns=["AF_nfe_bgr",

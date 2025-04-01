@@ -8,7 +8,6 @@
     "autoreporting.report.cpus":2,
     "autoreporting.report.gnomad":"gs://finngen-commons/gnomad/gnomad4/gnomad.v4.0.munged.sites_v1.tsv.bgz",
     "autoreporting.report.finngen_annotation":"RELEASE_ANNOTATION_FILE",
-    "autoreporting.report.functional_annotation":"gs://finngen_commons/annotations/fin_enriched_genomes_select_columns.txt.gz",
     "autoreporting.report.column_names":["#chrom","pos","ref","alt","pval","beta"],
     "autoreporting.report.extra_columns":"mlogp sebeta af_alt af_alt_cases af_alt_controls",
     "autoreporting.report.efo_map":"gs://finngen_commons/autoreporting/efo_map_na.tsv",

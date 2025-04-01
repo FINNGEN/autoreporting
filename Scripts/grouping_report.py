@@ -58,7 +58,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
                 #GnomadGenomeAnnotation.get_output_columns(),
                 #GnomadExomeAnnotation.get_output_columns(),
                 Gnomad4Annotation.get_output_columns(),
-                FunctionalAnnotation.get_output_columns(),
+                #FunctionalAnnotation.get_output_columns(),
                 FGAnnotation.get_output_columns(),
                 PreviousReleaseAnnotation.get_output_columns(),
                 CatalogAnnotation.get_output_columns()
@@ -194,7 +194,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
                 #GnomadGenomeAnnotation.get_name():GnomadGenomeAnnotation.get_output_columns(),
                 #GnomadExomeAnnotation.get_name():GnomadExomeAnnotation.get_output_columns(),
                 Gnomad4Annotation.get_name():Gnomad4Annotation.get_output_columns(),
-                FunctionalAnnotation.get_name():FunctionalAnnotation.get_output_columns(),
+                #FunctionalAnnotation.get_name():FunctionalAnnotation.get_output_columns(),
                 FGAnnotation.get_name():FGAnnotation.get_output_columns(),
                 PreviousReleaseAnnotation.get_name():PreviousReleaseAnnotation.get_output_columns(),
                 ExtraColAnnotation.get_name():options.extra_columns,
@@ -274,18 +274,12 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         "ref",
         "alt",
         "pval"] + lead_cols + [
-        "gnomAD_functional_category",
-        "gnomAD_enrichment_nfsee",
-        "gnomAD_fin.AF",
-        "gnomAD_fin.AN",
-        "gnomAD_fin.AC",
-        "gnomAD_fin.homozygote_count",
-        "gnomAD_fet_nfsee.odds_ratio",
-        "gnomAD_fet_nfsee.p_value",
-        "gnomAD_nfsee.AC",
-        "gnomAD_nfsee.AN",
-        "gnomAD_nfsee.AF",
-        "gnomAD_nfsee.homozygote_count",
+        "functional_category",
+        "fin_AF",
+        "fin_AN",
+        "fin_AC",
+        "fin_AC_Het",
+        "fin_AC_Hom",
         "cs_id",
         "cs_size",
         "cs_log_bayes_factor",
@@ -353,31 +347,36 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
             if lead.id in fg_ann:
                 cols["lead_most_severe_gene"] = fg_ann[lead.id][0]["most_severe_gene"]
                 cols["lead_most_severe_consequence"] = fg_ann[lead.id][0]["most_severe_consequence"]
-                cols["gnomAD_functional_category"] = fg_ann[lead.id][0]["functional_category"]
+                cols["functional_category"] = fg_ann[lead.id][0]["functional_category"]
                 cols["rsids"] = fg_ann[lead.id][0]["rsids"]
+                cols["fin_AF"] = fg_ann[lead.id][0]["AF"]
+                cols["fin_AN"] = fg_ann[lead.id][0]["AN"]
+                cols["fin_AC"] = fg_ann[lead.id][0]["AC"]
+                cols["fin_AC_Het"] = fg_ann[lead.id][0]["AC_Het"]
+                cols["fin_AC_Hom"] = fg_ann[lead.id][0]["AC_Hom"]
         #lead enrichment
         if Gnomad4Annotation.get_name() in data.annotations:
             gnomad_ann = data.annotations[Gnomad4Annotation.get_name()]
             if lead.id in gnomad_ann:
                 cols["lead_enrichment"] = gnomad_ann[lead.id][0]["GNOMAD_FI_enrichment_nfe"]
-        if FunctionalAnnotation.get_name() in data.annotations:
-            func_ann = data.annotations[FunctionalAnnotation.get_name()]
-            func_add_cols = [
-                "enrichment_nfsee",
-                "fin.AF",
-                "fin.AN",
-                "fin.AC",
-                "fin.homozygote_count",
-                "fet_nfsee.odds_ratio",
-                "fet_nfsee.p_value",
-                "nfsee.AC",
-                "nfsee.AN",
-                "nfsee.AF",
-                "nfsee.homozygote_count"
-            ]
-            if lead.id in func_ann:
-                for c in func_add_cols:
-                    cols[f"gnomAD_{c}"] = func_ann[lead.id][0][c]
+        #if FunctionalAnnotation.get_name() in data.annotations:
+        #    func_ann = data.annotations[FunctionalAnnotation.get_name()]
+            # func_add_cols = [
+            #     "enrichment_nfsee",
+            #     "fin.AF",
+            #     "fin.AN",
+            #     "fin.AC",
+            #     "fin.homozygote_count",
+            #     "fet_nfsee.odds_ratio",
+            #     "fet_nfsee.p_value",
+            #     "nfsee.AC",
+            #     "nfsee.AN",
+            #     "nfsee.AF",
+            #     "nfsee.homozygote_count"
+            # ]
+            # if lead.id in func_ann:
+            #     for c in func_add_cols:
+            #         cols[f"gnomAD_{c}"] = func_ann[lead.id][0][c]
         #cs data
         if CSAnnotation.get_name() in data.annotations:
             cs_ann = data.annotations[CSAnnotation.get_name()]

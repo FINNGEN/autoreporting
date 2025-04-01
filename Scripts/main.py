@@ -83,14 +83,11 @@ def main(args):
         column_names.r,
         column_names.a,
     ),args.extra_cols) if args.extra_cols else None
+    
     # functional annotation
-    functional_annotation = None
-    if args.functional_path:
-        functional_annotation = FunctionalAnnotation(args.functional_path)
-    # finngen annotation
-    fg_annotation = None
-    if args.finngen_path:
-        fg_annotation = FGAnnotation(args.finngen_path)
+    #functional_annotation = None
+    #if args.functional_path:
+    #    functional_annotation = FunctionalAnnotation(args.functional_path)
     # gnomad exome annotation
     #gnomad_genome_annotation = None
     #if args.gnomad_genome_path:
@@ -99,6 +96,10 @@ def main(args):
     #gnomad_exome_annotation = None
     #if args.gnomad_exome_path:
     #    gnomad_exome_annotation = GnomadExomeAnnotation(args.gnomad_exome_path)
+    # finngen annotation
+    fg_annotation = None
+    if args.finngen_path:
+        fg_annotation = FGAnnotation(args.finngen_path)
     # gnomad 4 annotation
     gnomad_four_annotation = None
     if args.gnomad_path:
@@ -135,7 +136,7 @@ def main(args):
     annotation_resources = [a for a in (
             prevrel_annotation,
             extra_cols_annotation,
-            functional_annotation,
+            #functional_annotation,
             fg_annotation,
             #gnomad_genome_annotation,
             #gnomad_exome_annotation,
@@ -209,7 +210,7 @@ if __name__=="__main__":
     #annotate
     parser.add_argument("--gnomad-path",dest="gnomad_path",type=str,help="Gnomad 4 annotation filepath")
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
-    parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
+    #parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")
     parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
