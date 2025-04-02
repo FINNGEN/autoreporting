@@ -74,8 +74,8 @@ class TabixAnnotation(AnnotationSource):
             chr_v_sets:Dict[str,set[Variant]] = {key:set() for key in chr_d.keys()}
             for v in variants:
                 chr_v_sets[v.chrom].add(v)
-            if any([a not in self.sequences for a in chr_d.keys()]):
-                missing_sequences = [a for a in chr_d.keys() if a not in self.sequences]
+            missing_sequences = [self._chrom_to_source(a) for a in chr_d.keys() if self._chrom_to_source(a) not in self.sequences]
+            if missing_sequences:
                 msg = (f"Warning in annotation tabix file loading: The sequence(s) {missing_sequences} are missing from annotation {self.fname}. List of available sequences in annotation: {[a for a in self.sequences]}.\n"
                         "Skipping the missing sequences.")
                 print(msg,file=sys.stderr)
@@ -97,8 +97,8 @@ class TabixAnnotation(AnnotationSource):
                 hdr = tabix_resource.header
                 hdi = {a:i for i,a in enumerate(hdr)}
                 sequences_in_variants = set([a.chrom for a in variants])
-                if any([a not in self.sequences for a in sequences_in_variants]):
-                    missing_sequences = [a for a in sequences_in_variants if a not in self.sequences]
+                missing_sequences = [self._chrom_to_source(a) for a in sequences_in_variants if self._chrom_to_source(a) not in self.sequences]
+                if missing_sequences:
                     msg = (f"Warning in annotation tabix file loading: The sequence(s) {missing_sequences} are missing from annotation {self.fname}. List of available sequences in annotation: {[a for a in self.sequences]}.\n"
                             "Skipping the missing sequences.")
                     print(msg,file=sys.stderr)
