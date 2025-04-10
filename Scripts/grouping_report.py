@@ -1,4 +1,4 @@
-from annotation_model import Value
+from annotation_model import Value, Annotation
 from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, Gnomad4Annotation
 from grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
 from grouping import ld_threshold
@@ -44,25 +44,20 @@ def format_value(value:Value)->str:
     else:
         raise Exception(f"unsupported type of value: {type(value)} for value {value}")
 @timefunc
-def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReportOptions):
+def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReportOptions,annotations: List[Annotation]):
     """Generate and write the variant report from available data.
     Inputs:
         data: PhenoData is the grouped and annotated data
         output: TextIO is where we write outputs
         options: VariantReportOptions contains all relevant meta-information for e.g. column names etc.
+        annotations: List of Annotations, used to figure out the columns in outputs
     """
     ### List all columns that are created
     annotation_columns = [
         a for colsource in 
-            (
-                #GnomadGenomeAnnotation.get_output_columns(),
-                #GnomadExomeAnnotation.get_output_columns(),
-                Gnomad4Annotation.get_output_columns(),
-                FunctionalAnnotation.get_output_columns(),
-                FGAnnotation.get_output_columns(),
-                PreviousReleaseAnnotation.get_output_columns(),
-                CatalogAnnotation.get_output_columns()
-            ) 
+            [
+                b.get_output_columns() for b in annotations
+            ]
         for a in colsource
     ]
     outputcolumns = [
@@ -190,15 +185,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
             ### Annotations
 
             #single annotations
-            single_annotation_dict = {
-                #GnomadGenomeAnnotation.get_name():GnomadGenomeAnnotation.get_output_columns(),
-                #GnomadExomeAnnotation.get_name():GnomadExomeAnnotation.get_output_columns(),
-                Gnomad4Annotation.get_name():Gnomad4Annotation.get_output_columns(),
-                FunctionalAnnotation.get_name():FunctionalAnnotation.get_output_columns(),
-                FGAnnotation.get_name():FGAnnotation.get_output_columns(),
-                PreviousReleaseAnnotation.get_name():PreviousReleaseAnnotation.get_output_columns(),
-                ExtraColAnnotation.get_name():options.extra_columns,
-            }
+            single_annotation_dict = {a.get_name():a.get_output_columns() for a in annotations if not isinstance(a,CatalogAnnotation)}
             for ann_name, ann_columns in single_annotation_dict.items():
                 if ann_name in data.annotations:
                     if v.id in data.annotations[ann_name]:
@@ -207,8 +194,10 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
             #multiple annotation, everything else is already ready
             #catalog annotation, squash if necessary, else we might have to keep a variable for lines in hand.
             ann_name = CatalogAnnotation.get_name()
-            ann_columns = CatalogAnnotation.get_output_columns()
+            
             if ann_name in data.annotations:
+                catalog_anno = [a for a in annotations if isinstance(a,CatalogAnnotation)][0]
+                ann_columns = catalog_anno.get_output_columns()
                 anno = data.annotations[ann_name]
                 if v.id in anno:
                     #get length
@@ -235,12 +224,13 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
 get_varid = lambda variant: f"chr{variant.chrom}_{variant.pos}_{variant.ref}_{variant.alt}"
 
 @timefunc
-def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions):
+def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,annotations:List[Annotation]):
     """Generate and write the top report (group aggregation report) from available data.
     Inputs:
         data: PhenoData is the grouped and annotated data
         output: TextIO is where we write outputs
         options: TopReportOptions contains all relevant meta-information for e.g. column names etc.
+        annotations: List of Annotations, used to figure out the columns in outputs
     """
     ### List all columns that are created
     lead_cols = [
@@ -344,8 +334,9 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions)
         #previous release cols
         if PreviousReleaseAnnotation.get_name() in data.annotations:
             prev_anno = data.annotations[PreviousReleaseAnnotation.get_name()]
+            prev_anno_a = [a for a in annotations if isinstance(a,PreviousReleaseAnnotation)][0]
             if lead.id in prev_anno:
-                for c in PreviousReleaseAnnotation.get_output_columns():
+                for c in prev_anno_a.get_output_columns():
                     cols[f"lead_{c}"] = prev_anno[lead.id][0][c]
         #lead variant most severe gene, consequence
         if FGAnnotation.get_name() in data.annotations:

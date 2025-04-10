@@ -83,7 +83,7 @@ class TabixAnnotation(AnnotationSource):
                 hdr = tabix_resource.header
                 hdi = {a:i for i,a in enumerate(hdr)}
                 for chrom_name, region in chr_d.items():
-                    if chrom_name not in self.sequences:
+                    if self._chrom_to_source(chrom_name) not in self.sequences:
                         print(f"Skipping missing sequence {chrom_name} for annotation {self.fname}",file=sys.stderr)
                         continue
                     chrom_v_set = chr_v_sets[chrom_name]
@@ -103,7 +103,7 @@ class TabixAnnotation(AnnotationSource):
                             "Skipping the missing sequences.")
                     print(msg,file=sys.stderr)
                 for original_v in variants:
-                    if original_v.chrom not in self.sequences:
+                    if self._chrom_to_source(original_v.chrom) not in self.sequences:
                         continue
                     for l in tabix_resource.fileobject.fetch(self._chrom_to_source(original_v.chrom),max(original_v.pos-1,0),original_v.pos):
                         cols = l.split("\t")
@@ -111,6 +111,7 @@ class TabixAnnotation(AnnotationSource):
                         if v in variants:
                             output[v] = self._create_annotation(cols,hdi)
         return output
+
     @staticmethod
     def get_name() -> str:
         raise Exception("annotation name not overridden for generic class TabixAnnotation")
@@ -123,6 +124,7 @@ class PreviousReleaseOptions(NamedTuple):
     a: str
     pval_col: str
     beta_col: str
+    other_cols: List[str]
 
 
 class PreviousReleaseAnnotation(TabixAnnotation):
@@ -130,26 +132,33 @@ class PreviousReleaseAnnotation(TabixAnnotation):
         super().__init__(TabixOptions(opts.fname,opts.c,opts.p,opts.r,opts.a))
         self.pval_col = opts.pval_col
         self.beta_col = opts.beta_col
+        self.other_cols = opts.other_cols
+        self.cols = [self.pval_col,self.beta_col]+self.other_cols
         self.variant_switch = 50_000
         #validate source file
         with tb_resource_manager(self.fname,opts.c,opts.p,opts.r,opts.a) as tb_resource:
-            if any([a for a in [self.pval_col,self.beta_col] if a not in tb_resource.header ]):
-                raise Exception(f"Previous release annotation file did not contain all required columns! Missing columns: {[a for a in [self.pval_col,self.beta_col] if a not in tb_resource.header ]}. Supplied columns:{[self.pval_col,self.beta_col]}")
+
+            if any([a for a in self.cols if a not in tb_resource.header ]):
+                raise Exception(f"Previous release annotation file did not contain all required columns! Missing columns: {[a for a in self.cols if a not in tb_resource.header ]}. Supplied columns:{self.cols}")
         
 
     def _create_annotation(self,cols:List[str],hdi:Dict[str,int])->Annotation:
         #get pval and beta
         pval = tryfloat(cols[hdi[self.pval_col]])
         beta = tryfloat(cols[hdi[self.beta_col]])
-        return [{"pval_previous_release":pval,"beta_previous_release":beta}]
+        other_values = {
+            f"{a}_previous_release":cols[hdi[a]] for a in self.other_cols
+        }
+        output_dict = {"pval_previous_release":pval,"beta_previous_release":beta}
+        output_dict.update(other_values)
+        return [output_dict]
 
     @staticmethod
     def get_name():
         return "previous_release"
 
-    @staticmethod
-    def get_output_columns():
-        return ["pval_previous_release","beta_previous_release"]
+    def get_output_columns(self)->List[str]:
+        return [f"{a}_previous_release" for a in self.cols]
 
 class ExtraColAnnotation(TabixAnnotation):
     def __init__(self, opts: TabixOptions,extra_columns:List[str]) -> None:
@@ -165,6 +174,9 @@ class ExtraColAnnotation(TabixAnnotation):
         annotation:VariantAnnotation = {a:cols[hdi[a]] for a in self.extra_columns}
         return [annotation]
 
+    def get_output_columns(self)->List[str]:
+        return self.extra_columns
+    
     @staticmethod
     def get_name():
         return "extra_columns"
