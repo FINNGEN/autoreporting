@@ -212,7 +212,7 @@ if __name__=="__main__":
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")
-    parser.add_argument("--previous-release-extra-cols",dest="previous_release_additional_columns",nargs = "*",default=[],help="Additional columns to take from previous release summary statistic file")
+    parser.add_argument("--previous-release-extra-cols",dest="previous_release_additional_columns",nargs = "*",default=[],help="Additional columns apart from pval and beta to take from previous release summary statistic file")
     parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")
