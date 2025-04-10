@@ -252,6 +252,12 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
             lead_c_name = f"lead_{c}"
             if lead_c_name not in lead_cols:
                 lead_cols.append(lead_c_name)
+    if PreviousReleaseAnnotation.get_name() in data.annotations:
+        prev_anno = [a for a in annotations if isinstance(a,PreviousReleaseAnnotation)][0]
+        for c in prev_anno.get_output_columns():
+            lead_c_name = f"lead_{c}"
+            if lead_c_name not in lead_cols:
+                lead_cols.append(lead_c_name)
     columns = [
         "phenotype",
         "phenotype_abbreviation",
