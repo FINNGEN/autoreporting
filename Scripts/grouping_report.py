@@ -235,8 +235,6 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
     ### List all columns that are created
     lead_cols = [
         "lead_r2_threshold",
-        "lead_beta_previous_release",
-        "lead_pval_previous_release",
         "lead_most_severe_consequence",
         "lead_most_severe_gene",
         "lead_enrichment",
