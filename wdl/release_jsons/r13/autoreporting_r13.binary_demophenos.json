@@ -1,7 +1,7 @@
 {
     "autoreporting.input_array_file": "gs://r13-data/autoreporting/demophenos/r13_demophenos_autoreporting_input.tsv",
     "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:4a8380d",
-    "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu4.2/plink/sisu4.2",
+    "autoreporting.ld_panel":"gs://finngen-imputation-panel/sisu4.2/fixed_PAR_X/plink/sisu4.2.v2",
     "autoreporting.locus_width_kb":2000,
 
     "autoreporting.report.memory":6,
@@ -19,7 +19,7 @@
     "autoreporting.report.overlap":false,
     "autoreporting.report.sign_treshold":5e-8,
     "autoreporting.report.alt_sign_treshold":1e-2,
-    "autoreporting.report.ld_opts":"--dynamic-r2-chisq 5.0 --ld-api plink",
+    "autoreporting.report.ld_opts":"--dynamic-r2-chisq 5.0 --ld-api online",
     "autoreporting.report.plink_memory":9500,
     "autoreporting.report.local_gwcatalog":"gs://autoreporting_resources/gwas_catalog/gwas_catalog_v1.0.2-associations_e113_r2025-03-26.tsv",
     "autoreporting.report.db_choice":"local",
