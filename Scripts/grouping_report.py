@@ -289,6 +289,13 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
         "credible_set_min_r2_value",
         "start",
         "end",
+        "best_coding_var",
+        "best_coding_var_consequence",
+        "best_coding_var_gene",
+        "best_coding_var_af",
+        "best_coding_var_eur_af",
+        "best_coding_var_beta",
+        "best_coding_var_p",
         "found_associations_strict",
         "found_associations_relaxed",
         "credible_set_variants",
@@ -450,7 +457,37 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
                 cols["credible_set_variants"] = ";".join([f"{get_varid(a[0].id)}|{a[1]:.3g}|{a[0].r2_to_lead:.3g}" for a in sorted_cs_vars])
             except Exception as e:
                 raise Exception("Error: bug",e)
-        
+        # best coding var in credset
+        if options.grouping_method==Grouping.CS and \
+        FGAnnotation.get_name() in data.annotations and \
+        CSAnnotation.get_name() in data.annotations and \
+        Gnomad4Annotation.get_name() in data.annotations:
+            try:
+                fg_ann = data.annotations[FGAnnotation.get_name()]
+                cs_ann = data.annotations[CSAnnotation.get_name()]
+                gnomad_ann = data.annotations[Gnomad4Annotation.get_name()]
+            except Exception as e:
+                print(f"Error on creating best coding var in group report: One or more of the data resources not available! Looked for {[FGAnnotation.get_name(),CSAnnotation.get_name(),Gnomad4Annotation.get_name()]}")
+                raise e
+            try:
+                cs_vars_2 = list(set(cs_vars+[lead]))
+                # get all cs variant pips
+                coding_vars = [a for a in cs_vars_2 if fg_ann.get(a.id,[{"functional_category":"NA"}])[0]["functional_category"]!="NA"]
+                if coding_vars:
+                    max_pip_coding_var = max([(a,cs_ann[a.id][0]["prob"]) for a in coding_vars],key=lambda x:x[1])[0]
+                    #if extra col
+                    # most severe gene and consequence
+                    max_pip_coding_var_fg_ann = fg_ann[max_pip_coding_var.id][0]
+                    max_pip_coding_var_gnomad_ann = gnomad_ann.get(max_pip_coding_var.id,[{}])[0]
+                    cols["best_coding_var"] = max_pip_coding_var.id
+                    cols["best_coding_var_consequence"] = max_pip_coding_var_fg_ann["most_severe_consequence"]
+                    cols["best_coding_var_gene"] = max_pip_coding_var_fg_ann["most_severe_gene"]
+                    cols["best_coding_var_af"] = max_pip_coding_var_fg_ann.get("FG_AF","NA")
+                    cols["best_coding_var_eur_af"] = max_pip_coding_var_gnomad_ann.get("GNOMAD_AF_nfe","NA")
+                    cols["best_coding_var_beta"] = max_pip_coding_var.beta
+                    cols["best_coding_var_p"] = max_pip_coding_var.pval
+            except Exception as e:
+                print("Exception when creating best coding variant annotation in top report: ",e)
         #all traits & strict traits
         #Use CatalogAnnotation
         if CatalogAnnotation.get_name() in data.annotations:
