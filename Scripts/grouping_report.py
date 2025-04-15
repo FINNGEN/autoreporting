@@ -67,7 +67,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
         options.summstat_options.a,
         options.summstat_options.pval,
         options.summstat_options.beta,
-        "r2_to_lead"] + options.extra_columns+[
+        "r2_to_lead"] +[
         "cs_id",
         "cs_region",
         "cs_number",

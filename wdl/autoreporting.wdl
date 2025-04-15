@@ -47,6 +47,7 @@ task report {
     String db_choice
     Array[String] column_names
     String extra_columns
+    String previous_release_columns
     Float strict_group_r2
     String phenoname = basename(phenotype_name,".gz")
     File dummy_file
@@ -78,6 +79,7 @@ task report {
         finngen_annotation="--finngen-path  ${finngen_annotation}" if "${finngen_annotation}" != empty_file else "" 
         functional_annotation="--functional-path ${functional_annotation}" if "${functional_annotation}" != empty_file else "" 
         previous_release="--previous-release-path ${previous_release}" if "${previous_release}" != empty_file else "" 
+        previous_release_columns = "--previous-release-extra-cols ${previous_release_columns}" if "${previous_release_columns}" != "" else ""
         local_gwascatalog="${"--local-gwascatalog "+ local_gwcatalog}"
 
         sign_treshold=${sign_treshold}
@@ -144,6 +146,7 @@ task report {
                     f"--db {db_choice} "
                     f"--column-labels {column_names} "
                     f"--extra-cols {extra_columns} "
+                    f"{previous_release_columns} "
                     f"{phenotype_info} "
                     f"--gwascatalog-allele-file {alleledb_file} "
                     f"{local_gwascatalog} " #local gwascatalog
