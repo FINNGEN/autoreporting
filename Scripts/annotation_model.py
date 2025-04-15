@@ -21,7 +21,6 @@ class AnnotationSource:
         """
         pass
 
-    @staticmethod
     @abc.abstractmethod
     def get_output_columns() -> List[str]:
         pass

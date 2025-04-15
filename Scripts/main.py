@@ -74,7 +74,8 @@ def main(args):
             column_names.r,
             column_names.a,
             column_names.pval,
-            column_names.beta)
+            column_names.beta,
+            args.previous_release_additional_columns)
         prevrel_annotation = PreviousReleaseAnnotation(prevrel_opts)
     extra_cols_annotation = ExtraColAnnotation(TabixOptions(
         args.gws_fpath,
@@ -170,8 +171,8 @@ def main(args):
         report_fname = create_fname(args.report_out,args.prefix)
         top_fname = create_fname(args.top_report_out,args.prefix)
         with open(report_fname,"w") as report_file, open(top_fname,"w") as top_file:
-            generate_variant_report(phenodata,report_file,variant_report_options)
-            generate_top_report(phenodata,top_file,top_report_options)
+            generate_variant_report(phenodata,report_file,variant_report_options,annotation_resources)
+            generate_top_report(phenodata,top_file,top_report_options,annotation_resources)
     
 
 def create_fname(path:str,prefix:str)->str:
@@ -211,6 +212,7 @@ if __name__=="__main__":
     parser.add_argument("--finngen-path",dest="finngen_path",type=str,default="",help="Finngen annotation file filepath")
     parser.add_argument("--functional-path",dest="functional_path",type=str,default="",help="File path to functional annotations file")
     parser.add_argument("--previous-release-path",dest="previous_release_path",type=str,default="",help="File path to previous release summary statistic file")
+    parser.add_argument("--previous-release-extra-cols",dest="previous_release_additional_columns",nargs = "*",default=[],help="Additional columns apart from pval and beta to take from previous release summary statistic file")
     parser.add_argument("--use-gwascatalog",action="store_true",help="Add flag to use GWAS Catalog for comparison.")
     parser.add_argument("--custom-dataresource",type=str,default="",help="Custom dataresource path.")
     parser.add_argument("--report-out",dest="report_out",type=str,default="report_out.tsv",help="Comparison report output path")
