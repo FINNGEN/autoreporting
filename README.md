@@ -135,8 +135,10 @@ python3 Scripts/main.py --help
 
 ###  Command-line arguments
 __NOTE: OUT OF DATE__
-Argument   |  Meaning   |   Example 
---- | --- | --- | ---
+
+
+Argument | Meaning | Example 
+---|---|---
 gws_path |  Path to the tabixed and bgzipped summary statistic that is going to be filtered, annotated and compared. Required argument. | path_to_summary_statistic/summary_statistic.tsv.gz 
 --column-labels | Specify summary file column names. Columns specified are: (chrom, pos, ref, alt, pval, beta) . Default is '#chrom pos ref alt pval beta'. | --column-labels CHROM POS REF ALT PVAL BETA 
 --sign-treshold | significance threshold for variants | --sign-treshold 5e-8 
