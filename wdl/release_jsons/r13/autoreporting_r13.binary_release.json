@@ -10,7 +10,7 @@
     "autoreporting.report.finngen_annotation":"gs://r13-data/annotation/R13_annotated_variants_v0.gz",
     "autoreporting.report.functional_annotation":"gs://finngen_commons/annotations/fin_enriched_genomes_select_columns.txt.gz",
     "autoreporting.report.column_names":["#chrom","pos","ref","alt","pval","beta"],
-    "autoreporting.report.extra_columns":"sebeta af_alt af_alt_cases af_alt_controls",
+    "autoreporting.report.extra_columns":"mlogp sebeta af_alt af_alt_cases af_alt_controls",
     "autoreporting.report.previous_release_columns":"mlogp sebeta af_alt af_alt_cases af_alt_controls",
     "autoreporting.report.efo_map":"gs://finngen_commons/autoreporting/efo_map_na.tsv",
     "autoreporting.report.ignore_region":"",
