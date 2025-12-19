@@ -108,15 +108,13 @@ class PlinkLD(LDAccess):
 
 class TabixLD(LDAccess):
     def __init__(self,path_template:str):
-        #get header
-        #if not os.path.exists(self.path):
-        #    raise Exception(f"LD Tabix access: Resource {self.path} does not to exist")
-        
-        paths={str(a):path_template.replace("{CHROM}",f"{a}") for a in range(1,23)}
+        ## NOTE: we assume that data is in chromosomes 1..22,X, and that the files are named so
+        chroms = [str(a).replace("23","X") for a in range(1,24)]
+        paths={str(a):path_template.replace("{CHROM}",f"{a}") for a in chroms}
         exists = [(os.path.exists(a),a) for a in paths.values()]
         # check that files are available
-        self.paths = {a:b for a,b in paths.items() if os.path.exists(b)}
-        if not all([a[0] for a in exists]):
+        self.paths = {a:b for a,b in paths.items()}
+        if not all([a[0] for a in exists]) or not all([a[0].startswith("gs://") for a in exists]):
             print(f"Warning: When loading TabixLD, some chromosome files were not found for template {path_template}: {[a[1] for a in exists if not a[0]]}")
         self.chrompos = [
             "#chrom",
@@ -135,7 +133,7 @@ class TabixLD(LDAccess):
         range_max = variant.pos+bp_range
         start=max(variant.pos-1,0)
         end=variant.pos
-        sequence = variant.chrom
+        sequence = variant.chrom.replace("23","X")
         if sequence not in self.sequences:
             raise Exception(f"Error in fetching LD for variant {variant}: File for chromosome {sequence} not in available files.")
         if not ld_threshold_:
@@ -149,8 +147,8 @@ class TabixLD(LDAccess):
             if cols[self.hdi["variant1"]] == variant_id:
                 data.append(cols)
         lddata = []
+        variant1 = variant
         for d in data:
-            variant1 = variant
             v2_str = d[self.hdi["variant2"]].split("_")
             variant2 = Variant(v2_str[0].replace("chr","").replace("X","23"),int(v2_str[1]),v2_str[2],v2_str[3])
             r2 = float(d[self.hdi["r2"]])
