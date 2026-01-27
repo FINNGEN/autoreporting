@@ -1,4 +1,4 @@
-import shlex,subprocess, glob,os
+import shlex,subprocess, glob,os, time,sys
 from subprocess import PIPE
 from typing import List,  Optional
 import pandas as pd, numpy as np # type: ignore
@@ -114,7 +114,7 @@ class TabixLD(LDAccess):
         exists = [(os.path.exists(a),a) for a in paths.values()]
         # check that files are available
         self.paths = {a:b for a,b in paths.items()}
-        if not all([a[0] for a in exists]) or not all([a[0].startswith("gs://") for a in exists]):
+        if not all([a[0] for a in exists]) or not all([a[1].startswith("gs://") for a in exists]):
             print(f"Warning: When loading TabixLD, some chromosome files were not found for template {path_template}: {[a[1] for a in exists if not a[0]]}")
         self.chrompos = [
             "#chrom",
@@ -140,12 +140,29 @@ class TabixLD(LDAccess):
             ld_threshold = 0.0
         else:
             ld_threshold = ld_threshold_
-        iter = self.fileobjects[sequence].fetch(sequence, max(start-1,0),end)
         data = []
-        for l in iter:
-            cols = l.split("\t")
-            if cols[self.hdi["variant1"]] == variant_id:
-                data.append(cols)
+        tries = 0
+        while True:
+            try:
+                data = []
+                iter = self.fileobjects[sequence].fetch(sequence, max(start-1,0),end)
+                for l in iter:
+                    cols = l.split("\t")
+                    if cols[self.hdi["variant1"]] == variant_id:
+                        data.append(cols)
+                break
+            except:
+                #assume error is in accessing over gcp, so we retry
+                if tries > 5:
+                    raise Exception(f"Accessing LD region {sequence}:{start}-{end} from file {self.paths[sequence]} failed after {tries} tries!")
+                
+                print(f"Error when accessing data from LD tabix file, assuming error is with access over GCP. Waiting {2**tries} seconds, recycling fileobject.",file=sys.stderr)
+                time.sleep(2**tries)
+                #recycle fileobject
+                self.fileobjects[sequence].close()
+                self.fileobjects[sequence] = pysam.TabixFile(self.paths[sequence],encoding="utf-8")
+                tries +=1
+
         lddata = []
         variant1 = variant
         for d in data:
