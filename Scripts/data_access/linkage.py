@@ -129,10 +129,8 @@ class TabixLD(LDAccess):
     
     def get_range(self, variant: Variant, bp_range: int, ld_threshold_:Optional[float]=None)->List[LDData]:
         variant_id=f"chr{variant.chrom.replace('chr','')}_{variant.pos}_{variant.ref}_{variant.alt}"
-        range_min = max(1,variant.pos-bp_range)
-        range_max = variant.pos+bp_range
-        start=max(variant.pos-1,0)
-        end=variant.pos
+        start = max(0,variant.pos-bp_range)
+        end = variant.pos+bp_range
         sequence = variant.chrom.replace("23","X")
         if sequence not in self.sequences:
             raise Exception(f"Error in fetching LD for variant {variant}: File for chromosome {sequence} not in available files.")
@@ -145,13 +143,14 @@ class TabixLD(LDAccess):
         while True:
             try:
                 data = []
-                iter = self.fileobjects[sequence].fetch(sequence, max(start-1,0),end)
+                iter = self.fileobjects[sequence].fetch(sequence, start,end)
                 for l in iter:
                     cols = l.split("\t")
-                    if cols[self.hdi["variant1"]] == variant_id:
+                    if cols[self.hdi["variant1"]].replace("chrX","chr23") == variant_id:
                         data.append(cols)
                 break
             except:
+                print(f"Error loading data from region {sequence}:{start}-{end}")
                 #assume error is in accessing over gcp, so we retry
                 if tries > 5:
                     raise Exception(f"Accessing LD region {sequence}:{start}-{end} from file {self.paths[sequence]} failed after {tries} tries!")
@@ -169,7 +168,7 @@ class TabixLD(LDAccess):
             v2_str = d[self.hdi["variant2"]].split("_")
             variant2 = Variant(v2_str[0].replace("chr","").replace("X","23"),int(v2_str[1]),v2_str[2],v2_str[3])
             r2 = float(d[self.hdi["r2"]])
-            if variant2.pos < range_max and variant2.pos > range_min and r2 > ld_threshold:
+            if variant2.pos < end and variant2.pos >= start and r2 > ld_threshold:
                 lddata.append(LDData(variant1,variant2,r2))
         lddata.append(
             LDData(variant1,variant1,1.0)
