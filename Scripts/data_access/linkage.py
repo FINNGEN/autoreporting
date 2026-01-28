@@ -108,6 +108,8 @@ class PlinkLD(LDAccess):
 
 class TabixLD(LDAccess):
     def __init__(self,path_template:str):
+        self.token_refresh_time = time.time()
+        self.path_template = path_template
         ## NOTE: we assume that data is in chromosomes 1..22,X, and that the files are named so
         chroms = [str(a).replace("23","X") for a in range(1,24)]
         paths={str(a):path_template.replace("{CHROM}",f"{a}") for a in chroms}
@@ -128,6 +130,13 @@ class TabixLD(LDAccess):
         
     
     def get_range(self, variant: Variant, bp_range: int, ld_threshold_:Optional[float]=None)->List[LDData]:
+        if self.path_template.startswith("gs://"):
+            # refresh tokens every 20 minutes
+            current_time = time.time()
+            if (current_time - self.token_refresh_time) > 1200.0:
+                print("Refreshing GCS_AUTH_TOKEN",file=sys.stderr)
+                self.refresh_token()
+                self.token_refresh_time = current_time
         variant_id=f"chr{variant.chrom.replace('chr','')}_{variant.pos}_{variant.ref}_{variant.alt}"
         start = max(0,variant.pos-bp_range)
         end = variant.pos+bp_range
@@ -157,9 +166,7 @@ class TabixLD(LDAccess):
                 
                 print(f"Error when accessing data from LD tabix file, assuming error is with access over GCP. Waiting {2**tries} seconds, recycling fileobject.",file=sys.stderr)
                 time.sleep(2**tries)
-                #recycle fileobject
-                self.fileobjects[sequence].close()
-                self.fileobjects[sequence] = pysam.TabixFile(self.paths[sequence],encoding="utf-8")
+                self.restart_fileobject(sequence)
                 tries +=1
 
         lddata = []
@@ -175,6 +182,28 @@ class TabixLD(LDAccess):
         )
         return lddata
         
+    def refresh_token(self):
+        tmp = subprocess.run(shlex.split("gcloud auth print-access-token"),capture_output=True,encoding="utf-8")
+        os.environ["GCS_OAUTH_TOKEN"] = tmp.stdout.strip()
+
+    def restart_fileobject(self,sequence:str):
+        #close current fobj
+        self.fileobjects[sequence].close()
+        self.refresh_token()
+        #try to reopen the fileobject, with exponential backoff.
+        tries = 0
+        while True:
+            try:
+                fobj = pysam.TabixFile(self.paths[sequence],encoding="utf-8")
+                self.fileobjects[sequence] = fobj
+                break
+            except:
+                if tries > 5:
+                    raise Exception(f"Could not reopen tabix fileobject {self.paths[sequence]} with multiple tries.")
+                print(f"Error refreshing fileobject for tabixfile {self.paths[sequence]}, waiting {2**tries} seconds.")
+                time.sleep(2**tries)
+                tries += 1
+
 
     def close(self):
         #NOTE: always call close after the resource is no longer needed
