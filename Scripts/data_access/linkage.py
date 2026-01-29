@@ -6,6 +6,7 @@ from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFai
 from data_access.db import LDAccess, LDData, Variant
 import pysam
 
+MAX_RETRIES=7
 
 class OnlineLD(LDAccess):
     def __init__(self,url,panel="sisu42"):
@@ -116,8 +117,9 @@ class TabixLD(LDAccess):
         exists = [(os.path.exists(a),a) for a in paths.values()]
         # check that files are available
         self.paths = {a:b for a,b in paths.items()}
-        if not all([a[0] for a in exists]) or not all([a[1].startswith("gs://") for a in exists]):
-            print(f"Warning: When loading TabixLD, some chromosome files were not found for template {path_template}: {[a[1] for a in exists if not a[0]]}")
+        # if paths don't exist and they aren't gs paths, raise warning
+        if (not all([a[0] for a in exists])) and (not all([a[1].startswith("gs://") for a in exists])):
+            print(f"Warning: When loading TabixLD, some chromosome files were not found for template {path_template}: {[a[1] for a in exists if not a[0]]}",file=sys.stderr)
         self.chrompos = [
             "#chrom",
             "pos"
@@ -159,9 +161,9 @@ class TabixLD(LDAccess):
                         data.append(cols)
                 break
             except:
-                print(f"Error loading data from region {sequence}:{start}-{end}")
+                print(f"Error loading data from region {sequence}:{start}-{end}",file=sys.stderr)
                 #assume error is in accessing over gcp, so we retry
-                if tries > 5:
+                if tries > MAX_RETRIES:
                     raise Exception(f"Accessing LD region {sequence}:{start}-{end} from file {self.paths[sequence]} failed after {tries} tries!")
                 
                 print(f"Error when accessing data from LD tabix file, assuming error is with access over GCP. Waiting {2**tries} seconds, recycling fileobject.",file=sys.stderr)
@@ -198,9 +200,9 @@ class TabixLD(LDAccess):
                 self.fileobjects[sequence] = fobj
                 break
             except:
-                if tries > 5:
+                if tries > MAX_RETRIES:
                     raise Exception(f"Could not reopen tabix fileobject {self.paths[sequence]} with multiple tries.")
-                print(f"Error refreshing fileobject for tabixfile {self.paths[sequence]}, waiting {2**tries} seconds.")
+                print(f"Error refreshing fileobject for tabixfile {self.paths[sequence]}, waiting {2**tries} seconds.",file=sys.stderr)
                 time.sleep(2**tries)
                 tries += 1
 
