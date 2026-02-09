@@ -2,6 +2,7 @@
     "autoreporting.input_array_file": "INPUT_MATRIX",
     "autoreporting.docker":"europe-west1-docker.pkg.dev/finngen-refinery-dev/fg-refinery-registry/autorep:7075ae6",
     "autoreporting.ld_panel":"gs://misc-analysis/EMPTY_FILE",
+    "autoreporting.ld_api":"tabix",
     "autoreporting.locus_width_kb":2000,
 
     "autoreporting.report.memory":6,
@@ -20,7 +21,7 @@
     "autoreporting.report.overlap":false,
     "autoreporting.report.sign_treshold":5e-8,
     "autoreporting.report.alt_sign_treshold":1e-2,
-    "autoreporting.report.ld_opts":"--dynamic-r2-chisq 5.0 --ld-api online",
+    "autoreporting.report.ld_opts":"--dynamic-r2-chisq 5.0",
     "autoreporting.report.plink_memory":9000,
     "autoreporting.report.local_gwcatalog":"gs://r12-data/autoreporting/resources/gwas_catalog_v1.0.2-associations_e110_r2023-10-11_utf8.tsv",
     "autoreporting.report.db_choice":"local",
