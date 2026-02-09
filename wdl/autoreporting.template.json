@@ -1,7 +1,7 @@
 {
     "autoreporting.input_array_file": "INPUT_MATRIX",
     "autoreporting.docker":"europe-west1-docker.pkg.dev/finngen-refinery-dev/fg-refinery-registry/autorep:7075ae6",
-    "autoreporting.ld_panel":"gs://misc-analysis/EMPTY_FILE",
+    "autoreporting.ld_panel":"gs://r12-data/ld_matrix/finngen_r12_chr{CHROM}_ld.tsv.gz",
     "autoreporting.ld_api":"tabix",
     "autoreporting.locus_width_kb":2000,
 
