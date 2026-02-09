@@ -1,10 +1,12 @@
-import shlex,subprocess, glob
+import shlex,subprocess, glob,os, time,sys
 from subprocess import PIPE
 from typing import List,  Optional
 import pandas as pd, numpy as np # type: ignore
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
 from data_access.db import LDAccess, LDData, Variant
+import pysam
 
+MAX_RETRIES=7
 
 class OnlineLD(LDAccess):
     def __init__(self,url,panel="sisu42"):
@@ -104,3 +106,109 @@ class PlinkLD(LDAccess):
             for v in ld_df.to_dict('records')
         ]
         return ld_data
+
+class TabixLD(LDAccess):
+    def __init__(self,path_template:str):
+        self.token_refresh_time = time.time()
+        self.path_template = path_template
+        ## NOTE: we assume that data is in chromosomes 1..22,X, and that the files are named so
+        chroms = [str(a).replace("23","X") for a in range(1,24)]
+        paths={str(a):path_template.replace("{CHROM}",f"{a}") for a in chroms}
+        exists = [(os.path.exists(a),a) for a in paths.values()]
+        # check that files are available
+        self.paths = {a:b for a,b in paths.items()}
+        # if paths don't exist and they aren't gs paths, raise warning
+        if (not all([a[0] for a in exists])) and (not all([a[1].startswith("gs://") for a in exists])):
+            print(f"Warning: When loading TabixLD, some chromosome files were not found for template {path_template}: {[a[1] for a in exists if not a[0]]}",file=sys.stderr)
+        self.chrompos = [
+            "#chrom",
+            "pos"
+        ]
+        self.sequences = [a for a in paths.keys()]
+        self.fileobjects = {a:pysam.TabixFile(b,encoding="utf-8") for a,b in self.paths.items()}
+        self.header = self.fileobjects[self.sequences[0]].header[0].split("\t")
+        self.hdi= {a:i for i,a in enumerate(self.header)}
+
+        
+    
+    def get_range(self, variant: Variant, bp_range: int, ld_threshold_:Optional[float]=None)->List[LDData]:
+        if self.path_template.startswith("gs://"):
+            # refresh tokens every 20 minutes
+            current_time = time.time()
+            if (current_time - self.token_refresh_time) > 1200.0:
+                print("Refreshing GCS_AUTH_TOKEN",file=sys.stderr)
+                self.refresh_token()
+                self.token_refresh_time = current_time
+        variant_id=f"chr{variant.chrom.replace('chr','')}_{variant.pos}_{variant.ref}_{variant.alt}"
+        start = max(0,variant.pos-bp_range)
+        end = variant.pos+bp_range
+        sequence = variant.chrom.replace("23","X")
+        if sequence not in self.sequences:
+            raise Exception(f"Error in fetching LD for variant {variant}: File for chromosome {sequence} not in available files.")
+        if not ld_threshold_:
+            ld_threshold = 0.0
+        else:
+            ld_threshold = ld_threshold_
+        data = []
+        tries = 0
+        while True:
+            try:
+                data = []
+                iter = self.fileobjects[sequence].fetch(sequence, start,end)
+                for l in iter:
+                    cols = l.split("\t")
+                    if cols[self.hdi["variant1"]].replace("chrX","chr23") == variant_id:
+                        data.append(cols)
+                break
+            except:
+                print(f"Error loading data from region {sequence}:{start}-{end}",file=sys.stderr)
+                #assume error is in accessing over gcp, so we retry
+                if tries > MAX_RETRIES:
+                    raise Exception(f"Accessing LD region {sequence}:{start}-{end} from file {self.paths[sequence]} failed after {tries} tries!")
+                
+                print(f"Error when accessing data from LD tabix file, assuming error is with access over GCP. Waiting {2**tries} seconds, recycling fileobject.",file=sys.stderr)
+                time.sleep(2**tries)
+                self.restart_fileobject(sequence)
+                tries +=1
+
+        lddata = []
+        variant1 = variant
+        for d in data:
+            v2_str = d[self.hdi["variant2"]].split("_")
+            variant2 = Variant(v2_str[0].replace("chr","").replace("X","23"),int(v2_str[1]),v2_str[2],v2_str[3])
+            r2 = float(d[self.hdi["r2"]])
+            if variant2.pos < end and variant2.pos >= start and r2 > ld_threshold:
+                lddata.append(LDData(variant1,variant2,r2))
+        lddata.append(
+            LDData(variant1,variant1,1.0)
+        )
+        return lddata
+        
+    def refresh_token(self):
+        tmp = subprocess.run(shlex.split("gcloud auth print-access-token"),capture_output=True,encoding="utf-8")
+        os.environ["GCS_OAUTH_TOKEN"] = tmp.stdout.strip()
+
+    def restart_fileobject(self,sequence:str):
+        #close current fobj
+        self.fileobjects[sequence].close()
+        self.refresh_token()
+        #try to reopen the fileobject, with exponential backoff.
+        tries = 0
+        while True:
+            try:
+                fobj = pysam.TabixFile(self.paths[sequence],encoding="utf-8")
+                self.fileobjects[sequence] = fobj
+                break
+            except:
+                if tries > MAX_RETRIES:
+                    raise Exception(f"Could not reopen tabix fileobject {self.paths[sequence]} with multiple tries.")
+                print(f"Error refreshing fileobject for tabixfile {self.paths[sequence]}, waiting {2**tries} seconds.",file=sys.stderr)
+                time.sleep(2**tries)
+                tries += 1
+
+
+    def close(self):
+        #NOTE: always call close after the resource is no longer needed
+        for _,b in self.fileobjects.items():
+            b.close()
+        

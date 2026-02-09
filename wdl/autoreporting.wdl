@@ -14,9 +14,6 @@ task report {
     File gnomad
     File gnomad_tbi = gnomad+".tbi"
     String ld_panel
-    File ld_panel_bed=ld_panel+".bed"
-    File ld_panel_bim=ld_panel+".bim"
-    File ld_panel_fam=ld_panel+".fam"
     File finngen_annotation
     File finngen_annotation_tb=finngen_annotation+".tbi"
     File functional_annotation
@@ -28,6 +25,7 @@ task report {
     Float alt_sign_treshold
     Int locus_width_kb
     String ld_opts
+    String ld_api
     Int plink_memory
     Float gwascatalog_pval
     Int gwascatalog_width_kb
@@ -61,20 +59,41 @@ task report {
         size(gnomad,"G")+
         size(finngen_annotation,"G")+
         size(functional_annotation,"G")+
-        size(ld_panel_bed,"G")+
         size(allele_vcf_file,"G")
-    Int disk_size = ceil(disk_size_f*1.25)+25
+    Int disk_size = ceil(disk_size_f*1.25)+75
 
     command <<<
         set -euxo pipefail
+        
+        export GCS_OAUTH_TOKEN=`gcloud auth print-access-token`
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+
         python3 <<CODE
-        import subprocess, shlex, sys
+        import subprocess, shlex, sys, glob
         from subprocess import PIPE
         #do everything a wrapper should do
-        #unchanged variables
+
+        # if plinkLD, download the plink dataset
+        if "plink" == "${ld_api}":
+            folder = "LD_FOLDER"
+            cmds = [
+                f"mkdir {folder}",
+                f"gcloud storage cp ${ld_panel}* {folder}/"
+            ]
+            print("Localizing LD panel",file=sys.stderr)
+            for cmd in cmds:
+                print(f"Executing command: {cmd}",file=sys.stderr)
+                status = subprocess.run(shlex.split(cmd))
+                if status.returncode != 0:
+                    print("LD data localization failed!")
+                    sys.exit(1) 
+            # get the panel name
+            bed_file = [a for a in glob.glob(f"{folder}/*") if a.endswith(".bed")][0]
+            plink_path = bed_file.replace(".bed","")
+        else:
+            plink_path = "${ld_panel}"
         empty_file = "${dummy_file}"
         pheno_id="${phenotype_name}"
-        plink_path = "${ld_panel_bed}".replace(".bed","")
         gnomad="--gnomad-path ${gnomad}" if "${gnomad}" != empty_file else ""
         finngen_annotation="--finngen-path  ${finngen_annotation}" if "${finngen_annotation}" != empty_file else "" 
         functional_annotation="--functional-path ${functional_annotation}" if "${functional_annotation}" != empty_file else "" 
@@ -131,6 +150,7 @@ task report {
                     f"--grouping-method {grouping_method} "
                     f"--locus-width-kb {locus_width_kb} "
                     f"--ld-panel-path {plink_path} "
+                    f"--ld-api ${ld_api} "#ld opts
                     f"{ld_opts} "#ld opts
                     f"--plink-memory {plink_memory} "
                     f"{finngen_annotation} "
@@ -194,8 +214,10 @@ task report {
 task post_process_top_reports {
     #from workflow
     File top_report
-    String docker #
+    String docker 
     String ld_panel
+    #determine ld api 
+    String ld_api
     Int locus_width_kb
 
     #directly to this task
@@ -205,19 +227,43 @@ task post_process_top_reports {
     String in_fg_col
     
     #derived
-    File plink_bed = ld_panel +".bed"
-    File plink_bim = ld_panel +".bim"
-    File plink_fam = ld_panel +".fam"
+
     String top = basename(top_report,".top.out")
     String dollar="$"
     command <<<
+        export GCS_OAUTH_TOKEN=`gcloud auth print-access-token`
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         #filter the top report
         meta_filter_top.py ${top_report} --width-kb ${locus_width_kb} --r2-threshold ${r2_threshold} --af-column ${af_col} \
             --af-threshold ${af_threshold} --fg-specific-column ${in_fg_col} --output ${top}.top
         #check r2 between hits
-        bed_path="${plink_bed}"
-        plink_path="${dollar}{bed_path%.*}"
-        post_process_hits.py  ${top}.top --ld-panel-path $plink_path  --region-width-kb ${locus_width_kb} --output ${top}.top.post.tsv
+
+        python3 <<CODE
+        import subprocess, shlex, sys, glob,os
+
+        # if plinkLD, download the plink dataset
+        if ${ld_api} == "plink":
+            folder = "LD_FOLDER"
+            cmds = [
+                f"mkdir {folder}",
+                f"gcloud storage cp ${ld_panel}* {folder}/"
+            ]
+            print("Localizing LD panel",file=sys.stderr)
+            for cmd in cmds:
+                print(f"Executing command: {cmd}",file=sys.stderr)
+                status = subprocess.run(shlex.split(cmd))
+                if status.returncode != 0:
+                    print("LD data localization failed!")
+                    sys.exit(1) 
+            # get the panel name
+            bed_file = [a for a in glob.glob(f"{folder}/*") if a.endswith(".bed")][0]
+            plink_path = bed_file.replace(".bed","")
+            os.environ["LD_PANEL"]=plink_path
+        else:
+            os.environ["LD_PANEL"]="${ld_panel}"
+        CODE
+
+        post_process_hits.py  ${top}.top --ld-panel-path $LD_PANEL --ld-api ${ld_api}  --region-width-kb ${locus_width_kb} --output ${top}.top.post.tsv
     >>>
     output {
         File top_filtered = top+".top"
@@ -239,19 +285,20 @@ workflow autoreporting{
     File input_array_file
     String docker
     String ld_panel
+    String ld_api
     Int locus_width_kb
     Array[Array[String]] input_array = read_tsv(input_array_file)
 
     scatter (arr in  input_array ){
         call report {
-            input: input_file_list = arr, docker=docker, ld_panel=ld_panel, locus_width_kb=locus_width_kb
+            input: input_file_list = arr, docker=docker, ld_panel=ld_panel, locus_width_kb=locus_width_kb,ld_api=ld_api
         }
         if( report.had_results ) {
             File variants = report.variant_report
             File groups = report.group_report
 
             call post_process_top_reports {
-                input: top_report = report.group_report, docker=docker, ld_panel=ld_panel,locus_width_kb=locus_width_kb
+                input: top_report = report.group_report, docker=docker, ld_panel=ld_panel,locus_width_kb=locus_width_kb,ld_api=ld_api
             }
         }
 

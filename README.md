@@ -20,7 +20,6 @@ Packages:
 python 3 (version 3.6+)
 pip
 plink (latest binary)
-ldstore (tested on 1.1) (only on docker image, will be removed at some point)
 zlib
 ```
 Python 3 libraries:

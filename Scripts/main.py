@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from grouping_report import generate_top_report, generate_variant_report,TopReportOptions,VariantReportOptions
 import argparse
-from data_access.linkage import PlinkLD, OnlineLD
+from data_access.linkage import PlinkLD, OnlineLD, TabixLD
 from grouping import form_groups
 from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,GroupingOptions
 from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, CatalogAnnotation, Gnomad4Annotation
@@ -51,6 +51,8 @@ def main(args):
             ld_api = PlinkLD(args.ld_panel_path,args.plink_mem)
         elif args.ld_api_choice == "online":
             ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
+        elif args.ld_api_choice == "tabix":
+            ld_api = TabixLD(args.ld_panel_path)
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     args.sig_treshold_2 = max(args.sig_treshold, args.sig_treshold_2)
@@ -187,7 +189,7 @@ if __name__=="__main__":
     parser.add_argument("--sign-treshold",dest="sig_treshold",type=float,help="Signifigance treshold",default=5e-8)
     parser.add_argument("--prefix",dest="prefix",type=str,default="",help="output and temporary file prefix")
     parser.add_argument("--group", dest="grouping",action='store_true',help="Whether to group SNPs")
-    parser.add_argument("--grouping-method",dest="grouping_method",type=str,default="simple",help="Decide grouping method, simple or ld, default simple")
+    parser.add_argument("--grouping-method",dest="grouping_method",type=str,choices=["simple","ld","cred"],default="simple",help="Decide grouping method, simple, ld or cred. default simple")
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
     parser.add_argument("--alt-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
@@ -201,7 +203,7 @@ if __name__=="__main__":
     parser.add_argument("--overlap",dest="overlap",action="store_true",help="Are groups allowed to overlap")
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
-    parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink' and 'online'.")
+    parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",choices=["plink","online","tabix"],help="LD interface to use. Valid options are 'plink', 'online' and 'tabix'.")
     parser.add_argument("--pheno-name",dest="pheno_name",type=str,default="",help="Phenotype name")
     parser.add_argument("--pheno-info-file",dest="pheno_info_file",type=str,default="",help="Phenotype information file path")
     parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")

@@ -86,11 +86,20 @@ if __name__=="__main__":
     parser.add_argument("input_data",help="input top report")
     parser.add_argument("--output",required=True)
     parser.add_argument("--region-width-kb",type=int,default=2000,help="region width in kb")
+    parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink', 'online' and 'tabix'.")
     parser.add_argument("--ld-panel-path",required=True)
     parser.add_argument("--plink-memory",type=int,default=17000)
     args=parser.parse_args()
     #load prerequisites
-    ld_api = linkage.PlinkLD(args.ld_panel_path,args.plink_memory)
+    ld_api=None
+    if args.ld_api_choice == "plink":
+        ld_api = linkage.PlinkLD(args.ld_panel_path,args.plink_memory)
+    elif args.ld_api_choice == "online":
+        ld_api = linkage.OnlineLD(url="http://api.finngen.fi/api/ld")
+    elif args.ld_api_choice == "tabix":
+        ld_api = linkage.TabixLD(args.ld_panel_path)
+    else:
+        raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     region_width_bp = args.region_width_kb*1000
     data=pd.read_csv(args.input_data,sep="\t")
     #calc & write output
