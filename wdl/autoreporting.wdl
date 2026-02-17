@@ -242,7 +242,7 @@ task post_process_top_reports {
         import subprocess, shlex, sys, glob,os
 
         # if plinkLD, download the plink dataset
-        if ${ld_api} == "plink":
+        if "${ld_api}" == "plink":
             folder = "LD_FOLDER"
             cmds = [
                 f"mkdir {folder}",
@@ -258,11 +258,16 @@ task post_process_top_reports {
             # get the panel name
             bed_file = [a for a in glob.glob(f"{folder}/*") if a.endswith(".bed")][0]
             plink_path = bed_file.replace(".bed","")
-            os.environ["LD_PANEL"]=plink_path
+            ld_panel_path = plink_path
         else:
-            os.environ["LD_PANEL"]="${ld_panel}"
+            ld_panel_path = "${ld_panel}"
+        
+        # Write to file so bash can read it
+        with open("ld_panel_path.txt", "w") as f:
+            f.write(ld_panel_path)
         CODE
 
+        LD_PANEL=$(cat ld_panel_path.txt)
         post_process_hits.py  ${top}.top --ld-panel-path $LD_PANEL --ld-api ${ld_api}  --region-width-kb ${locus_width_kb} --output ${top}.top.post.tsv
     >>>
     output {
