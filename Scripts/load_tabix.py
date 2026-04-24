@@ -47,10 +47,14 @@ class TabixResource:
             self.header = self.fileobject.header[-1].split("\t")
         #else load from head of file
         else:
-            with gzip.open(opts.fname) as f:
-                header = f.readline().decode()
-                self.header = header.strip("\n").split("\t")
-                self.hdi = {a:i for i,a in enumerate(self.header)}
+            with gzip.open(opts.fname,"rt",encoding="utf-8") as f:
+                header = None
+                while True:
+                    header = f.readline().strip("\n")
+                    if not header.startswith("##"):
+                        break
+                self.header = header.split("\t")
+        self.hdi = {a:i for i,a in enumerate(self.header)}
 
     def load_region(self, sequence:str, start:int, end:int, data_columns:List[str])-> Dict[Variant,List[str]]:
         """Load data columns for a region

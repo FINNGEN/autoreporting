@@ -11,7 +11,7 @@ Annotation = List[VariantAnnotation]
 
 class AnnotationSource:
     @abc.abstractmethod
-    def annotate_variants(self,variants:List[Variant])->Dict[Variant,Annotation]:
+    def annotate_variants(self,variants:set[Variant])->Dict[Variant,Annotation]:
         pass
 
     @staticmethod
