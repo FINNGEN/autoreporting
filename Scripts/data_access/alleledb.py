@@ -24,7 +24,6 @@ class VCFAlleleDB(AlleleDB):
     def __init__(self, vcf_file):
         if not os.path.exists(vcf_file):
             raise FileNotFoundError("File {} not found".format(vcf_file))
-        self.handle = None
         try:
             self.handle = pysam.TabixFile(vcf_file)
         except:
@@ -62,4 +61,5 @@ class VCFAlleleDB(AlleleDB):
         return output
 
     def __del__(self):
-        self.handle.close()
+        if hasattr(self,"handle"):
+            self.handle.close()
