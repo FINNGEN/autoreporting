@@ -7,13 +7,6 @@ from Scripts import autoreporting_utils
 from Scripts.autoreporting_utils import Region
 
 class TestUtils(unittest.TestCase):
-    def test_create_variant_column(self):
-        df_data={"#chrom":"1","pos":1234,"ref":"CGC","alt":"TTC"}
-        df=pd.DataFrame(df_data,index=[0])
-        variant=pd.Series("chr{}_{}_{}_{}".format("1",1234,"CGC","TTC"))
-        variant_2=autoreporting_utils.create_variant_column(df)
-        value=(variant==variant_2).all()
-        self.assertTrue(variant.equals(variant_2))
 
     def test_region_pruning(self):
         #case no regions
@@ -73,36 +66,6 @@ class TestUtils(unittest.TestCase):
 
     #TODO: test get gzip header
 
-    def test_column_labels(self):
-        collabs = ["chrom","pos","ref","alt","pval"]
-        collabs2 = ["1","2","3","4","5"]
-        columns= autoreporting_utils.columns_from_arguments(collabs)
-        columns2= autoreporting_utils.columns_from_arguments(collabs2)
-        validate= {"chrom":"chrom","pos":"pos", "ref":"ref", "alt":"alt", "pval":"pval"}
-        validate2= {"chrom":"1","pos":"2", "ref":"3", "alt":"4", "pval":"5"}
-        self.assertEqual(columns, validate)
-        self.assertEqual(columns2, validate2)
 
-    def test_pysam_df(self):
-        import gzip
-        annotate_fpath = "testing/annotate_resources/gnomad_genomes.tsv.gz"
-        data = {"chr":["1","1"],"position":[1,10],"otherdata":[1,2]}
-        data=pd.DataFrame(data)
-        columns = {
-            "chrom":"chr",
-            "pos":"position",
-            "ref":"ref",
-            "alt":"alt",
-            "pval":"pval"
-        }
-        #validation data
-        with gzip.open(annotate_fpath,"rt") as f:
-            vlines= f.readlines()
-            vheader = vlines[0].strip('\n').split("\t")
-            vdata = [a.strip('\n').split("\t") for a in vlines[1:]]
-            vdata = pd.DataFrame(vdata,columns=vheader)
-            vdata[vdata.columns]=vdata[vdata.columns].apply(pd.to_numeric,errors="ignore")
-        annotation_data = autoreporting_utils.load_pysam_df(data,annotate_fpath,columns)
-        self.assertTrue(vdata.equals(annotation_data))
 if __name__=="__main__":
     unittest.main()

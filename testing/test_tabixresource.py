@@ -35,3 +35,6 @@ class TestTBResource(unittest.TestCase):
                 Variant("1",3,"T","CAAA"):["30"]
             }
             self.assertEqual(region,validation)
+
+if __name__=="__main__":
+    unittest.main()
