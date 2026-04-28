@@ -21,6 +21,12 @@ class TestTBResource(unittest.TestCase):
             }
             self.assertEqual(region,validation)
 
+    def test_fetch(self):
+        with tb_resource_manager("testing/db_resources/test_vcf.vcf.gz","#CHROM","POS","REF","ALT") as tbres:
+            region = [a for a in tbres.fetch("1",10018,10039)]
+            validation = ['1\t10019\trs775809821\tTA\tT\t.\t.\tRS=775809821;dbSNPBuildID=144;SSR=0;PSEUDOGENEINFO=DDX11L1:100287102;VC=INDEL', '1\t10039\trs978760828\tA\tC\t.\t.\tRS=978760828;dbSNPBuildID=150;SSR=0;PSEUDOGENEINFO=DDX11L1:100287102;VC=SNV']
+            self.assertEqual(region,validation)
+
     def test_header_skip_file(self):
         with tb_resource_manager("testing/db_resources/skip_header.tsv.gz","chrom","pos","ref","alt") as tbres:
             #validate header

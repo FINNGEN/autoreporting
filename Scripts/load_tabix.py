@@ -56,6 +56,39 @@ class TabixResource:
                 self.header = header.split("\t")
         self.hdi = {a:i for i,a in enumerate(self.header)}
 
+    def fetch(self,sequence:str,start:int,end:int)->list[list]:
+        """Fetch data from underlying fileobject.
+        If the object is local, return iterator without first loading all of it.
+        If the object is remote (GCS), first load it to memory so we can atomically either fail or return everything.
+        """
+        if not self.local:
+            # refresh tokens every 20 minutes
+            current_time = time.time()
+            if (current_time - self.token_refresh_time) > 1200.0:
+                print("Refreshing GCS_AUTH_TOKEN",file=sys.stderr)
+                self.refresh_token()
+                self.token_refresh_time = current_time
+            tries = 0
+            while True:
+                try:
+                    iter = self.fileobject.fetch(sequence,start,end)
+                    data = [a for a in iter]
+                    break
+                except:
+                    print(f"Error loading data from region {sequence}:{start}-{end}",file=sys.stderr)
+                    #assume error is in accessing over gcp, so we retry
+                    if tries > MAX_RETRIES:
+                        raise Exception(f"Accessing region {sequence}:{start}-{end} from file {self.fname} failed after {tries} tries!")
+                    
+                    print(f"Error when accessing data from tabix file {self.fname}, assuming error is with access over GCP. Waiting {2**tries} seconds, recycling fileobject.",file=sys.stderr)
+                    time.sleep(2**tries)
+                    self.restart_fileobject()
+                    tries +=1
+            return data
+        else:
+            return self.fileobject.fetch(sequence,start,end)
+
+
     def load_region(self, sequence:str, start:int, end:int, data_columns:List[str])-> Dict[Variant,List[str]]:
         """Load data columns for a region
         NOTE: needs better return format, this is just quite bad to work with

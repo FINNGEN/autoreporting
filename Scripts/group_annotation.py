@@ -2,6 +2,7 @@ import re,sys
 from autoreporting_utils import Region
 from data_access.datafactory import db_factory
 from typing import NamedTuple, Optional, List, Dict
+from collections import defaultdict
 
 from grouping_model import CSInfo, PhenoData, Var, Locus
 from data_access.db import CSAccess, Variant, CS
@@ -27,15 +28,46 @@ FUNCTIONAL_CATEGORIES=[
 ]
 
 
-def generate_chrom_ranges(variants:List[Variant])->Dict[str, Dict[str,int]]:
-    chr_d = {}
+def generate_chrom_ranges(variants:set[Variant],maximum_range_length:Optional[int] = None)->Dict[str,list[Region]]:
+    """
+    Generate chromosome ranges, with option for splitting ranges to at most X bp long subranges.
+    """
+    chr_d_input:dict[str,list[Variant]] = defaultdict(list)
     for v in variants:
-        if v.chrom not in chr_d:
-            chr_d[v.chrom] = {"start":v.pos-1,"end":v.pos}
-        else:
-            chr_d[v.chrom]["start"] = max(min(chr_d[v.chrom]["start"],v.pos-1),0)
-            chr_d[v.chrom]["end"] = max(chr_d[v.chrom]["end"],v.pos)
-    return chr_d
+        chr_d_input[v.chrom].append(v)
+    if maximum_range_length is None:
+        chr_d = {}
+        for c in chr_d_input:
+            for v in chr_d_input[c]:
+                if v.chrom not in chr_d:
+                    chr_d[v.chrom] = [
+                        Region(c,v.pos-1,v.pos)
+                    ]
+                else:
+                    chr_d[v.chrom] = [Region(c,max(min(chr_d[v.chrom][0][1],v.pos-1),0),max(chr_d[v.chrom][0][2],v.pos))]
+        return chr_d
+    else:
+        chr_d = defaultdict(list)
+        for c in chr_d_input:
+            sorted_vars = sorted(chr_d_input[c],key=lambda x:x.pos) 
+            region_start = -1
+            region_end = -1
+            for v in sorted_vars:
+                #if at beginning, change start to be first pos minus 1 or 0 whichever is bigger
+                if region_start < 0:
+                    region_start=max(v.pos-1,0)
+                #if we have started, but the region is not too long yet
+                elif region_end-region_start <= maximum_range_length-1:
+                    region_end = v.pos
+                # if we have started, and the region is too long, we wrap up range.
+                elif region_end-region_start > maximum_range_length-1:
+                    chr_d[c].append(Region(c,region_start,region_end))
+                    #if we reset both to -1, then it starts with the next variant correctly.
+                    region_start = v.pos
+                    region_end = v.pos
+            if region_end != -1 and region_start != -1:
+                chr_d[c].append(Region(c,region_start,region_end))
+        return dict(chr_d)
 
 
 class TabixAnnotation(AnnotationSource):
@@ -82,16 +114,17 @@ class TabixAnnotation(AnnotationSource):
             with tb_resource_manager(self.fname,self.cpra[0],self.cpra[1],self.cpra[2],self.cpra[3]) as tabix_resource:
                 hdr = tabix_resource.header
                 hdi = {a:i for i,a in enumerate(hdr)}
-                for chrom_name, region in chr_d.items():
+                for chrom_name, regions in chr_d.items():
                     if self._chrom_to_source(chrom_name) not in self.sequences:
                         print(f"Skipping missing sequence {chrom_name} for annotation {self.fname}",file=sys.stderr)
                         continue
                     chrom_v_set = chr_v_sets[chrom_name]
-                    for l in tabix_resource.fileobject.fetch(self._chrom_to_source(chrom_name),region["start"],region["end"]):
-                        cols = l.split("\t")
-                        v = Variant(self._chrom_from_source(cols[hdi[self.cpra[0]]]),int(cols[hdi[self.cpra[1]]]),cols[hdi[self.cpra[2]]],cols[hdi[self.cpra[3]]] )
-                        if v in chrom_v_set:
-                            output[v] = self._create_annotation(cols,hdi)
+                    for region in regions:
+                        for l in tabix_resource.fetch(self._chrom_to_source(chrom_name),region.start,region.end):
+                            cols = l.split("\t")
+                            v = Variant(self._chrom_from_source(cols[hdi[self.cpra[0]]]),int(cols[hdi[self.cpra[1]]]),cols[hdi[self.cpra[2]]],cols[hdi[self.cpra[3]]] )
+                            if v in chrom_v_set:
+                                output[v] = self._create_annotation(cols,hdi)
         else:
             with tb_resource_manager(self.fname,self.cpra[0],self.cpra[1],self.cpra[2],self.cpra[3]) as tabix_resource:
                 hdr = tabix_resource.header
@@ -105,7 +138,7 @@ class TabixAnnotation(AnnotationSource):
                 for original_v in variants:
                     if self._chrom_to_source(original_v.chrom) not in self.sequences:
                         continue
-                    for l in tabix_resource.fileobject.fetch(self._chrom_to_source(original_v.chrom),max(original_v.pos-1,0),original_v.pos):
+                    for l in tabix_resource.fetch(self._chrom_to_source(original_v.chrom),max(original_v.pos-1,0),original_v.pos):
                         cols = l.split("\t")
                         v = Variant(self._chrom_from_source(cols[hdi[self.cpra[0]]]),int(cols[hdi[self.cpra[1]]]),cols[hdi[self.cpra[2]]],cols[hdi[self.cpra[3]]] )
                         if v in variants:
