@@ -86,7 +86,7 @@ class TabixAnnotation(AnnotationSource):
         return chrom
 
     def _chrom_from_source(self, chrom:str)->str:
-        """If chromoosme needs modification from tabix source, e.g. removing chr, override this
+        """If chromosome needs modification from tabix source, e.g. removing chr, override this
         """
         return chrom
 
@@ -102,7 +102,7 @@ class TabixAnnotation(AnnotationSource):
         output = {}
         if len(variants) > self.variant_switch:
             #figure out chroms,starts,ends for each one region in chromosome
-            chr_d = generate_chrom_ranges(variants)
+            chr_d = generate_chrom_ranges(variants,3_000_000)
             chr_v_sets:Dict[str,set[Variant]] = {key:set() for key in chr_d.keys()}
             for v in variants:
                 chr_v_sets[v.chrom].add(v)
