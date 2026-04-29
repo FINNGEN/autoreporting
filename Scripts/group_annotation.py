@@ -611,7 +611,7 @@ class CatalogAnnotation(AnnotationSource):
         self.col_rename["pval"] = "pval_trait"
 
     @timefunc
-    def annotate_variants(self,variants:List[Variant]) -> Dict[Variant,Annotation]:
+    def annotate_variants(self,variants:set[Variant]) -> Dict[Variant,Annotation]:
         #generate chromosomal regions, that might be the best for now.
         # The gwas catalog/custom catalog data is not so big, so it will greatly limit 
         # the amount of results coming out.
@@ -619,8 +619,10 @@ class CatalogAnnotation(AnnotationSource):
         # TODO: variant matching etc, and the following rigamarole
         #what columns are output?
         #trait and traitname, pval_trait, study_link
-        chr_d = generate_chrom_ranges(variants)
-        regs = [Region(a,b["start"],b["end"]) for a,b in chr_d.items()]
+        chr_d = generate_chrom_ranges(variants,3_000_000)
+        regs = []
+        for c in chr_d:
+            regs.extend(chr_d[c])
 
         data=self.inner.associations_for_regions(regs)
         #format data according to variant
