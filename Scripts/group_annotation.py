@@ -56,11 +56,11 @@ def generate_chrom_ranges(variants:set[Variant],maximum_range_length:Optional[in
                 #if at beginning, change start to be first pos minus 1 or 0 whichever is bigger
                 if region_start < 0:
                     region_start=max(v.pos-1,0)
-                #if we have started, but the region is not too long yet
-                elif region_end-region_start <= maximum_range_length-1:
+                #if we have started, but the region including this variant is not too large
+                elif v.pos-region_start <= maximum_range_length-1:
                     region_end = v.pos
                 # if we have started, and the region is too long, we wrap up range.
-                elif region_end-region_start > maximum_range_length-1:
+                else:
                     chr_d[c].append(Region(c,region_start,region_end))
                     #if we reset both to -1, then it starts with the next variant correctly.
                     region_start = v.pos
@@ -68,7 +68,6 @@ def generate_chrom_ranges(variants:set[Variant],maximum_range_length:Optional[in
             if region_end != -1 and region_start != -1:
                 chr_d[c].append(Region(c,region_start,region_end))
         return dict(chr_d)
-
 
 class TabixAnnotation(AnnotationSource):
     def __init__(self,opts: TabixOptions):

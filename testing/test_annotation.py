@@ -19,13 +19,16 @@ class TestAnnotations(unittest.TestCase):
             '3': [Region(chrom='3', start=29, end=30)]}
         self.assertEqual(out,validation)
         out2 = generate_chrom_ranges(set(test_data),maximum_range_length=4)
-        validation2 = {'1': [Region(chrom='1', start=0, end=4),
-              Region(chrom='1', start=5, end=9),
-              Region(chrom='1', start=10, end=14)],
-             '2': [Region(chrom='2', start=14, end=18),
-              Region(chrom='2', start=19, end=23),
-              Region(chrom='2', start=24, end=28),
-              Region(chrom='2', start=29, end=29)]}
+        validation2 = {'2': [
+                Region(chrom='2', start=14, end=17),
+                Region(chrom='2', start=18, end=21),
+                Region(chrom='2', start=22, end=25),
+                Region(chrom='2', start=26, end=29)],
+            '1': [
+                Region(chrom='1', start=0, end=3),
+                Region(chrom='1', start=4, end=7),
+                Region(chrom='1', start=8, end=11),
+                Region(chrom='1', start=12, end=14)]}
         self.assertEqual(out2,validation2)
 
 

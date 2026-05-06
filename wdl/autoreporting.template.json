@@ -1,6 +1,6 @@
 {
     "autoreporting.input_array_file": "INPUT_MATRIX",
-    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:1e98eed",
+    "autoreporting.docker":"eu.gcr.io/finngen-refinery-dev/autorep:be99b57",
     "autoreporting.ld_panel":"gs://r12-data/ld_matrix/finngen_r12_chr{CHROM}_ld.tsv.gz",
     "autoreporting.ld_api":"tabix",
     "autoreporting.locus_width_kb":2000,
