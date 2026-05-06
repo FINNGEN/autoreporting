@@ -11,13 +11,13 @@ task report {
     File previous_release = input_file_list[3]
     File previous_release_tbi =previous_release+".tbi" 
 
-    File gnomad
-    File gnomad_tbi = gnomad+".tbi"
+    String gnomad
+    String gnomad_tbi = gnomad+".tbi"
     String ld_panel
-    File finngen_annotation
-    File finngen_annotation_tb=finngen_annotation+".tbi"
-    File functional_annotation
-    File functional_annotation_tb=functional_annotation+".tbi"
+    String finngen_annotation
+    String finngen_annotation_tb=finngen_annotation+".tbi"
+    String functional_annotation
+    String functional_annotation_tb=functional_annotation+".tbi"
 
     File? local_gwcatalog
 
@@ -54,13 +54,8 @@ task report {
     File allele_vcf_file
     File allele_vcf_tbi = allele_vcf_file+".tbi"
 
-    Float disk_size_f = size(summ_stat,"G")+
-        size(previous_release,"G")+
-        size(gnomad,"G")+
-        size(finngen_annotation,"G")+
-        size(functional_annotation,"G")+
-        size(allele_vcf_file,"G")
-    Int disk_size = ceil(disk_size_f*1.25)+75
+
+    Int disk_size = 200
 
     command <<<
         set -euxo pipefail

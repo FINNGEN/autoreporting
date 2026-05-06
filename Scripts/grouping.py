@@ -7,7 +7,7 @@ from data_access.csfactory import csfactory
 from time_decorator import timefunc
 
 def ld_threshold(ld_thresh:float, mode: LDMode,pval:float)->float:
-    if mode == LDMode.DYNAMIC:
+    if mode.value == LDMode.DYNAMIC.value:
         return float(min(ld_thresh/stats.chi2.isf(pval,df=1),1.0))
     else:
         return ld_thresh
