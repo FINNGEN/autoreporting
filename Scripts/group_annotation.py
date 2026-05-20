@@ -56,6 +56,7 @@ def generate_chrom_ranges(variants:set[Variant],maximum_range_length:Optional[in
                 #if at beginning, change start to be first pos minus 1 or 0 whichever is bigger
                 if region_start < 0:
                     region_start=max(v.pos-1,0)
+                    region_end = v.pos
                 #if we have started, but the region including this variant is not too large
                 elif v.pos-region_start <= maximum_range_length-1:
                     region_end = v.pos
