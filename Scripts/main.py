@@ -138,7 +138,7 @@ def main(args):
         ld_mode,
         r2_threshold,
         pval_is_mlog10p)
-    variant_report_options = VariantReportOptions(column_names,args.extra_cols,False,pval_is_mlog10p)
+    variant_report_options = VariantReportOptions(column_names,args.extra_cols,False,pval_is_mlog10p,args.finngen_variants_only)
 
     ### create resources for grouping
     # cs resource
@@ -182,6 +182,19 @@ def main(args):
         phenodata = PhenoData(phenotype_info,loci)
         ### annotate
         phenodata = annotate(phenodata,annotation_resources)
+        ### filter out loci with non-FinnGen lead variants if requested
+        if args.finngen_variants_only:
+            fg_name = FGAnnotation.get_name()
+            if fg_name in phenodata.annotations:
+                fg_variants = set(phenodata.annotations[fg_name].keys())
+                before = len(phenodata.loci)
+                phenodata.loci = [l for l in phenodata.loci if l.get_vars().lead.id in fg_variants]
+                after = len(phenodata.loci)
+                if before != after:
+                    print(f"--finngen-variants-only: removed {before - after} loci with non-FinnGen lead variants ({after} remaining)")
+            else:
+                print("WARNING: --finngen-variants-only set but no FinnGen annotation provided, no loci filtered")
+
         ### create report
 
         report_fname = create_fname(args.report_out,args.prefix)
@@ -223,6 +236,7 @@ if __name__=="__main__":
     parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA"),nargs=6,default=["#chrom","pos","ref","alt","pval","beta"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta'.")
     parser.add_argument("--pval-is-mlog10p",dest="pval_is_mlog10p",action="store_true",default=False,help="If set, the pval column contains -log10(p) values instead of raw p-values. Thresholds are automatically converted.")
+    parser.add_argument("--finngen-variants-only",dest="finngen_variants_only",action="store_true",default=False,help="If set, exclude variants not found in FinnGen annotation from outputs. Loci with non-FinnGen lead variants are dropped entirely.")
     
     #annotate
     parser.add_argument("--gnomad-path",dest="gnomad_path",type=str,help="Gnomad 4 annotation filepath")

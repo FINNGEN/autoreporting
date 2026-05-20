@@ -15,6 +15,7 @@ class VariantReportOptions(NamedTuple):
     extra_columns: List[str]
     squash_multiple_annotations:bool
     pval_is_mlog10p: bool = False
+    finngen_variants_only: bool = False
 
 class TopReportOptions(NamedTuple):
     strict_group:float
@@ -94,6 +95,11 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
     if CSAnnotation.get_name() in data.annotations:
         cs_available = True
     output.write(header)
+    # pre-compute FinnGen variant set for filtering
+    fg_variant_set: Optional[set] = None
+    if options.finngen_variants_only and FGAnnotation.get_name() in data.annotations:
+        fg_variant_set = set(data.annotations[FGAnnotation.get_name()].keys())
+
     ### For each locus, and each variant in them, calculate values & write output
     for locus in data.loci:
         vars:List[Var] = []
@@ -106,6 +112,11 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
         vars.append(lead)
         # remove duplicates
         vars = sorted(list(set(vars)),key = lambda x: x.pval, reverse=options.pval_is_mlog10p)
+        # filter to FinnGen variants only if requested
+        if fg_variant_set is not None:
+            vars = [v for v in vars if v.id in fg_variant_set]
+            if not vars:
+                continue
         #precalculate locus-wide values
         pos_rmin = min([a.id.pos for a in vars])
         pos_rmax = max([a.id.pos for a in vars])
