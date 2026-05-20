@@ -1,7 +1,7 @@
 from annotation_model import Value, Annotation
 from group_annotation import CSAnnotation, CatalogAnnotation, ExtraColAnnotation, FGAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, Gnomad4Annotation
 from grouping_model import CSInfo, CSLocus, Grouping, LDMode, PeakLocus, PhenoData, PhenoInfo, SummstatColumns, Var
-from grouping import ld_threshold
+from grouping import ld_threshold, _passes_threshold_eq
 from data_access.db import Variant
 from typing import Any, Dict, Optional, TextIO, NamedTuple, List, Tuple, TypeVar, cast
 from collections import defaultdict
@@ -14,6 +14,7 @@ class VariantReportOptions(NamedTuple):
     summstat_options: SummstatColumns
     extra_columns: List[str]
     squash_multiple_annotations:bool
+    pval_is_mlog10p: bool = False
 
 class TopReportOptions(NamedTuple):
     strict_group:float
@@ -23,6 +24,7 @@ class TopReportOptions(NamedTuple):
     extra_columns: List[str]
     ld_mode: LDMode
     r2_threshold: float
+    pval_is_mlog10p: bool = False
     
 
 
@@ -103,7 +105,7 @@ def generate_variant_report(data:PhenoData,output:TextIO, options: VariantReport
         vars.extend(cs_vars)
         vars.append(lead)
         # remove duplicates
-        vars = sorted(list(set(vars)),key = lambda x: x.pval)
+        vars = sorted(list(set(vars)),key = lambda x: x.pval, reverse=options.pval_is_mlog10p)
         #precalculate locus-wide values
         pos_rmin = min([a.id.pos for a in vars])
         pos_rmax = max([a.id.pos for a in vars])
@@ -335,13 +337,13 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
         cols["alt"] = lead.id.alt
         cols["pval"] = lead.pval
         cols["lead_beta"] = lead.beta
-        cols["lead_r2_threshold"] = ld_threshold(options.r2_threshold,options.ld_mode,lead.pval)
+        cols["lead_r2_threshold"] = ld_threshold(options.r2_threshold,options.ld_mode,lead.pval,options.pval_is_mlog10p)
         #extra columns
         if ExtraColAnnotation.get_name() in data.annotations:
             extra_anno = data.annotations[ExtraColAnnotation.get_name()]
             if lead.id in extra_anno:
                 for c in options.extra_columns:
-                    cols[f"lead_{c}"] = extra_anno[lead.id][0][c]
+                    cols[f"lead_{c}"] = extra_anno[lead.id][0].get(c, None)
         #previous release cols
         if PreviousReleaseAnnotation.get_name() in data.annotations:
             prev_anno = data.annotations[PreviousReleaseAnnotation.get_name()]
@@ -412,14 +414,14 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
         #create strict group
         if options.grouping_method == Grouping.LD:
             relaxed_set:set[Var] = set(cs_vars+ld_partners+[lead])
-            strict_set:set[Var] = set([a for a in relaxed_set if 
-                (a.r2_to_lead is not None) and (a.r2_to_lead >= options.strict_group) and (a.pval <= options.significance_threshold) ])
+            strict_set:set[Var] = set([a for a in relaxed_set if
+                (a.r2_to_lead is not None) and (a.r2_to_lead >= options.strict_group) and _passes_threshold_eq(a.pval, options.significance_threshold, options.pval_is_mlog10p) ])
         elif options.grouping_method == Grouping.CS:
             strict_set = set(cs_vars+[lead])
             relaxed_set = set(ld_partners+cs_vars+[lead])
         else:
             relaxed_set = set(ld_partners+ cs_vars+[lead])
-            strict_set = set([a for a in relaxed_set if a.pval <= options.significance_threshold])        
+            strict_set = set([a for a in relaxed_set if _passes_threshold_eq(a.pval, options.significance_threshold, options.pval_is_mlog10p)])        
         
         #functional strict & relaxed
         if FGAnnotation.get_name() in data.annotations:

@@ -195,12 +195,13 @@ class PreviousReleaseAnnotation(TabixAnnotation):
 class ExtraColAnnotation(TabixAnnotation):
     def __init__(self, opts: TabixOptions,extra_columns:List[str]) -> None:
         super().__init__(opts)
-        self.extra_columns = extra_columns
         self.variant_switch = 50_000
         with tb_resource_manager(self.fname,opts.c,opts.p,opts.r,opts.a) as tb_resource:
-            if any([a for a in extra_columns if a not in tb_resource.header ]):
-                raise Exception(f"Summary statistic file did not contain all extra columns! Missing columns: {[a for a in self.extra_columns if a not in tb_resource.header ]}. Supplied columns:{self.extra_columns}")
-        
+            missing = [a for a in extra_columns if a not in tb_resource.header]
+            if missing:
+                print(f"Warning: extra columns not in file, skipping: {missing}")
+            self.extra_columns = [a for a in extra_columns if a not in missing]
+
 
     def _create_annotation(self,cols:List[str],hdi:Dict[str,int])->Annotation:
         annotation:VariantAnnotation = {a:cols[hdi[a]] for a in self.extra_columns}

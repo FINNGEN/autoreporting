@@ -6,11 +6,30 @@ from data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
 from data_access.csfactory import csfactory
 from time_decorator import timefunc
 
-def ld_threshold(ld_thresh:float, mode: LDMode,pval:float)->float:
+def ld_threshold(ld_thresh:float, mode: LDMode,pval:float, pval_is_mlog10p:bool=False)->float:
     if mode.value == LDMode.DYNAMIC.value:
-        return float(min(ld_thresh/stats.chi2.isf(pval,df=1),1.0))
+        raw_pval = max(10**(-pval), 5e-324) if pval_is_mlog10p else pval
+        return float(min(ld_thresh/stats.chi2.isf(raw_pval,df=1),1.0))
     else:
         return ld_thresh
+
+def _passes_threshold(value:float, threshold:float, pval_is_mlog10p:bool)->bool:
+    """Check if value passes significance threshold.
+    For raw pval: value < threshold (smaller = more significant).
+    For mlog10p: value > threshold (larger = more significant).
+    """
+    return value > threshold if pval_is_mlog10p else value < threshold
+
+def _passes_threshold_eq(value:float, threshold:float, pval_is_mlog10p:bool)->bool:
+    """Like _passes_threshold but inclusive (<=  or >=)."""
+    return value >= threshold if pval_is_mlog10p else value <= threshold
+
+def _sort_most_significant_last(items, key, pval_is_mlog10p:bool):
+    """Sort so most significant variant is last (for stack popping).
+    For raw pval: ascending sort reversed (smallest pval last).
+    For mlog10p: ascending sort (largest mlog10p last).
+    """
+    return sorted(items, key=key, reverse=not pval_is_mlog10p)
 
 def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api: LDAccess, options: GroupingOptions) -> Dict[Variant,List[Var]]:
     """Return ld partners for credible sets. Returned as a dictionary of lead var -> ld partner keys & values
@@ -29,12 +48,13 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
             cs_pvals[c] = float(d[c][0])
         except:
             raise Exception(f"Fatal Error: Credible set lead variant {c} was not found in the summary statistic resource. Can not continue.")
-    csleads_by_pval = sorted([(key,value)for key,value in cs_pvals.items()],key=lambda x:x[1])
+    csleads_by_pval = sorted([(key,value)for key,value in cs_pvals.items()],key=lambda x:x[1],
+        reverse=options.pval_is_mlog10p)
     variants_that_can_not_be_included:set[Variant] = set()
     for lead_var,lead_pval in csleads_by_pval:
         # get LD partners
         #dynamic/static r2 thresh decision
-        ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_pval)
+        ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_pval,options.pval_is_mlog10p)
         ld_partners = ld_api.get_range(lead_var,options.range,ld_thresh)
         ld_partners = [a for a in ld_partners if a.variant1 == lead_var]
         # get locus in summary statistic
@@ -45,7 +65,7 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
             except:
                 continue
         #filter by p-value
-        summstat_data = {a:b for a,b in summstat_data.items() if b["pval"]<= options.p2_threshold}
+        summstat_data = {a:b for a,b in summstat_data.items() if _passes_threshold_eq(b["pval"], options.p2_threshold, options.pval_is_mlog10p)}
         #filter ld partners by summstat_data.
         #   Easiest option is using in dict keys, if not the most performant. 
         #   However, I don't know the performance of these different options -> just do it one way and worry about it later.
@@ -118,7 +138,7 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
             beta = float(cols[hdi[cpra[5]]])
         except:
             continue
-        if pval < options.p2_threshold:
+        if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
             var = Var(Variant(
                 cols[hdi[cpra[0]]],
                 int(cols[hdi[cpra[1]]]),
@@ -129,11 +149,11 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
                 None
             )
             p2_piles[cols[hdi[cpra[0]]]].append(var)
-            if pval < options.p1_threshold:
+            if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
                 p1_piles[cols[hdi[cpra[0]]]].append(var)
     for chrom in p1_piles.keys():
 
-        p1_pile = sorted(p1_piles[chrom],key=lambda x: (x.pval,x.id.chrom,x.id.pos),reverse=True)
+        p1_pile = _sort_most_significant_last(p1_piles[chrom],key=lambda x: (x.pval,x.id.chrom,x.id.pos), pval_is_mlog10p=options.pval_is_mlog10p)
         p2_pile = p2_piles[chrom]
         while p1_pile:
             lead_var = p1_pile.pop()
@@ -182,7 +202,7 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
             beta = float(cols[hdi[cpra[5]]])
         except:
             continue
-        if pval < options.p2_threshold:
+        if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
             var = Var(Variant(
                 cols[hdi[cpra[0]]],
                 int(cols[hdi[cpra[1]]]),
@@ -193,18 +213,18 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
                 1.0
             )
             p2_piles[cols[hdi[cpra[0]]]].append(var)
-            if pval < options.p1_threshold:
+            if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
                 p1_piles[cols[hdi[cpra[0]]]].append(var)
     for seq in p1_piles.keys():
         ## order p1 pile to be a stack with most significant variant at the top (i.e. last value)
-        p1_pile = sorted(p1_piles[seq],key=lambda x: x.pval,reverse=True)
+        p1_pile = _sort_most_significant_last(p1_piles[seq],key=lambda x: x.pval, pval_is_mlog10p=options.pval_is_mlog10p)
         p2_pile = p2_piles[seq]
         ## Grouping algorithm
         while p1_pile:
             lead_var = p1_pile.pop()
             lead_variant = lead_var.id
             #static/dynamic r2
-            ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval)
+            ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval,options.pval_is_mlog10p)
             ld_data = ld_api.get_range(lead_variant,options.range,ld_thresh)
             ld_data = [a for a in ld_data if (a.variant1 == lead_variant) and (a.variant2 != lead_variant)]
             ld_data_varset = set([a.variant2 for a in ld_data])
@@ -251,7 +271,7 @@ def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptio
             beta = float(cols[hdi[cpra[5]]])
         except:
             continue
-        if pval < options.p1_threshold:
+        if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
             var = Var(Variant(
                 cols[hdi[cpra[0]]],
                 int(cols[hdi[cpra[1]]]),
