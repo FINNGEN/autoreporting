@@ -51,11 +51,16 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
     csleads_by_pval = sorted([(key,value)for key,value in cs_pvals.items()],key=lambda x:x[1],
         reverse=options.pval_is_mlog10p)
     variants_that_can_not_be_included:set[Variant] = set()
-    for lead_var,lead_pval in csleads_by_pval:
+    #prefetch LD for all cs leads in parallel (threshold 0), apply dynamic threshold in-memory below
+    total_cs = len(csleads_by_pval)
+    print(f"credible_grouping: prefetching LD for {total_cs} credible set leads with {options.ld_workers} worker(s)", flush=True)
+    ld_cache = ld_api.get_ranges([lv for lv,_ in csleads_by_pval], options.range, workers=options.ld_workers)
+    for cs_idx,(lead_var,lead_pval) in enumerate(csleads_by_pval,1):
+        print(f"credible_grouping: credible set {cs_idx}/{total_cs}", flush=True)
         # get LD partners
         #dynamic/static r2 thresh decision
         ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_pval,options.pval_is_mlog10p)
-        ld_partners = ld_api.get_range(lead_var,options.range,ld_thresh)
+        ld_partners = [a for a in ld_cache[lead_var] if a.r2 > ld_thresh]
         ld_partners = [a for a in ld_partners if a.variant1 == lead_var]
         # get locus in summary statistic
         summstat_data = {}
@@ -215,6 +220,15 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
             p2_piles[cols[hdi[cpra[0]]]].append(var)
             if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
                 p1_piles[cols[hdi[cpra[0]]]].append(var)
+    # prefetch LD for every candidate lead up front (in parallel); the greedy loop below then
+    # reads from cache rather than blocking on one LD fetch per peak. LD for a lead is
+    # independent of grouping state, so this is safe. Fetched at threshold 0 so the per-lead
+    # dynamic threshold can be applied in memory.
+    total_p1 = sum(len(v) for v in p1_piles.values())
+    all_leads = [v.id for seq in p1_piles for v in p1_piles[seq]]
+    print(f"ld_grouping: prefetching LD for {total_p1} candidate lead variants with {options.ld_workers} worker(s)", flush=True)
+    ld_cache = ld_api.get_ranges(all_leads, options.range, workers=options.ld_workers)
+    locus_num = 0
     for seq in p1_piles.keys():
         ## order p1 pile to be a stack with most significant variant at the top (i.e. last value)
         p1_pile = _sort_most_significant_last(p1_piles[seq],key=lambda x: x.pval, pval_is_mlog10p=options.pval_is_mlog10p)
@@ -222,10 +236,13 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
         ## Grouping algorithm
         while p1_pile:
             lead_var = p1_pile.pop()
+            locus_num += 1
+            print(f"ld_grouping: locus {locus_num}/{total_p1} (chr{seq}, {len(p1_pile)} remaining in chr)", flush=True)
             lead_variant = lead_var.id
             #static/dynamic r2
             ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval,options.pval_is_mlog10p)
-            ld_data = ld_api.get_range(lead_variant,options.range,ld_thresh)
+            #apply per-lead threshold to the prefetched (threshold-0) cache entry
+            ld_data = [a for a in ld_cache[lead_variant] if a.r2 > ld_thresh]
             ld_data = [a for a in ld_data if (a.variant1 == lead_variant) and (a.variant2 != lead_variant)]
             ld_data_varset = set([a.variant2 for a in ld_data])
             #filter p2 pile by ld data. 
@@ -316,13 +333,21 @@ def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_ac
                     continue
         cs_groups = {}
         cs_infos = {}
+        #prefetch internal-CS LD per lead (each cs uses its own range), in parallel
+        lead_ranges = {}
+        for c in cs:
+            rng = max([abs(c.lead.pos - a.variant.pos) for a in c.variants])+5000
+            lead_ranges[c.lead] = max(lead_ranges.get(c.lead,0), rng)
+        cs_lead_list = list(lead_ranges.keys())
+        print(f"cs_grouping: prefetching LD for {len(cs_lead_list)} credible set leads with {gr_opts.ld_workers} worker(s)", flush=True)
+        cs_ld_cache = ld_access.get_ranges(cs_lead_list, 0,
+            bp_ranges=[lead_ranges[l] for l in cs_lead_list], workers=gr_opts.ld_workers)
         #get pval, beta, r2 for credible set variants
         for c in cs:
             #gather ld data
             c_variants = set([a.variant for a in c.variants])
-            max_range = max([abs(c.lead.pos - a.variant.pos) for a in c.variants])+5000
-            #susie might not have LD so calculate it here
-            ld_data = ld_access.get_range(c.lead,max_range,0.0)
+            #susie might not have LD so it was prefetched above
+            ld_data = cs_ld_cache[c.lead]
             ld_data = [a for a in ld_data if ( (a.variant1 == c.lead) and (a.variant2 in c_variants))  ]
             ld_dict = {a.variant2:a.r2 for a in ld_data}
 

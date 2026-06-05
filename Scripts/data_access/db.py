@@ -65,12 +65,28 @@ class LDAccess(object):
         """Return LD for single variant range
         Args:
             variant (Variant): Variant for which to get the LD neighbourhood
-            bp_range (int): LD calculation range. Get LD results for variants closer than this many basepairs away from the lead var. 
-            ld_threshold (Optional[float]): Optional LD R^2 threshold. Only variants that are in greater correlation than the threshold are reported. 
-        Returns: 
+            bp_range (int): LD calculation range. Get LD results for variants closer than this many basepairs away from the lead var.
+            ld_threshold (Optional[float]): Optional LD R^2 threshold. Only variants that are in greater correlation than the threshold are reported.
+        Returns:
             (List[LDData]):List of variant associations
         """
         pass
+
+    def get_ranges(self, variants: List[Variant], bp_range: int,
+                   thresholds: Optional[List[float]] = None,
+                   bp_ranges: Optional[List[int]] = None,
+                   workers: int = 1) -> Dict[Variant, List[LDData]]:
+        """Return LD for a batch of variants, keyed by variant.
+
+        Default serial implementation; subclasses (e.g. TabixLD) may parallelize.
+        bp_ranges, when given, overrides bp_range per-variant; thresholds likewise.
+        """
+        out: Dict[Variant, List[LDData]] = {}
+        for i, v in enumerate(variants):
+            r = bp_ranges[i] if bp_ranges is not None else bp_range
+            t = thresholds[i] if thresholds is not None else None
+            out[v] = self.get_range(v, r, t)
+        return out
 
 class Location(NamedTuple):
     """Chromosomal position

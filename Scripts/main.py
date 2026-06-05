@@ -11,6 +11,7 @@ from data_access.csfactory import csfactory
 from typing import Optional, List
 import math
 import os
+import multiprocessing
 
 
 def groupingModeFactory(method:str,group:bool):
@@ -45,6 +46,8 @@ def main(args):
         r2_threshold = args.dynamic_r2_chisq
     else:
         r2_threshold = args.ld_r2
+    # number of worker processes for parallel tabix LD fetching
+    ld_workers = args.ld_workers if args.ld_workers else multiprocessing.cpu_count()
     # ld resource
     ld_api=None
     if args.grouping_method != "simple":
@@ -53,7 +56,7 @@ def main(args):
         elif args.ld_api_choice == "online":
             ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
         elif args.ld_api_choice == "tabix":
-            ld_api = TabixLD(args.ld_panel_path)
+            ld_api = TabixLD(args.ld_panel_path,assume_variant1_indexed=args.ld_assume_variant1_indexed)
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     args.sig_treshold_2 = max(args.sig_treshold, args.sig_treshold_2)
@@ -77,7 +80,8 @@ def main(args):
         p1,
         p2,
         args.overlap,
-        pval_is_mlog10p
+        pval_is_mlog10p,
+        ld_workers
     )
 
     ### Annotation resources
@@ -231,6 +235,8 @@ if __name__=="__main__":
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",choices=["plink","online","tabix"],help="LD interface to use. Valid options are 'plink', 'online' and 'tabix'.")
+    parser.add_argument("--ld-workers",dest="ld_workers",type=int,default=None,help="Number of worker processes for parallel tabix LD fetching. Default: number of CPUs. Set to 1 for serial fetching.")
+    parser.add_argument("--ld-assume-variant1-indexed",dest="ld_assume_variant1_indexed",action="store_true",default=False,help="Tabix LD only: assume the LD file is indexed by variant1 position, enabling a much narrower (1bp) fetch per lead. Verify against your LD file before enabling.")
     parser.add_argument("--pheno-name",dest="pheno_name",type=str,default="",help="Phenotype name")
     parser.add_argument("--pheno-info-file",dest="pheno_info_file",type=str,default="",help="Phenotype information file path")
     parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")
