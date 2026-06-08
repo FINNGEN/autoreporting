@@ -241,7 +241,7 @@ if __name__=="__main__":
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",choices=["plink","online","tabix"],help="LD interface to use. Valid options are 'plink', 'online' and 'tabix'.")
     parser.add_argument("--ld-workers",dest="ld_workers",type=int,default=None,help="Number of worker processes for parallel tabix LD fetching. Default: number of CPUs. Set to 1 for serial fetching.")
-    parser.add_argument("--ld-assume-variant1-indexed",dest="ld_assume_variant1_indexed",action="store_true",default=False,help="Tabix LD only: assume the LD file is indexed by variant1 position, enabling a much narrower (1bp) fetch per lead. Verify against your LD file before enabling.")
+    parser.add_argument("--ld-assume-variant1-indexed",dest="ld_assume_variant1_indexed",action=argparse.BooleanOptionalAction,default=True,help="Tabix LD only: assume the LD file is indexed by variant1 position (true for the finngen LD panels), enabling a much narrower (1bp) fetch per lead. On by default; pass --no-ld-assume-variant1-indexed for a panel not indexed by variant1 position.")
     parser.add_argument("--pheno-name",dest="pheno_name",type=str,default="",help="Phenotype name")
     parser.add_argument("--pheno-info-file",dest="pheno_info_file",type=str,default="",help="Phenotype information file path")
     parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")

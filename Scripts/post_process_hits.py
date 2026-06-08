@@ -97,7 +97,7 @@ if __name__=="__main__":
     parser.add_argument("--ld-panel-path",required=True)
     parser.add_argument("--plink-memory",type=int,default=17000)
     parser.add_argument("--ld-workers",dest="ld_workers",type=int,default=None,help="Number of worker processes for parallel tabix LD fetching. Default: number of CPUs. Set to 1 for serial fetching.")
-    parser.add_argument("--ld-assume-variant1-indexed",dest="ld_assume_variant1_indexed",action="store_true",default=False,help="Tabix LD only: assume the LD file is indexed by variant1 position, enabling a much narrower (1bp) fetch per lead. Verify against your LD file before enabling.")
+    parser.add_argument("--ld-assume-variant1-indexed",dest="ld_assume_variant1_indexed",action=argparse.BooleanOptionalAction,default=True,help="Tabix LD only: assume the LD file is indexed by variant1 position (true for the finngen LD panels), enabling a much narrower (1bp) fetch per lead. On by default; pass --no-ld-assume-variant1-indexed for a panel not indexed by variant1 position.")
     args=parser.parse_args()
     #load prerequisites
     import multiprocessing

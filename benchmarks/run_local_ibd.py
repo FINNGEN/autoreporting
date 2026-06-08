@@ -123,8 +123,10 @@ def build_argv(cfg, row, subset_gz, out_prefix, args):
         argv.append("--pval-is-mlog10p")
     if rep("overlap"):
         argv.append("--overlap")
-    if args.assume_variant1_indexed:
-        argv.append("--ld-assume-variant1-indexed")
+    # narrow fetch is on by default in main.py now; pass the explicit opt-out to benchmark
+    # the old wide path
+    argv.append("--ld-assume-variant1-indexed" if args.assume_variant1_indexed
+                else "--no-ld-assume-variant1-indexed")
 
     json_dir = os.path.dirname(os.path.abspath(args.json))
     pheno_info = resolve_local(rep("phenotype_info_file"), json_dir)
@@ -169,8 +171,9 @@ def main():
     ap.add_argument("--mode", choices=["group", "full"], default="group",
                     help="group: parse+LD grouping+report only (LD focus); full: + annotations & gwas catalog")
     ap.add_argument("--workers", type=int, default=1, help="--ld-workers (1 = serial; use 1 with --profile)")
-    ap.add_argument("--assume-variant1-indexed", action="store_true",
-                    help="enable the 1bp narrow LD fetch (valid for the finngen_r12 panel)")
+    ap.add_argument("--assume-variant1-indexed", action=argparse.BooleanOptionalAction, default=True,
+                    help="1bp narrow LD fetch (valid for finngen panels). On by default; "
+                         "--no-assume-variant1-indexed benchmarks the old wide ±range fetch")
     ap.add_argument("--profile", action="store_true", help="run under cProfile and print a pstats summary")
     ap.add_argument("--top", type=int, default=30, help="rows in the pstats summary")
     ap.add_argument("--outdir", default=os.path.join(HERE, "_out"))

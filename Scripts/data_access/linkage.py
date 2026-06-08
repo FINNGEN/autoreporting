@@ -109,13 +109,14 @@ class PlinkLD(LDAccess):
         return ld_data
 
 class TabixLD(LDAccess):
-    def __init__(self,path_template:str, assume_variant1_indexed:bool=False):
+    def __init__(self,path_template:str, assume_variant1_indexed:bool=True):
         self.token_refresh_time = time.time()
         self.path_template = path_template
         # when True, fetch only a 1bp window at the lead position instead of the whole
         # bp_range window. Valid only if the LD tabix is indexed by variant1's position
-        # (all of a lead's partner rows then sit at exactly that position). Verify against
-        # real data before enabling; default off keeps the correct-for-any-layout wide fetch.
+        # (all of a lead's partner rows then sit at exactly that position) — true for the
+        # finngen LD panels, where it is the dominant speedup (avoids scanning the whole
+        # bp_range window). Defaults on; set False for a panel not indexed by variant1 pos.
         self.assume_variant1_indexed = assume_variant1_indexed
         ## NOTE: we assume that data is in chromosomes 1..22,X, and that the files are named so
         chroms = [str(a).replace("23","X") for a in range(1,24)]
