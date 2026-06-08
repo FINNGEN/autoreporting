@@ -139,8 +139,7 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
     # hoist header->index lookups to int locals once instead of a dict lookup per column per row
     i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
                                           hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
-    for l in summstat_resource.fileobject.fetch():
-        cols = l.split("\t")
+    for cols in summstat_resource.fetch_all_tuples():
         try:
             pval = float(cols[i_pval])
         except:
@@ -211,8 +210,7 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     # hoist header->index lookups to int locals once instead of a dict lookup per column per row
     i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
                                           hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
-    for l in summstat_resource.fileobject.fetch():
-        cols = l.split("\t")
+    for cols in summstat_resource.fetch_all_tuples():
         try:
             pval = float(cols[i_pval])
         except:
@@ -300,8 +298,7 @@ def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptio
     # hoist header->index lookups to int locals once instead of a dict lookup per column per row
     i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
                                           hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
-    for l in summstat_resource.fileobject.fetch():
-        cols = l.split("\t")
+    for cols in summstat_resource.fetch_all_tuples():
         try:
             pval = float(cols[i_pval])
         except:
