@@ -31,21 +31,48 @@ def _sort_most_significant_last(items, key, pval_is_mlog10p:bool):
     """
     return sorted(items, key=key, reverse=not pval_is_mlog10p)
 
+def _load_variants_by_chrom(summstat_resource: TabixResource, variants, data_columns:List[str],
+                            max_gap:int=1_000_000) -> Dict[Variant,List[str]]:
+    """Load data_columns for many variants with one tabix fetch per cluster of nearby
+    variants instead of one fetch per variant. Variants on a chromosome are sorted and split
+    into clusters wherever the gap between consecutive positions exceeds max_gap, bounding
+    each fetch span so a chromosome-wide spread doesn't pull the whole chromosome into memory.
+    Returns {Variant: [cols...]} for the requested variants found in the file.
+    """
+    by_chrom: Dict[str,List[Variant]] = {}
+    for v in variants:
+        by_chrom.setdefault(v.chrom, []).append(v)
+    out: Dict[Variant,List[str]] = {}
+    for chrom, vs in by_chrom.items():
+        want = set(vs)
+        positions = sorted(set(v.pos for v in vs))
+        clusters = []
+        start = prev = positions[0]
+        for p in positions[1:]:
+            if p - prev > max_gap:
+                clusters.append((start, prev))
+                start = p
+            prev = p
+        clusters.append((start, prev))
+        for lo, hi in clusters:
+            region = summstat_resource.load_region(chrom, lo, hi+1, data_columns)
+            for var, data in region.items():
+                if var in want:
+                    out[var] = data
+    return out
+
 def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api: LDAccess, options: GroupingOptions) -> Dict[Variant,List[Var]]:
     """Return ld partners for credible sets. Returned as a dictionary of lead var -> ld partner keys & values
     """
     output = {}
     #create list of credible set lead variants
     cs_lead_vars = [a.lead for a in credsets]
-    #load pvals from summstat
+    #load pvals from summstat (one fetch per cluster of nearby leads instead of one per lead)
+    fetched = _load_variants_by_chrom(summstat_resource, cs_lead_vars, [options.column_names.pval])
     cs_pvals = {}
     for c in cs_lead_vars:
-        r_c = c.chrom
-        r_s = c.pos
-        r_e = c.pos+1
-        d = summstat_resource.load_region(r_c,r_s,r_e,[options.column_names.pval])
         try:
-            cs_pvals[c] = float(d[c][0])
+            cs_pvals[c] = float(fetched[c][0])
         except:
             raise Exception(f"Fatal Error: Credible set lead variant {c} was not found in the summary statistic resource. Can not continue.")
     csleads_by_pval = sorted([(key,value)for key,value in cs_pvals.items()],key=lambda x:x[1],
@@ -352,13 +379,15 @@ def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_ac
             raise Exception(f"Credible set grouping mode set, but credible set file was not provided or it was not loaded correctly!")
         ### Constructing valid credible sets
         cs_variants = list(set([a.variant for credset in cs for a in credset.variants]))
+        #one fetch per cluster of nearby cs variants instead of one per variant
         cs_pvalbetadict = {}
-        for v in cs_variants:
-            for var, data in summstat_resource.load_region(v.chrom,v.pos,v.pos+1,[gr_opts.column_names.pval,gr_opts.column_names.beta]).items():
-                try:
-                    cs_pvalbetadict[var] = [float(d) for d in data]
-                except:
-                    continue
+        fetched_cs = _load_variants_by_chrom(summstat_resource, cs_variants,
+            [gr_opts.column_names.pval,gr_opts.column_names.beta])
+        for var, data in fetched_cs.items():
+            try:
+                cs_pvalbetadict[var] = [float(d) for d in data]
+            except:
+                continue
         cs_groups = {}
         cs_infos = {}
         #prefetch internal-CS LD per lead (each cs uses its own range), in parallel
