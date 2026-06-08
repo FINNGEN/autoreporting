@@ -109,6 +109,9 @@ class TabixResource:
                               f"Error occurred with region {sequence}:{start}-{end}"))
         
         col_idx = [self.hdi[a] for a in data_columns]
+        # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+        i_c, i_p, i_r, i_a = (self.hdi[self.cpra[0]], self.hdi[self.cpra[1]],
+                              self.hdi[self.cpra[2]], self.hdi[self.cpra[3]])
         out = {}
 
         tries = 0
@@ -118,10 +121,10 @@ class TabixResource:
                 for l in iter:
                     cols = l.split("\t")
                     vid = Variant(
-                        cols[self.hdi[self.cpra[0]]],
-                        int(cols[self.hdi[self.cpra[1]]]),
-                        cols[self.hdi[self.cpra[2]]],
-                        cols[self.hdi[self.cpra[3]]],
+                        cols[i_c],
+                        int(cols[i_p]),
+                        cols[i_r],
+                        cols[i_a],
                     )
                     datacols = [cols[i] for i in col_idx]
                     out[vid] = datacols

@@ -136,26 +136,34 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
     ## load p1 and p2 filtered variants from summary statistic
     hd = summstat_resource.header
     hdi = {a:i for i,a in enumerate(hd)}
+    # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+    i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
+                                          hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
     for l in summstat_resource.fileobject.fetch():
         cols = l.split("\t")
         try:
-            pval = float(cols[hdi[cpra[4]]])
-            beta = float(cols[hdi[cpra[5]]])
+            pval = float(cols[i_pval])
         except:
             continue
         if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
+            # beta only needed for rows that pass p2; most genome-wide rows don't
+            try:
+                beta = float(cols[i_beta])
+            except:
+                continue
+            chrom = cols[i_c]
             var = Var(Variant(
-                cols[hdi[cpra[0]]],
-                int(cols[hdi[cpra[1]]]),
-                cols[hdi[cpra[2]]],
-                cols[hdi[cpra[3]]]),
+                chrom,
+                int(cols[i_p]),
+                cols[i_r],
+                cols[i_a]),
                 pval,
                 beta,
                 None
             )
-            p2_piles[cols[hdi[cpra[0]]]].append(var)
+            p2_piles[chrom].append(var)
             if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
-                p1_piles[cols[hdi[cpra[0]]]].append(var)
+                p1_piles[chrom].append(var)
     for chrom in p1_piles.keys():
 
         p1_pile = _sort_most_significant_last(p1_piles[chrom],key=lambda x: (x.pval,x.id.chrom,x.id.pos), pval_is_mlog10p=options.pval_is_mlog10p)
@@ -200,26 +208,34 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     ## load p1 and p2 filtered variants from summary statistic
     hd = summstat_resource.header
     hdi = {a:i for i,a in enumerate(hd)}
+    # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+    i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
+                                          hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
     for l in summstat_resource.fileobject.fetch():
         cols = l.split("\t")
         try:
-            pval = float(cols[hdi[cpra[4]]])
-            beta = float(cols[hdi[cpra[5]]])
+            pval = float(cols[i_pval])
         except:
             continue
         if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
+            # beta only needed for rows that pass p2; most genome-wide rows don't
+            try:
+                beta = float(cols[i_beta])
+            except:
+                continue
+            chrom = cols[i_c]
             var = Var(Variant(
-                cols[hdi[cpra[0]]],
-                int(cols[hdi[cpra[1]]]),
-                cols[hdi[cpra[2]]],
-                cols[hdi[cpra[3]]]),
+                chrom,
+                int(cols[i_p]),
+                cols[i_r],
+                cols[i_a]),
                 pval,
                 beta,
                 1.0
             )
-            p2_piles[cols[hdi[cpra[0]]]].append(var)
+            p2_piles[chrom].append(var)
             if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
-                p1_piles[cols[hdi[cpra[0]]]].append(var)
+                p1_piles[chrom].append(var)
     # prefetch LD for every candidate lead up front (in parallel); the greedy loop below then
     # reads from cache rather than blocking on one LD fetch per peak. LD for a lead is
     # independent of grouping state, so this is safe. Fetched at threshold 0 so the per-lead
@@ -281,19 +297,26 @@ def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptio
     ]
     hd = summstat_resource.header
     hdi = {a:i for i,a in enumerate(hd)}
+    # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+    i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
+                                          hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
     for l in summstat_resource.fileobject.fetch():
         cols = l.split("\t")
         try:
-            pval = float(cols[hdi[cpra[4]]])
-            beta = float(cols[hdi[cpra[5]]])
+            pval = float(cols[i_pval])
         except:
             continue
         if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
+            # beta only needed for rows that pass the threshold
+            try:
+                beta = float(cols[i_beta])
+            except:
+                continue
             var = Var(Variant(
-                cols[hdi[cpra[0]]],
-                int(cols[hdi[cpra[1]]]),
-                cols[hdi[cpra[2]]],
-                cols[hdi[cpra[3]]]),
+                cols[i_c],
+                int(cols[i_p]),
+                cols[i_r],
+                cols[i_a]),
                 pval,
                 beta,
                 None
