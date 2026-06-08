@@ -4,7 +4,7 @@ from grouping_model import CSInfo,  Var, CSLocus, Locus, GroupingOptions, Groupi
 from load_tabix import TabixResource
 from data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
 from data_access.csfactory import csfactory
-from time_decorator import timefunc
+from time_decorator import timefunc, timed
 
 def ld_threshold(ld_thresh:float, mode: LDMode,pval:float, pval_is_mlog10p:bool=False)->float:
     if mode.value == LDMode.DYNAMIC.value:
@@ -284,39 +284,44 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     # hoist header->index lookups to int locals once instead of a dict lookup per column per row
     i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
                                           hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
-    for cols in summstat_resource.fetch_all_tuples():
-        try:
-            pval = float(cols[i_pval])
-        except:
-            continue
-        if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
-            # beta only needed for rows that pass p2; most genome-wide rows don't
+    with timed("ld_grouping: parse sumstat"):
+        for cols in summstat_resource.fetch_all_tuples():
             try:
-                beta = float(cols[i_beta])
+                pval = float(cols[i_pval])
             except:
                 continue
-            chrom = cols[i_c]
-            var = Var(Variant(
-                chrom,
-                int(cols[i_p]),
-                cols[i_r],
-                cols[i_a]),
-                pval,
-                beta,
-                1.0
-            )
-            p2_piles[chrom].append(var)
-            if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
-                p1_piles[chrom].append(var)
+            if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
+                # beta only needed for rows that pass p2; most genome-wide rows don't
+                try:
+                    beta = float(cols[i_beta])
+                except:
+                    continue
+                chrom = cols[i_c]
+                var = Var(Variant(
+                    chrom,
+                    int(cols[i_p]),
+                    cols[i_r],
+                    cols[i_a]),
+                    pval,
+                    beta,
+                    1.0
+                )
+                p2_piles[chrom].append(var)
+                if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
+                    p1_piles[chrom].append(var)
     # prefetch LD for every candidate lead up front (in parallel); the greedy loop below then
     # reads from cache rather than blocking on one LD fetch per peak. LD for a lead is
     # independent of grouping state, so this is safe. Fetched at threshold 0 so the per-lead
     # dynamic threshold can be applied in memory.
     total_p1 = sum(len(v) for v in p1_piles.values())
+    total_p2 = sum(len(v) for v in p2_piles.values())
     all_leads = [v.id for seq in p1_piles for v in p1_piles[seq]]
+    print(f"ld_grouping: {total_p1} candidate leads (p1), {total_p2} partner candidates (p2)", flush=True)
     print(f"ld_grouping: prefetching LD for {total_p1} candidate lead variants with {options.ld_workers} worker(s)", flush=True)
-    ld_cache = ld_api.get_ranges(all_leads, options.range, workers=options.ld_workers)
-    return _greedy_ld_group(p1_piles, p2_piles, ld_cache, options)
+    with timed(f"ld_grouping: LD prefetch ({total_p1} leads, {options.ld_workers} workers)"):
+        ld_cache = ld_api.get_ranges(all_leads, options.range, workers=options.ld_workers)
+    with timed("ld_grouping: greedy grouping"):
+        return _greedy_ld_group(p1_piles, p2_piles, ld_cache, options)
 
 def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptions)->List[Var]:
     p1_pile = []

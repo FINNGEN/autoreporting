@@ -7,6 +7,7 @@ from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,Grouping
 from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, CatalogAnnotation, Gnomad4Annotation
 from phenoinfo import get_phenotype_data, PhenoInfoOptions
 from load_tabix import tb_resource_manager,TabixOptions
+from time_decorator import timed
 from data_access.csfactory import csfactory
 from typing import Optional, List
 import math
@@ -180,12 +181,14 @@ def main(args):
         gr_opts.column_names.a) as summstat_resource:
         
         ### group
-        loci = form_groups(summstat_resource,gr_opts,cs_access,ld_api)
-        
+        with timed("form_groups (grouping + LD)"):
+            loci = form_groups(summstat_resource,gr_opts,cs_access,ld_api)
+
         ### create phenotype
         phenodata = PhenoData(phenotype_info,loci)
         ### annotate
-        phenodata = annotate(phenodata,annotation_resources)
+        with timed("annotate"):
+            phenodata = annotate(phenodata,annotation_resources)
         ### filter out loci with non-FinnGen lead variants if requested
         if args.finngen_variants_only:
             fg_name = FGAnnotation.get_name()
@@ -204,8 +207,10 @@ def main(args):
         report_fname = create_fname(args.report_out,args.prefix)
         top_fname = create_fname(args.top_report_out,args.prefix)
         with open(report_fname,"w") as report_file, open(top_fname,"w") as top_file:
-            generate_variant_report(phenodata,report_file,variant_report_options,annotation_resources)
-            generate_top_report(phenodata,top_file,top_report_options,annotation_resources)
+            with timed("generate_variant_report"):
+                generate_variant_report(phenodata,report_file,variant_report_options,annotation_resources)
+            with timed("generate_top_report"):
+                generate_top_report(phenodata,top_file,top_report_options,annotation_resources)
     
 
 def create_fname(path:str,prefix:str)->str:
