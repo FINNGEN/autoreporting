@@ -181,6 +181,54 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
             output.append(PeakLocus(lead_var,p2_rangevars,Grouping.RANGE))
     return output
 
+def _greedy_ld_group(p1_piles: Dict[str,List[Var]], p2_piles: Dict[str,List[Var]],
+                     ld_cache: Dict[Variant,List], options: GroupingOptions) -> List[PeakLocus]:
+    """Greedy LD grouping over prefetched LD (cache: lead Variant -> list of LDData).
+
+    Equivalent to the original per-iteration list-rebuild loop, but avoids its
+    O(loci * pile size) rescans: p2 is indexed by variant id once, and consumed variants
+    are tracked in a set instead of rebuilding the p1/p2 lists on every iteration. Output
+    (leads, partner sets, r2 values, partner order) is identical to the old loop.
+    """
+    output: List[PeakLocus] = []
+    total_p1 = sum(len(v) for v in p1_piles.values())
+    locus_num = 0
+    for seq in p1_piles.keys():
+        # most significant variant last, so reversed() walks most -> least significant
+        p1_pile = _sort_most_significant_last(p1_piles[seq],key=lambda x: x.pval,
+                                              pval_is_mlog10p=options.pval_is_mlog10p)
+        p2_pile = p2_piles[seq]
+        # index p2 by variant id, keeping original (file) order so partner lists match
+        # the old p2-order output exactly
+        p2_by_id: Dict[Variant,Var] = {}
+        p2_order: Dict[Variant,int] = {}
+        for i,a in enumerate(p2_pile):
+            p2_by_id[a.id] = a
+            p2_order[a.id] = i
+        # variants claimed as LD partners of an already-processed (more significant) lead:
+        # excluded from being future leads (always) and from being partners again (non-overlap)
+        consumed: set[Variant] = set()
+        for lead_var in reversed(p1_pile):
+            lead_variant = lead_var.id
+            if lead_variant in consumed:
+                continue
+            locus_num += 1
+            print(f"ld_grouping: locus {locus_num}/{total_p1} (chr{seq})", flush=True)
+            ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval,options.pval_is_mlog10p)
+            # apply per-lead threshold to the prefetched (threshold-0) cache entry; dict keeps
+            # the last r2 per variant2, matching the old index-dict behavior
+            r2_by_v2 = {a.variant2:a.r2 for a in ld_cache[lead_variant]
+                        if a.r2 > ld_thresh and a.variant1 == lead_variant and a.variant2 != lead_variant}
+            # partners must be in p2 and, unless overlap, not already consumed; keep p2 order
+            partner_ids = [v2 for v2 in r2_by_v2
+                           if v2 in p2_by_id and (options.overlap or v2 not in consumed)]
+            partner_ids.sort(key=lambda v: p2_order[v])
+            ld_partners = [Var(v2,p2_by_id[v2].pval,p2_by_id[v2].beta,r2_by_v2[v2]) for v2 in partner_ids]
+            # every LD partner of this lead is removed from future lead/partner consideration
+            consumed.update(r2_by_v2.keys())
+            output.append(PeakLocus(lead_var,ld_partners,Grouping.LD))
+    return output
+
 def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:GroupingOptions)->List[PeakLocus]:
     """Form autoreporting groups with LD grouping
     """
@@ -190,7 +238,6 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     # Then, keep up a list of variants that can not be added to groups since they have been eliminated.
     # in that case, actually should have all p1 vars in p2 pile.
     ## Init variables
-    output = []
     p1_piles:Dict[str,List[Var]] = {}
     p2_piles:Dict[str,List[Var]] = {}
     for s in summstat_resource.sequences:
@@ -242,46 +289,7 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     all_leads = [v.id for seq in p1_piles for v in p1_piles[seq]]
     print(f"ld_grouping: prefetching LD for {total_p1} candidate lead variants with {options.ld_workers} worker(s)", flush=True)
     ld_cache = ld_api.get_ranges(all_leads, options.range, workers=options.ld_workers)
-    locus_num = 0
-    for seq in p1_piles.keys():
-        ## order p1 pile to be a stack with most significant variant at the top (i.e. last value)
-        p1_pile = _sort_most_significant_last(p1_piles[seq],key=lambda x: x.pval, pval_is_mlog10p=options.pval_is_mlog10p)
-        p2_pile = p2_piles[seq]
-        ## Grouping algorithm
-        while p1_pile:
-            lead_var = p1_pile.pop()
-            locus_num += 1
-            print(f"ld_grouping: locus {locus_num}/{total_p1} (chr{seq}, {len(p1_pile)} remaining in chr)", flush=True)
-            lead_variant = lead_var.id
-            #static/dynamic r2
-            ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval,options.pval_is_mlog10p)
-            #apply per-lead threshold to the prefetched (threshold-0) cache entry
-            ld_data = [a for a in ld_cache[lead_variant] if a.r2 > ld_thresh]
-            ld_data = [a for a in ld_data if (a.variant1 == lead_variant) and (a.variant2 != lead_variant)]
-            ld_data_varset = set([a.variant2 for a in ld_data])
-            #filter p2 pile by ld data. 
-            ld_partners= [a for a in p2_pile if a.id in ld_data_varset]
-            ## ld_partner_set = set(ld_partners)
-            #Now, ld_partner_idscontains all of the required ld partners:
-            # The definition for ld partners is 1) pval < p2_threshold, 2) in sufficient LD with the lead var
-            # could also be done by loading a tabix region for each of the LD regions... oh well
-            #join r2 value from ld_data to ld partners
-            #first, do a index dict
-            ld_index_dict = {a.variant2:i for i,a in enumerate(ld_data) }
-            #after that getting the right LD value from ld data is trivial, since the LD data is filtered to be variant1 = lead variant
-            ld_partners = [Var(a.id,a.pval,a.beta,ld_data[ld_index_dict[a.id]].r2) for a in ld_partners]
-            #filter all p2 variants out of p1 variants. This along with the pop in the beginning ensures convergence
-            p1_pile = [a for a in p1_pile if a.id not in ld_data_varset]
-            #if not overlap, filter the p2_pile not to contain the already joined ld partners.
-            if not options.overlap:
-                p2_pile = [a for a in p2_pile if a.id not in ld_data_varset]
-            ## Form locus
-            output.append(PeakLocus(
-                lead_var,
-                ld_partners,
-                Grouping.LD
-            ))
-    return output
+    return _greedy_ld_group(p1_piles, p2_piles, ld_cache, options)
 
 def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptions)->List[Var]:
     p1_pile = []
