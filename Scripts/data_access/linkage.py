@@ -4,7 +4,7 @@ from subprocess import PIPE
 from typing import Dict, List,  Optional
 import pandas as pd, numpy as np # type: ignore
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
-from data_access.db import LDAccess, LDData, Variant
+from data_access.db import LDAccess, LDData, LDFetcher, Variant
 import pysam
 
 MAX_RETRIES=7
@@ -251,6 +251,9 @@ class TabixLD(LDAccess):
                     print(f"LD prefetch: {done}/{total} variants fetched", flush=True)
         return out
         
+    def make_fetcher(self, workers: int = 1) -> LDFetcher:
+        return _PooledLDFetcher(self, workers)
+
     def refresh_token(self):
         tmp = subprocess.run(shlex.split("gcloud auth print-access-token"),capture_output=True,encoding="utf-8")
         os.environ["GCS_OAUTH_TOKEN"] = tmp.stdout.strip()
@@ -292,3 +295,38 @@ def _ld_worker_init(path_template, assume_variant1_indexed, gcs_token):
 def _ld_worker_fetch(task):
     variant, bp_range, threshold = task
     return (variant, _WORKER_LD.get_range(variant, bp_range, threshold))
+
+
+class _PooledLDFetcher(LDFetcher):
+    """LDFetcher backed by a persistent worker pool. The pool is opened once (workers re-open
+    their tabix files in the initializer, the costly step for remote gs:// panels) and reused
+    for every batch, so lazy batched prefetch doesn't re-pay pool/file-open cost per batch.
+    Falls back to serial fetching when workers <= 1."""
+    def __init__(self, ld: "TabixLD", workers: int):
+        super().__init__(ld)
+        self.workers = workers
+        self.pool = None
+        if workers and workers > 1:
+            if ld.path_template.startswith("gs://"):
+                ld.refresh_token()
+            gcs_token = os.environ.get("GCS_OAUTH_TOKEN")
+            self.pool = mp.Pool(workers, initializer=_ld_worker_init,
+                                initargs=(ld.path_template, ld.assume_variant1_indexed, gcs_token))
+
+    def fetch(self, leads: List[Variant], bp_range: int) -> Dict[Variant, List[LDData]]:
+        if not leads:
+            return {}
+        if self.pool is None:
+            return {v: self.ld.get_range(v, bp_range, None) for v in leads}
+        tasks = [(v, bp_range, None) for v in leads]
+        chunksize = max(1, len(tasks) // (self.workers * 4))
+        out: Dict[Variant, List[LDData]] = {}
+        for variant, ld in self.pool.imap_unordered(_ld_worker_fetch, tasks, chunksize=chunksize):
+            out[variant] = ld
+        return out
+
+    def close(self):
+        if self.pool is not None:
+            self.pool.close()
+            self.pool.join()
+            self.pool = None

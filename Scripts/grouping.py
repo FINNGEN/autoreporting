@@ -6,6 +6,12 @@ from data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
 from data_access.csfactory import csfactory
 from time_decorator import timefunc, timed
 
+# number of lead variants whose LD is fetched per batch in ld_grouping. Bounds peak memory:
+# only one batch of LD is held at a time, instead of the whole genome's LD prefetched up front
+# (which OOMs the WDL task on many-signal sumstats). Leads consumed as partners before their
+# turn are never fetched.
+LD_FETCH_BATCH = 500
+
 def ld_threshold(ld_thresh:float, mode: LDMode,pval:float, pval_is_mlog10p:bool=False)->float:
     if mode.value == LDMode.DYNAMIC.value:
         raw_pval = max(10**(-pval), 5e-324) if pval_is_mlog10p else pval
@@ -209,21 +215,30 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
     return output
 
 def _greedy_ld_group(p1_piles: Dict[str,List[Var]], p2_piles: Dict[str,List[Var]],
-                     ld_cache: Dict[Variant,List], options: GroupingOptions) -> List[PeakLocus]:
-    """Greedy LD grouping over prefetched LD (cache: lead Variant -> list of LDData).
+                     ld_lookup, options: GroupingOptions,
+                     batch_size: int = LD_FETCH_BATCH) -> List[PeakLocus]:
+    """Greedy LD grouping with lazy, batched LD fetching.
 
-    Equivalent to the original per-iteration list-rebuild loop, but avoids its
-    O(loci * pile size) rescans: p2 is indexed by variant id once, and consumed variants
-    are tracked in a set instead of rebuilding the p1/p2 lists on every iteration. Output
-    (leads, partner sets, r2 values, partner order) is identical to the old loop.
+    `ld_lookup(leads)` returns {lead Variant -> list of LDData} (fetched at threshold 0).
+    Rather than prefetching every candidate lead up front (which holds the whole genome's LD
+    in memory at once), LD is fetched in significance order one batch at a time: only leads
+    that are still candidate representatives when their turn comes are fetched, and at most one
+    batch of LD is held, bounding peak memory. Output (leads, partner sets, r2 values, partner
+    order) is identical to prefetching all leads — the fetch is the same, only its timing and
+    lifetime differ.
+
+    Like the original, this avoids per-iteration list rebuilds: p2 is indexed by variant id
+    once and consumed variants are tracked in a set.
     """
     output: List[PeakLocus] = []
     total_p1 = sum(len(v) for v in p1_piles.values())
     locus_num = 0
+    fetched = 0
     for seq in p1_piles.keys():
         # most significant variant last, so reversed() walks most -> least significant
         p1_pile = _sort_most_significant_last(p1_piles[seq],key=lambda x: x.pval,
                                               pval_is_mlog10p=options.pval_is_mlog10p)
+        order = list(reversed(p1_pile))  # most -> least significant
         p2_pile = p2_piles[seq]
         # index p2 by variant id, keeping original (file) order so partner lists match
         # the old p2-order output exactly
@@ -235,24 +250,47 @@ def _greedy_ld_group(p1_piles: Dict[str,List[Var]], p2_piles: Dict[str,List[Var]
         # variants claimed as LD partners of an already-processed (more significant) lead:
         # excluded from being future leads (always) and from being partners again (non-overlap)
         consumed: set[Variant] = set()
-        for lead_var in reversed(p1_pile):
+        # holds LD only for the current batch of upcoming leads; entries are dropped as soon as
+        # a lead is processed or consumed, so memory stays bounded to ~one batch
+        batch_cache: Dict[Variant,List] = {}
+        for idx, lead_var in enumerate(order):
             lead_variant = lead_var.id
             if lead_variant in consumed:
+                batch_cache.pop(lead_variant, None)
                 continue
+            if lead_variant not in batch_cache:
+                # fetch LD for the next batch of still-candidate, not-yet-fetched leads
+                # (in significance order starting here, so this lead is always included)
+                batch = []
+                for j in range(idx, len(order)):
+                    vid = order[j].id
+                    if vid in consumed or vid in batch_cache:
+                        continue
+                    batch.append(vid)
+                    if len(batch) >= batch_size:
+                        break
+                batch_cache.update(ld_lookup(batch))
+                fetched += len(batch)
+                print(f"ld_grouping: LD fetched for {fetched} lead representative(s) "
+                      f"(chr{seq})", flush=True)
             locus_num += 1
             print(f"ld_grouping: locus {locus_num}/{total_p1} (chr{seq})", flush=True)
             ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval,options.pval_is_mlog10p)
-            # apply per-lead threshold to the prefetched (threshold-0) cache entry; dict keeps
-            # the last r2 per variant2, matching the old index-dict behavior
-            r2_by_v2 = {a.variant2:a.r2 for a in ld_cache[lead_variant]
+            # apply per-lead threshold to the (threshold-0) fetched entry; dict keeps the last
+            # r2 per variant2, matching the old index-dict behavior. pop to release it.
+            entry = batch_cache.pop(lead_variant)
+            r2_by_v2 = {a.variant2:a.r2 for a in entry
                         if a.r2 > ld_thresh and a.variant1 == lead_variant and a.variant2 != lead_variant}
             # partners must be in p2 and, unless overlap, not already consumed; keep p2 order
             partner_ids = [v2 for v2 in r2_by_v2
                            if v2 in p2_by_id and (options.overlap or v2 not in consumed)]
             partner_ids.sort(key=lambda v: p2_order[v])
             ld_partners = [Var(v2,p2_by_id[v2].pval,p2_by_id[v2].beta,r2_by_v2[v2]) for v2 in partner_ids]
-            # every LD partner of this lead is removed from future lead/partner consideration
+            # every LD partner of this lead is removed from future lead/partner consideration;
+            # drop any that were prefetched into the batch but won't be processed now
             consumed.update(r2_by_v2.keys())
+            for v2 in r2_by_v2:
+                batch_cache.pop(v2, None)
             output.append(PeakLocus(lead_var,ld_partners,Grouping.LD))
     return output
 
@@ -309,19 +347,23 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
                 p2_piles[chrom].append(var)
                 if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
                     p1_piles[chrom].append(var)
-    # prefetch LD for every candidate lead up front (in parallel); the greedy loop below then
-    # reads from cache rather than blocking on one LD fetch per peak. LD for a lead is
-    # independent of grouping state, so this is safe. Fetched at threshold 0 so the per-lead
-    # dynamic threshold can be applied in memory.
+    # LD is fetched lazily in significance order, one batch of leads at a time, inside the
+    # greedy loop (see _greedy_ld_group). This bounds peak memory to one batch instead of
+    # holding every candidate lead's LD at once (which OOMs the WDL task on many-signal
+    # sumstats), and skips leads consumed as partners before their turn. Fetched at threshold
+    # 0 so the per-lead dynamic threshold can be applied in memory. The fetcher keeps its
+    # worker pool alive across batches so per-batch parallelism doesn't re-pay pool setup.
     total_p1 = sum(len(v) for v in p1_piles.values())
     total_p2 = sum(len(v) for v in p2_piles.values())
-    all_leads = [v.id for seq in p1_piles for v in p1_piles[seq]]
     print(f"ld_grouping: {total_p1} candidate leads (p1), {total_p2} partner candidates (p2)", flush=True)
-    print(f"ld_grouping: prefetching LD for {total_p1} candidate lead variants with {options.ld_workers} worker(s)", flush=True)
-    with timed(f"ld_grouping: LD prefetch ({total_p1} leads, {options.ld_workers} workers)"):
-        ld_cache = ld_api.get_ranges(all_leads, options.range, workers=options.ld_workers)
-    with timed("ld_grouping: greedy grouping"):
-        return _greedy_ld_group(p1_piles, p2_piles, ld_cache, options)
+    print(f"ld_grouping: lazy batched LD fetch (batch={LD_FETCH_BATCH}, {options.ld_workers} worker(s))", flush=True)
+    fetcher = ld_api.make_fetcher(options.ld_workers)
+    try:
+        with timed("ld_grouping: greedy grouping (lazy batched LD fetch)"):
+            return _greedy_ld_group(p1_piles, p2_piles,
+                                    lambda leads: fetcher.fetch(leads, options.range), options)
+    finally:
+        fetcher.close()
 
 def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptions)->List[Var]:
     p1_pile = []

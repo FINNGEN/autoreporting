@@ -88,6 +88,29 @@ class LDAccess(object):
             out[v] = self.get_range(v, r, t)
         return out
 
+    def make_fetcher(self, workers: int = 1) -> "LDFetcher":
+        """Return a reusable fetcher for lazy, batched LD prefetch (see LDFetcher). Subclasses
+        with expensive per-process setup (e.g. TabixLD's worker pool) override this to keep
+        that setup alive across batches; the base fetcher is serial."""
+        return LDFetcher(self)
+
+
+class LDFetcher:
+    """Fetch LD for a batch of leads, keyed by variant, reusing setup across calls.
+
+    The grouping loop fetches LD lazily in small batches instead of prefetching every lead up
+    front, which bounds peak memory to one batch and skips leads that get consumed as partners
+    before they would be fetched. This base implementation is serial; close() is a no-op.
+    """
+    def __init__(self, ld: "LDAccess"):
+        self.ld = ld
+
+    def fetch(self, leads: List[Variant], bp_range: int) -> Dict[Variant, List[LDData]]:
+        return {v: self.ld.get_range(v, bp_range, None) for v in leads}
+
+    def close(self):
+        pass
+
 class Location(NamedTuple):
     """Chromosomal position
     """

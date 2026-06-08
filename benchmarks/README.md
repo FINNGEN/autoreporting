@@ -52,3 +52,23 @@ dominant win and verified correct on the real finngen_r12 panel. Pass
 `--no-ld-assume-variant1-indexed` (main.py / post_process_hits.py) only for a panel not
 indexed by variant1 position. The other optimizations (asTuple parsing, header-index
 hoisting, greedy de-quadratic) help the parse/grouping stages and the wide path.
+
+## Memory: lazy batched LD fetch (replaces prefetch-all-leads)
+
+The first parallel version prefetched LD for **every** GWS lead up front into one dict before
+grouping. On the full external sumstats that dict grows with the genome-wide lead count and
+OOM-killed the WDL `report` task (6 GB): the parent process died mid-prefetch and the Pool
+workers reported `BrokenPipeError` (a symptom of the parent dying, not a worker fault).
+
+`ld_grouping` now fetches LD **lazily, one batch of leads at a time** in significance order
+(`LD_FETCH_BATCH`, default 500), keeping the worker pool alive across batches
+(`LDAccess.make_fetcher`). Peak memory is bounded to ~one batch regardless of genome size, and
+leads that get consumed as partners before their turn are never fetched. Output is identical
+to the prefetch path (600-scenario equivalence test; `top.out` byte-identical; `report.out`
+content-identical — its row order is nondeterministic run-to-run because parallel
+`imap_unordered` fetch order propagates into report generation, independent of this change).
+
+| chr21 (696 leads) | prefetch-all | lazy batched |
+|---|---|---|
+| peak RSS | ~414 MB | **~344 MB** |
+| leads fetched | 696 | **571** (125 consumed first) |

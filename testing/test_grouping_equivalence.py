@@ -80,8 +80,12 @@ class TestGreedyEquivalence(unittest.TestCase):
         # pass independent copies so neither implementation can perturb the other
         ref = reference_ld_group({k: list(v) for k, v in p1.items()},
                                  {k: list(v) for k, v in p2.items()}, ld, options)
+        # lazy batched fetch: wrap the precomputed cache as a lookup. small batch_size here
+        # exercises the multi-batch / consumed-before-fetch paths.
+        lookup = lambda leads: {l: ld[l] for l in leads}
         new = _greedy_ld_group({k: list(v) for k, v in p1.items()},
-                               {k: list(v) for k, v in p2.items()}, ld, options)
+                               {k: list(v) for k, v in p2.items()}, lookup, options,
+                               batch_size=3)
         self.assertEqual(loci_key(ref), loci_key(new))
 
     def test_random_overlap(self):
