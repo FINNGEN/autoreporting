@@ -63,8 +63,10 @@ def generate_chrom_ranges(variants:set[Variant],maximum_range_length:Optional[in
                 # if we have started, and the region is too long, we wrap up range.
                 else:
                     chr_d[c].append(Region(c,region_start,region_end))
-                    #if we reset both to -1, then it starts with the next variant correctly.
-                    region_start = v.pos
+                    # start the new subrange at pos-1: tabix fetch is half-open [start,end),
+                    # so a variant at 1-based pos sits at 0-based pos-1 and must be included
+                    # (using pos here dropped every subrange-starting variant from annotation)
+                    region_start = max(v.pos-1,0)
                     region_end = v.pos
             if region_end != -1 and region_start != -1:
                 chr_d[c].append(Region(c,region_start,region_end))
