@@ -149,7 +149,9 @@ gws_path |  Path to the tabixed and bgzipped summary statistic that is going to 
 --ld-panel-path | path to the LD panel, without panel file suffix. LD panel must be in plink's .bed format, as a single file. Accompanying .bim and .fam files must be in the same directory. | --ld-panel-path path_to_panel/plink_file 
 --ld-r2 | plink clump-r2 argument, default 0.4 | --ld-r2 0.7 
 --dynamic-r2-chisq | If flag is passed, r2 threshold is set per peak so that leadvar_chisq*r2=value (default 5). | --dynamic-r2-chisq 
---ld-api | choose which LD calculation method you want to use. `online` requires no ld panel or plink usage. `plink` uses plink to calculate LD. | --ld-api plink \| online 
+--ld-api | choose which LD calculation method you want to use. `online` requires no ld panel or plink usage. `plink` uses plink to calculate LD. `tabix` reads LD from pre-computed tabix-indexed files. | --ld-api plink \| online \| tabix 
+--ld-workers | tabix LD only: number of worker processes used to prefetch LD in parallel. Default: number of CPUs. Set to 1 for serial fetching. | --ld-workers 8 
+--ld-assume-variant1-indexed / --no-ld-assume-variant1-indexed | tabix LD only: assume the LD file is indexed by variant1 position (true for the finngen LD panels), enabling a much narrower (1bp) fetch per lead. On by default; pass --no-ld-assume-variant1-indexed for a panel not indexed by variant1 position. | --no-ld-assume-variant1-indexed 
 --plink-memory | plink --memory argument. Default 12000 | --plink-memory 16000 
 --overlap | If this flag is supplied, the groups of gws variants are allowed to overlap, i.e. a single variant can appear multiple times in different groups. | --overlap 
 --ignore-region| One can make the script ignore a given region in the genome, e.g. to remove HLA region from the results. The region is given in "CHR:START-END"-format. | --ignore-region 6:1-100000000 

@@ -4,13 +4,68 @@ from grouping_model import CSInfo,  Var, CSLocus, Locus, GroupingOptions, Groupi
 from load_tabix import TabixResource
 from data_access.db import Variant,CS, CSAccess, CSVariant, LDAccess
 from data_access.csfactory import csfactory
-from time_decorator import timefunc
+from time_decorator import timefunc, timed
 
-def ld_threshold(ld_thresh:float, mode: LDMode,pval:float)->float:
+# number of lead variants whose LD is fetched per batch in ld_grouping. Bounds peak memory:
+# only one batch of LD is held at a time, instead of the whole genome's LD prefetched up front
+# (which OOMs the WDL task on many-signal sumstats). Leads consumed as partners before their
+# turn are never fetched.
+LD_FETCH_BATCH = 500
+
+def ld_threshold(ld_thresh:float, mode: LDMode,pval:float, pval_is_mlog10p:bool=False)->float:
     if mode.value == LDMode.DYNAMIC.value:
-        return float(min(ld_thresh/stats.chi2.isf(pval,df=1),1.0))
+        raw_pval = max(10**(-pval), 5e-324) if pval_is_mlog10p else pval
+        return float(min(ld_thresh/stats.chi2.isf(raw_pval,df=1),1.0))
     else:
         return ld_thresh
+
+def _passes_threshold(value:float, threshold:float, pval_is_mlog10p:bool)->bool:
+    """Check if value passes significance threshold.
+    For raw pval: value < threshold (smaller = more significant).
+    For mlog10p: value > threshold (larger = more significant).
+    """
+    return value > threshold if pval_is_mlog10p else value < threshold
+
+def _passes_threshold_eq(value:float, threshold:float, pval_is_mlog10p:bool)->bool:
+    """Like _passes_threshold but inclusive (<=  or >=)."""
+    return value >= threshold if pval_is_mlog10p else value <= threshold
+
+def _sort_most_significant_last(items, key, pval_is_mlog10p:bool):
+    """Sort so most significant variant is last (for stack popping).
+    For raw pval: ascending sort reversed (smallest pval last).
+    For mlog10p: ascending sort (largest mlog10p last).
+    """
+    return sorted(items, key=key, reverse=not pval_is_mlog10p)
+
+def _load_variants_by_chrom(summstat_resource: TabixResource, variants, data_columns:List[str],
+                            max_gap:int=1_000_000) -> Dict[Variant,List[str]]:
+    """Load data_columns for many variants with one tabix fetch per cluster of nearby
+    variants instead of one fetch per variant. Variants on a chromosome are sorted and split
+    into clusters wherever the gap between consecutive positions exceeds max_gap, bounding
+    each fetch span so a chromosome-wide spread doesn't pull the whole chromosome into memory.
+    Returns {Variant: [cols...]} for the requested variants found in the file.
+    """
+    by_chrom: Dict[str,List[Variant]] = {}
+    for v in variants:
+        by_chrom.setdefault(v.chrom, []).append(v)
+    out: Dict[Variant,List[str]] = {}
+    for chrom, vs in by_chrom.items():
+        want = set(vs)
+        positions = sorted(set(v.pos for v in vs))
+        clusters = []
+        start = prev = positions[0]
+        for p in positions[1:]:
+            if p - prev > max_gap:
+                clusters.append((start, prev))
+                start = p
+            prev = p
+        clusters.append((start, prev))
+        for lo, hi in clusters:
+            region = summstat_resource.load_region(chrom, lo, hi+1, data_columns)
+            for var, data in region.items():
+                if var in want:
+                    out[var] = data
+    return out
 
 def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api: LDAccess, options: GroupingOptions) -> Dict[Variant,List[Var]]:
     """Return ld partners for credible sets. Returned as a dictionary of lead var -> ld partner keys & values
@@ -18,24 +73,27 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
     output = {}
     #create list of credible set lead variants
     cs_lead_vars = [a.lead for a in credsets]
-    #load pvals from summstat
+    #load pvals from summstat (one fetch per cluster of nearby leads instead of one per lead)
+    fetched = _load_variants_by_chrom(summstat_resource, cs_lead_vars, [options.column_names.pval])
     cs_pvals = {}
     for c in cs_lead_vars:
-        r_c = c.chrom
-        r_s = c.pos
-        r_e = c.pos+1
-        d = summstat_resource.load_region(r_c,r_s,r_e,[options.column_names.pval])
         try:
-            cs_pvals[c] = float(d[c][0])
+            cs_pvals[c] = float(fetched[c][0])
         except:
             raise Exception(f"Fatal Error: Credible set lead variant {c} was not found in the summary statistic resource. Can not continue.")
-    csleads_by_pval = sorted([(key,value)for key,value in cs_pvals.items()],key=lambda x:x[1])
+    csleads_by_pval = sorted([(key,value)for key,value in cs_pvals.items()],key=lambda x:x[1],
+        reverse=options.pval_is_mlog10p)
     variants_that_can_not_be_included:set[Variant] = set()
-    for lead_var,lead_pval in csleads_by_pval:
+    #prefetch LD for all cs leads in parallel (threshold 0), apply dynamic threshold in-memory below
+    total_cs = len(csleads_by_pval)
+    print(f"credible_grouping: prefetching LD for {total_cs} credible set leads with {options.ld_workers} worker(s)", flush=True)
+    ld_cache = ld_api.get_ranges([lv for lv,_ in csleads_by_pval], options.range, workers=options.ld_workers)
+    for cs_idx,(lead_var,lead_pval) in enumerate(csleads_by_pval,1):
+        print(f"credible_grouping: credible set {cs_idx}/{total_cs}", flush=True)
         # get LD partners
         #dynamic/static r2 thresh decision
-        ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_pval)
-        ld_partners = ld_api.get_range(lead_var,options.range,ld_thresh)
+        ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_pval,options.pval_is_mlog10p)
+        ld_partners = [a for a in ld_cache[lead_var] if a.r2 > ld_thresh]
         ld_partners = [a for a in ld_partners if a.variant1 == lead_var]
         # get locus in summary statistic
         summstat_data = {}
@@ -45,7 +103,7 @@ def credible_grouping(credsets:List[CS],summstat_resource: TabixResource,ld_api:
             except:
                 continue
         #filter by p-value
-        summstat_data = {a:b for a,b in summstat_data.items() if b["pval"]<= options.p2_threshold}
+        summstat_data = {a:b for a,b in summstat_data.items() if _passes_threshold_eq(b["pval"], options.p2_threshold, options.pval_is_mlog10p)}
         #filter ld partners by summstat_data.
         #   Easiest option is using in dict keys, if not the most performant. 
         #   However, I don't know the performance of these different options -> just do it one way and worry about it later.
@@ -111,29 +169,36 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
     ## load p1 and p2 filtered variants from summary statistic
     hd = summstat_resource.header
     hdi = {a:i for i,a in enumerate(hd)}
-    for l in summstat_resource.fileobject.fetch():
-        cols = l.split("\t")
+    # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+    i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
+                                          hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
+    for cols in summstat_resource.fetch_all_tuples():
         try:
-            pval = float(cols[hdi[cpra[4]]])
-            beta = float(cols[hdi[cpra[5]]])
+            pval = float(cols[i_pval])
         except:
             continue
-        if pval < options.p2_threshold:
+        if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
+            # beta only needed for rows that pass p2; most genome-wide rows don't
+            try:
+                beta = float(cols[i_beta])
+            except:
+                continue
+            chrom = cols[i_c]
             var = Var(Variant(
-                cols[hdi[cpra[0]]],
-                int(cols[hdi[cpra[1]]]),
-                cols[hdi[cpra[2]]],
-                cols[hdi[cpra[3]]]),
+                chrom,
+                int(cols[i_p]),
+                cols[i_r],
+                cols[i_a]),
                 pval,
                 beta,
                 None
             )
-            p2_piles[cols[hdi[cpra[0]]]].append(var)
-            if pval < options.p1_threshold:
-                p1_piles[cols[hdi[cpra[0]]]].append(var)
+            p2_piles[chrom].append(var)
+            if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
+                p1_piles[chrom].append(var)
     for chrom in p1_piles.keys():
 
-        p1_pile = sorted(p1_piles[chrom],key=lambda x: (x.pval,x.id.chrom,x.id.pos),reverse=True)
+        p1_pile = _sort_most_significant_last(p1_piles[chrom],key=lambda x: (x.pval,x.id.chrom,x.id.pos), pval_is_mlog10p=options.pval_is_mlog10p)
         p2_pile = p2_piles[chrom]
         while p1_pile:
             lead_var = p1_pile.pop()
@@ -149,6 +214,86 @@ def simple_grouping(summstat_resource:TabixResource, options:GroupingOptions) ->
             output.append(PeakLocus(lead_var,p2_rangevars,Grouping.RANGE))
     return output
 
+def _greedy_ld_group(p1_piles: Dict[str,List[Var]], p2_piles: Dict[str,List[Var]],
+                     ld_lookup, options: GroupingOptions,
+                     batch_size: int = LD_FETCH_BATCH) -> List[PeakLocus]:
+    """Greedy LD grouping with lazy, batched LD fetching.
+
+    `ld_lookup(leads)` returns {lead Variant -> list of LDData} (fetched at threshold 0).
+    Rather than prefetching every candidate lead up front (which holds the whole genome's LD
+    in memory at once), LD is fetched in significance order one batch at a time: only leads
+    that are still candidate representatives when their turn comes are fetched, and at most one
+    batch of LD is held, bounding peak memory. Output (leads, partner sets, r2 values, partner
+    order) is identical to prefetching all leads — the fetch is the same, only its timing and
+    lifetime differ.
+
+    Like the original, this avoids per-iteration list rebuilds: p2 is indexed by variant id
+    once and consumed variants are tracked in a set.
+    """
+    output: List[PeakLocus] = []
+    total_p1 = sum(len(v) for v in p1_piles.values())
+    locus_num = 0
+    fetched = 0
+    for seq in p1_piles.keys():
+        # most significant variant last, so reversed() walks most -> least significant
+        p1_pile = _sort_most_significant_last(p1_piles[seq],key=lambda x: x.pval,
+                                              pval_is_mlog10p=options.pval_is_mlog10p)
+        order = list(reversed(p1_pile))  # most -> least significant
+        p2_pile = p2_piles[seq]
+        # index p2 by variant id, keeping original (file) order so partner lists match
+        # the old p2-order output exactly
+        p2_by_id: Dict[Variant,Var] = {}
+        p2_order: Dict[Variant,int] = {}
+        for i,a in enumerate(p2_pile):
+            p2_by_id[a.id] = a
+            p2_order[a.id] = i
+        # variants claimed as LD partners of an already-processed (more significant) lead:
+        # excluded from being future leads (always) and from being partners again (non-overlap)
+        consumed: set[Variant] = set()
+        # holds LD only for the current batch of upcoming leads; entries are dropped as soon as
+        # a lead is processed or consumed, so memory stays bounded to ~one batch
+        batch_cache: Dict[Variant,List] = {}
+        for idx, lead_var in enumerate(order):
+            lead_variant = lead_var.id
+            if lead_variant in consumed:
+                batch_cache.pop(lead_variant, None)
+                continue
+            if lead_variant not in batch_cache:
+                # fetch LD for the next batch of still-candidate, not-yet-fetched leads
+                # (in significance order starting here, so this lead is always included)
+                batch = []
+                for j in range(idx, len(order)):
+                    vid = order[j].id
+                    if vid in consumed or vid in batch_cache:
+                        continue
+                    batch.append(vid)
+                    if len(batch) >= batch_size:
+                        break
+                batch_cache.update(ld_lookup(batch))
+                fetched += len(batch)
+                print(f"ld_grouping: LD fetched for {fetched} lead representative(s) "
+                      f"(chr{seq})", flush=True)
+            locus_num += 1
+            print(f"ld_grouping: locus {locus_num}/{total_p1} (chr{seq})", flush=True)
+            ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval,options.pval_is_mlog10p)
+            # apply per-lead threshold to the (threshold-0) fetched entry; dict keeps the last
+            # r2 per variant2, matching the old index-dict behavior. pop to release it.
+            entry = batch_cache.pop(lead_variant)
+            r2_by_v2 = {a.variant2:a.r2 for a in entry
+                        if a.r2 > ld_thresh and a.variant1 == lead_variant and a.variant2 != lead_variant}
+            # partners must be in p2 and, unless overlap, not already consumed; keep p2 order
+            partner_ids = [v2 for v2 in r2_by_v2
+                           if v2 in p2_by_id and (options.overlap or v2 not in consumed)]
+            partner_ids.sort(key=lambda v: p2_order[v])
+            ld_partners = [Var(v2,p2_by_id[v2].pval,p2_by_id[v2].beta,r2_by_v2[v2]) for v2 in partner_ids]
+            # every LD partner of this lead is removed from future lead/partner consideration;
+            # drop any that were prefetched into the batch but won't be processed now
+            consumed.update(r2_by_v2.keys())
+            for v2 in r2_by_v2:
+                batch_cache.pop(v2, None)
+            output.append(PeakLocus(lead_var,ld_partners,Grouping.LD))
+    return output
+
 def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:GroupingOptions)->List[PeakLocus]:
     """Form autoreporting groups with LD grouping
     """
@@ -158,7 +303,6 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     # Then, keep up a list of variants that can not be added to groups since they have been eliminated.
     # in that case, actually should have all p1 vars in p2 pile.
     ## Init variables
-    output = []
     p1_piles:Dict[str,List[Var]] = {}
     p2_piles:Dict[str,List[Var]] = {}
     for s in summstat_resource.sequences:
@@ -175,62 +319,51 @@ def ld_grouping(summstat_resource: TabixResource,ld_api:LDAccess,options:Groupin
     ## load p1 and p2 filtered variants from summary statistic
     hd = summstat_resource.header
     hdi = {a:i for i,a in enumerate(hd)}
-    for l in summstat_resource.fileobject.fetch():
-        cols = l.split("\t")
-        try:
-            pval = float(cols[hdi[cpra[4]]])
-            beta = float(cols[hdi[cpra[5]]])
-        except:
-            continue
-        if pval < options.p2_threshold:
-            var = Var(Variant(
-                cols[hdi[cpra[0]]],
-                int(cols[hdi[cpra[1]]]),
-                cols[hdi[cpra[2]]],
-                cols[hdi[cpra[3]]]),
-                pval,
-                beta,
-                1.0
-            )
-            p2_piles[cols[hdi[cpra[0]]]].append(var)
-            if pval < options.p1_threshold:
-                p1_piles[cols[hdi[cpra[0]]]].append(var)
-    for seq in p1_piles.keys():
-        ## order p1 pile to be a stack with most significant variant at the top (i.e. last value)
-        p1_pile = sorted(p1_piles[seq],key=lambda x: x.pval,reverse=True)
-        p2_pile = p2_piles[seq]
-        ## Grouping algorithm
-        while p1_pile:
-            lead_var = p1_pile.pop()
-            lead_variant = lead_var.id
-            #static/dynamic r2
-            ld_thresh = ld_threshold(options.r2_threshold,options.ld_mode,lead_var.pval)
-            ld_data = ld_api.get_range(lead_variant,options.range,ld_thresh)
-            ld_data = [a for a in ld_data if (a.variant1 == lead_variant) and (a.variant2 != lead_variant)]
-            ld_data_varset = set([a.variant2 for a in ld_data])
-            #filter p2 pile by ld data. 
-            ld_partners= [a for a in p2_pile if a.id in ld_data_varset]
-            ## ld_partner_set = set(ld_partners)
-            #Now, ld_partner_idscontains all of the required ld partners:
-            # The definition for ld partners is 1) pval < p2_threshold, 2) in sufficient LD with the lead var
-            # could also be done by loading a tabix region for each of the LD regions... oh well
-            #join r2 value from ld_data to ld partners
-            #first, do a index dict
-            ld_index_dict = {a.variant2:i for i,a in enumerate(ld_data) }
-            #after that getting the right LD value from ld data is trivial, since the LD data is filtered to be variant1 = lead variant
-            ld_partners = [Var(a.id,a.pval,a.beta,ld_data[ld_index_dict[a.id]].r2) for a in ld_partners]
-            #filter all p2 variants out of p1 variants. This along with the pop in the beginning ensures convergence
-            p1_pile = [a for a in p1_pile if a.id not in ld_data_varset]
-            #if not overlap, filter the p2_pile not to contain the already joined ld partners.
-            if not options.overlap:
-                p2_pile = [a for a in p2_pile if a.id not in ld_data_varset]
-            ## Form locus
-            output.append(PeakLocus(
-                lead_var,
-                ld_partners,
-                Grouping.LD
-            ))
-    return output
+    # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+    i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
+                                          hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
+    with timed("ld_grouping: parse sumstat"):
+        for cols in summstat_resource.fetch_all_tuples():
+            try:
+                pval = float(cols[i_pval])
+            except:
+                continue
+            if _passes_threshold(pval, options.p2_threshold, options.pval_is_mlog10p):
+                # beta only needed for rows that pass p2; most genome-wide rows don't
+                try:
+                    beta = float(cols[i_beta])
+                except:
+                    continue
+                chrom = cols[i_c]
+                var = Var(Variant(
+                    chrom,
+                    int(cols[i_p]),
+                    cols[i_r],
+                    cols[i_a]),
+                    pval,
+                    beta,
+                    1.0
+                )
+                p2_piles[chrom].append(var)
+                if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
+                    p1_piles[chrom].append(var)
+    # LD is fetched lazily in significance order, one batch of leads at a time, inside the
+    # greedy loop (see _greedy_ld_group). This bounds peak memory to one batch instead of
+    # holding every candidate lead's LD at once (which OOMs the WDL task on many-signal
+    # sumstats), and skips leads consumed as partners before their turn. Fetched at threshold
+    # 0 so the per-lead dynamic threshold can be applied in memory. The fetcher keeps its
+    # worker pool alive across batches so per-batch parallelism doesn't re-pay pool setup.
+    total_p1 = sum(len(v) for v in p1_piles.values())
+    total_p2 = sum(len(v) for v in p2_piles.values())
+    print(f"ld_grouping: {total_p1} candidate leads (p1), {total_p2} partner candidates (p2)", flush=True)
+    print(f"ld_grouping: lazy batched LD fetch (batch={LD_FETCH_BATCH}, {options.ld_workers} worker(s))", flush=True)
+    fetcher = ld_api.make_fetcher(options.ld_workers)
+    try:
+        with timed("ld_grouping: greedy grouping (lazy batched LD fetch)"):
+            return _greedy_ld_group(p1_piles, p2_piles,
+                                    lambda leads: fetcher.fetch(leads, options.range), options)
+    finally:
+        fetcher.close()
 
 def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptions)->List[Var]:
     p1_pile = []
@@ -244,19 +377,25 @@ def filter_gws_variants(summstat_resource: TabixResource, options: GroupingOptio
     ]
     hd = summstat_resource.header
     hdi = {a:i for i,a in enumerate(hd)}
-    for l in summstat_resource.fileobject.fetch():
-        cols = l.split("\t")
+    # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+    i_c, i_p, i_r, i_a, i_pval, i_beta = (hdi[cpra[0]], hdi[cpra[1]], hdi[cpra[2]],
+                                          hdi[cpra[3]], hdi[cpra[4]], hdi[cpra[5]])
+    for cols in summstat_resource.fetch_all_tuples():
         try:
-            pval = float(cols[hdi[cpra[4]]])
-            beta = float(cols[hdi[cpra[5]]])
+            pval = float(cols[i_pval])
         except:
             continue
-        if pval < options.p1_threshold:
+        if _passes_threshold(pval, options.p1_threshold, options.pval_is_mlog10p):
+            # beta only needed for rows that pass the threshold
+            try:
+                beta = float(cols[i_beta])
+            except:
+                continue
             var = Var(Variant(
-                cols[hdi[cpra[0]]],
-                int(cols[hdi[cpra[1]]]),
-                cols[hdi[cpra[2]]],
-                cols[hdi[cpra[3]]]),
+                cols[i_c],
+                int(cols[i_p]),
+                cols[i_r],
+                cols[i_a]),
                 pval,
                 beta,
                 None
@@ -287,22 +426,32 @@ def form_groups(summstat_resource: TabixResource, gr_opts:GroupingOptions, cs_ac
             raise Exception(f"Credible set grouping mode set, but credible set file was not provided or it was not loaded correctly!")
         ### Constructing valid credible sets
         cs_variants = list(set([a.variant for credset in cs for a in credset.variants]))
+        #one fetch per cluster of nearby cs variants instead of one per variant
         cs_pvalbetadict = {}
-        for v in cs_variants:
-            for var, data in summstat_resource.load_region(v.chrom,v.pos,v.pos+1,[gr_opts.column_names.pval,gr_opts.column_names.beta]).items():
-                try:
-                    cs_pvalbetadict[var] = [float(d) for d in data]
-                except:
-                    continue
+        fetched_cs = _load_variants_by_chrom(summstat_resource, cs_variants,
+            [gr_opts.column_names.pval,gr_opts.column_names.beta])
+        for var, data in fetched_cs.items():
+            try:
+                cs_pvalbetadict[var] = [float(d) for d in data]
+            except:
+                continue
         cs_groups = {}
         cs_infos = {}
+        #prefetch internal-CS LD per lead (each cs uses its own range), in parallel
+        lead_ranges = {}
+        for c in cs:
+            rng = max([abs(c.lead.pos - a.variant.pos) for a in c.variants])+5000
+            lead_ranges[c.lead] = max(lead_ranges.get(c.lead,0), rng)
+        cs_lead_list = list(lead_ranges.keys())
+        print(f"cs_grouping: prefetching LD for {len(cs_lead_list)} credible set leads with {gr_opts.ld_workers} worker(s)", flush=True)
+        cs_ld_cache = ld_access.get_ranges(cs_lead_list, 0,
+            bp_ranges=[lead_ranges[l] for l in cs_lead_list], workers=gr_opts.ld_workers)
         #get pval, beta, r2 for credible set variants
         for c in cs:
             #gather ld data
             c_variants = set([a.variant for a in c.variants])
-            max_range = max([abs(c.lead.pos - a.variant.pos) for a in c.variants])+5000
-            #susie might not have LD so calculate it here
-            ld_data = ld_access.get_range(c.lead,max_range,0.0)
+            #susie might not have LD so it was prefetched above
+            ld_data = cs_ld_cache[c.lead]
             ld_data = [a for a in ld_data if ( (a.variant1 == c.lead) and (a.variant2 in c_variants))  ]
             ld_dict = {a.variant2:a.r2 for a in ld_data}
 

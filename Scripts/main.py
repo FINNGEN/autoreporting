@@ -7,9 +7,12 @@ from grouping_model import Grouping, LDMode, PhenoData, SummstatColumns,Grouping
 from group_annotation import CSAnnotation, ExtraColAnnotation, FunctionalAnnotation, PreviousReleaseAnnotation, PreviousReleaseOptions, FGAnnotation, annotate, CatalogAnnotation, Gnomad4Annotation
 from phenoinfo import get_phenotype_data, PhenoInfoOptions
 from load_tabix import tb_resource_manager,TabixOptions
+from time_decorator import timed
 from data_access.csfactory import csfactory
 from typing import Optional, List
+import math
 import os
+import multiprocessing
 
 
 def groupingModeFactory(method:str,group:bool):
@@ -30,6 +33,11 @@ def ldModeFactory(ld_chisq):
     return LDMode.CONSTANT
 
 def main(args):
+    if getattr(args, "stage_timing", False):
+        # gate the [STAGE] wall-clock logs in time_decorator.timed (off by default so
+        # production WDL runs stay quiet); set before any timed() block runs, including
+        # those deep in grouping (they run in this process)
+        os.environ["AUTOREP_STAGE_TIMING"] = "1"
     print("input file: {}".format(args.gws_fpath))
     ### Construct options & resources
     # grouping mode
@@ -44,6 +52,8 @@ def main(args):
         r2_threshold = args.dynamic_r2_chisq
     else:
         r2_threshold = args.ld_r2
+    # number of worker processes for parallel tabix LD fetching
+    ld_workers = args.ld_workers if args.ld_workers else multiprocessing.cpu_count()
     # ld resource
     ld_api=None
     if args.grouping_method != "simple":
@@ -52,19 +62,32 @@ def main(args):
         elif args.ld_api_choice == "online":
             ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
         elif args.ld_api_choice == "tabix":
-            ld_api = TabixLD(args.ld_panel_path)
+            ld_api = TabixLD(args.ld_panel_path,assume_variant1_indexed=args.ld_assume_variant1_indexed)
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     args.sig_treshold_2 = max(args.sig_treshold, args.sig_treshold_2)
+    # when pval column contains -log10(p), convert thresholds to mlog10p scale
+    pval_is_mlog10p = getattr(args, 'pval_is_mlog10p', False)
+    if pval_is_mlog10p:
+        p1 = -math.log10(args.sig_treshold)
+        p2 = -math.log10(args.sig_treshold_2)
+        sig_for_report = -math.log10(args.sig_treshold)
+        print(f"mlog10p mode: thresholds converted to {p1:.4f} (primary) and {p2:.4f} (secondary)")
+    else:
+        p1 = args.sig_treshold
+        p2 = args.sig_treshold_2
+        sig_for_report = args.sig_treshold
     gr_opts = GroupingOptions(args.gws_fpath,
         gr_mode,
         column_names,
         loc_range,
         ld_mode,
         r2_threshold,
-        args.sig_treshold,
-        args.sig_treshold_2,
-        args.overlap
+        p1,
+        p2,
+        args.overlap,
+        pval_is_mlog10p,
+        ld_workers
     )
 
     ### Annotation resources
@@ -118,13 +141,14 @@ def main(args):
 
     ### Report options
     top_report_options = TopReportOptions(args.strict_group_r2,
-        args.sig_treshold,
+        sig_for_report,
         gr_mode,
         args.efo_traits,
         args.extra_cols,
         ld_mode,
-        r2_threshold)
-    variant_report_options = VariantReportOptions(column_names,args.extra_cols,False)
+        r2_threshold,
+        pval_is_mlog10p)
+    variant_report_options = VariantReportOptions(column_names,args.extra_cols,False,pval_is_mlog10p,args.finngen_variants_only)
 
     ### create resources for grouping
     # cs resource
@@ -162,19 +186,36 @@ def main(args):
         gr_opts.column_names.a) as summstat_resource:
         
         ### group
-        loci = form_groups(summstat_resource,gr_opts,cs_access,ld_api)
-        
+        with timed("form_groups (grouping + LD)"):
+            loci = form_groups(summstat_resource,gr_opts,cs_access,ld_api)
+
         ### create phenotype
         phenodata = PhenoData(phenotype_info,loci)
         ### annotate
-        phenodata = annotate(phenodata,annotation_resources)
+        with timed("annotate"):
+            phenodata = annotate(phenodata,annotation_resources)
+        ### filter out loci with non-FinnGen lead variants if requested
+        if args.finngen_variants_only:
+            fg_name = FGAnnotation.get_name()
+            if fg_name in phenodata.annotations:
+                fg_variants = set(phenodata.annotations[fg_name].keys())
+                before = len(phenodata.loci)
+                phenodata.loci = [l for l in phenodata.loci if l.get_vars().lead.id in fg_variants]
+                after = len(phenodata.loci)
+                if before != after:
+                    print(f"--finngen-variants-only: removed {before - after} loci with non-FinnGen lead variants ({after} remaining)")
+            else:
+                print("WARNING: --finngen-variants-only set but no FinnGen annotation provided, no loci filtered")
+
         ### create report
 
         report_fname = create_fname(args.report_out,args.prefix)
         top_fname = create_fname(args.top_report_out,args.prefix)
         with open(report_fname,"w") as report_file, open(top_fname,"w") as top_file:
-            generate_variant_report(phenodata,report_file,variant_report_options,annotation_resources)
-            generate_top_report(phenodata,top_file,top_report_options,annotation_resources)
+            with timed("generate_variant_report"):
+                generate_variant_report(phenodata,report_file,variant_report_options,annotation_resources)
+            with timed("generate_top_report"):
+                generate_top_report(phenodata,top_file,top_report_options,annotation_resources)
     
 
 def create_fname(path:str,prefix:str)->str:
@@ -204,10 +245,14 @@ if __name__=="__main__":
     parser.add_argument("--ignore-region",dest="ignore_region",type=str,default="",help="Ignore the given region, e.g. HLA region, from analysis. Give in CHROM:BPSTART-BPEND format.")
     parser.add_argument("--credible-set-file",dest="cred_set_file",type=str,default="",help="bgzipped SuSiE credible set file.")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",choices=["plink","online","tabix"],help="LD interface to use. Valid options are 'plink', 'online' and 'tabix'.")
+    parser.add_argument("--ld-workers",dest="ld_workers",type=int,default=None,help="Number of worker processes for parallel tabix LD fetching. Default: number of CPUs. Set to 1 for serial fetching.")
+    parser.add_argument("--ld-assume-variant1-indexed",dest="ld_assume_variant1_indexed",action=argparse.BooleanOptionalAction,default=True,help="Tabix LD only: assume the LD file is indexed by variant1 position (true for the finngen LD panels), enabling a much narrower (1bp) fetch per lead. On by default; pass --no-ld-assume-variant1-indexed for a panel not indexed by variant1 position.")
     parser.add_argument("--pheno-name",dest="pheno_name",type=str,default="",help="Phenotype name")
     parser.add_argument("--pheno-info-file",dest="pheno_info_file",type=str,default="",help="Phenotype information file path")
     parser.add_argument("--extra-cols",dest="extra_cols",nargs="*",default=[],help="extra columns in the summary statistic you want to add to the results")
     parser.add_argument("--column-labels",dest="column_labels",metavar=("CHROM","POS","REF","ALT","PVAL","BETA"),nargs=6,default=["#chrom","pos","ref","alt","pval","beta"],help="Names for data file columns. Default is '#chrom pos ref alt pval beta'.")
+    parser.add_argument("--pval-is-mlog10p",dest="pval_is_mlog10p",action="store_true",default=False,help="If set, the pval column contains -log10(p) values instead of raw p-values. Thresholds are automatically converted.")
+    parser.add_argument("--finngen-variants-only",dest="finngen_variants_only",action="store_true",default=False,help="If set, exclude variants not found in FinnGen annotation from outputs. Loci with non-FinnGen lead variants are dropped entirely.")
     
     #annotate
     parser.add_argument("--gnomad-path",dest="gnomad_path",type=str,help="Gnomad 4 annotation filepath")
@@ -229,7 +274,8 @@ if __name__=="__main__":
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
-    
+    parser.add_argument("--stage-timing",dest="stage_timing",action="store_true",help="log [STAGE] wall-clock timings for the main pipeline stages (off by default)")
+
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."

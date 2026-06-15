@@ -109,19 +109,21 @@ class TabixResource:
                               f"Error occurred with region {sequence}:{start}-{end}"))
         
         col_idx = [self.hdi[a] for a in data_columns]
+        # hoist header->index lookups to int locals once instead of a dict lookup per column per row
+        i_c, i_p, i_r, i_a = (self.hdi[self.cpra[0]], self.hdi[self.cpra[1]],
+                              self.hdi[self.cpra[2]], self.hdi[self.cpra[3]])
         out = {}
 
         tries = 0
         while True:
             try:
-                iter = self.fileobject.fetch(sequence, max(start-1,0),end)
-                for l in iter:
-                    cols = l.split("\t")
+                iter = self.fileobject.fetch(sequence, max(start-1,0),end, parser=pysam.asTuple())
+                for cols in iter:
                     vid = Variant(
-                        cols[self.hdi[self.cpra[0]]],
-                        int(cols[self.hdi[self.cpra[1]]]),
-                        cols[self.hdi[self.cpra[2]]],
-                        cols[self.hdi[self.cpra[3]]],
+                        cols[i_c],
+                        int(cols[i_p]),
+                        cols[i_r],
+                        cols[i_a],
                     )
                     datacols = [cols[i] for i in col_idx]
                     out[vid] = datacols
@@ -137,6 +139,13 @@ class TabixResource:
                 self.restart_fileobject()
                 tries +=1
         return out
+
+    def fetch_all_tuples(self):
+        """Iterate the whole file as pre-split tuples (splitting done in C by pysam),
+        avoiding a Python-level l.split("\\t") per row. Each yielded row is indexable by
+        the integer column positions from self.hdi.
+        """
+        return self.fileobject.fetch(parser=pysam.asTuple())
 
     def close(self):
         self.fileobject.close()

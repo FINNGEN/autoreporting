@@ -1,9 +1,10 @@
 import shlex,subprocess, glob,os, time,sys
+import multiprocessing as mp
 from subprocess import PIPE
-from typing import List,  Optional
+from typing import Dict, List,  Optional
 import pandas as pd, numpy as np # type: ignore
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
-from data_access.db import LDAccess, LDData, Variant
+from data_access.db import LDAccess, LDData, LDFetcher, Variant
 import pysam
 
 MAX_RETRIES=7
@@ -108,9 +109,15 @@ class PlinkLD(LDAccess):
         return ld_data
 
 class TabixLD(LDAccess):
-    def __init__(self,path_template:str):
+    def __init__(self,path_template:str, assume_variant1_indexed:bool=True):
         self.token_refresh_time = time.time()
         self.path_template = path_template
+        # when True, fetch only a 1bp window at the lead position instead of the whole
+        # bp_range window. Valid only if the LD tabix is indexed by variant1's position
+        # (all of a lead's partner rows then sit at exactly that position) — true for the
+        # finngen LD panels, where it is the dominant speedup (avoids scanning the whole
+        # bp_range window). Defaults on; set False for a panel not indexed by variant1 pos.
+        self.assume_variant1_indexed = assume_variant1_indexed
         ## NOTE: we assume that data is in chromosomes 1..22,X, and that the files are named so
         chroms = [str(a).replace("23","X") for a in range(1,24)]
         paths={str(a):path_template.replace("{CHROM}",f"{a}") for a in chroms}
@@ -139,51 +146,114 @@ class TabixLD(LDAccess):
                 print("Refreshing GCS_AUTH_TOKEN",file=sys.stderr)
                 self.refresh_token()
                 self.token_refresh_time = current_time
-        variant_id=f"chr{variant.chrom.replace('chr','')}_{variant.pos}_{variant.ref}_{variant.alt}"
+        # chromosome spelling as stored in the file (X is "X", never "23")
+        chrom_clean = variant.chrom.replace("chr","")
+        file_chrom = "X" if chrom_clean in ("23","X") else chrom_clean
+        # variant1 id exactly as it appears in the file; lets us reject non-matching lines
+        # with a cheap substring test before paying for str.split, and avoids a per-row replace.
+        file_variant_id = f"chr{file_chrom}_{variant.pos}_{variant.ref}_{variant.alt}"
         start = max(0,variant.pos-bp_range)
         end = variant.pos+bp_range
-        sequence = variant.chrom.replace("23","X")
+        sequence = file_chrom
         if sequence not in self.sequences:
             raise Exception(f"Error in fetching LD for variant {variant}: File for chromosome {sequence} not in available files.")
         if not ld_threshold_:
             ld_threshold = 0.0
         else:
             ld_threshold = ld_threshold_
+        # when the file is indexed by variant1 pos, all rows for this lead sit at lead.pos,
+        # so a 1bp fetch suffices and avoids scanning every variant1 in the window.
+        if self.assume_variant1_indexed:
+            fetch_start = max(0,variant.pos-1)
+            fetch_end = variant.pos
+        else:
+            fetch_start = start
+            fetch_end = end
+        i_v1 = self.hdi["variant1"]
         data = []
         tries = 0
         while True:
             try:
                 data = []
-                iter = self.fileobjects[sequence].fetch(sequence, start,end)
+                iter = self.fileobjects[sequence].fetch(sequence, fetch_start,fetch_end)
                 for l in iter:
+                    # cheap reject: most rows in the window belong to other lead variants
+                    if file_variant_id not in l:
+                        continue
                     cols = l.split("\t")
-                    if cols[self.hdi["variant1"]].replace("chrX","chr23") == variant_id:
+                    if cols[i_v1] == file_variant_id:
                         data.append(cols)
                 break
             except:
-                print(f"Error loading data from region {sequence}:{start}-{end}",file=sys.stderr)
+                print(f"Error loading data from region {sequence}:{fetch_start}-{fetch_end}",file=sys.stderr)
                 #assume error is in accessing over gcp, so we retry
                 if tries > MAX_RETRIES:
-                    raise Exception(f"Accessing LD region {sequence}:{start}-{end} from file {self.paths[sequence]} failed after {tries} tries!")
-                
+                    raise Exception(f"Accessing LD region {sequence}:{fetch_start}-{fetch_end} from file {self.paths[sequence]} failed after {tries} tries!")
+
                 print(f"Error when accessing data from LD tabix file, assuming error is with access over GCP. Waiting {2**tries} seconds, recycling fileobject.",file=sys.stderr)
                 time.sleep(2**tries)
                 self.restart_fileobject(sequence)
                 tries +=1
 
+        # parse only the matched rows (outside the retry block, so parse errors don't trigger retries)
+        i_v2 = self.hdi["variant2"]
+        i_r2 = self.hdi["r2"]
         lddata = []
         variant1 = variant
         for d in data:
-            v2_str = d[self.hdi["variant2"]].split("_")
-            variant2 = Variant(v2_str[0].replace("chr","").replace("X","23"),int(v2_str[1]),v2_str[2],v2_str[3])
-            r2 = float(d[self.hdi["r2"]])
-            if variant2.pos < end and variant2.pos >= start and r2 > ld_threshold:
-                lddata.append(LDData(variant1,variant2,r2))
+            r2 = float(d[i_r2])
+            if r2 <= ld_threshold:
+                continue
+            v2_str = d[i_v2].split("_")
+            pos2 = int(v2_str[1])
+            if pos2 < start or pos2 >= end:
+                continue
+            variant2 = Variant(v2_str[0].replace("chr","").replace("X","23"),pos2,v2_str[2],v2_str[3])
+            lddata.append(LDData(variant1,variant2,r2))
         lddata.append(
             LDData(variant1,variant1,1.0)
         )
         return lddata
+
+    def get_ranges(self, variants: List[Variant], bp_range: int,
+                   thresholds: Optional[List[float]] = None,
+                   bp_ranges: Optional[List[int]] = None,
+                   workers: int = 1) -> Dict[Variant, List[LDData]]:
+        """Fetch LD for many leads, optionally across worker processes.
+
+        The LD result for a lead depends only on (lead, range, threshold), never on any
+        grouping state, so all fetches are independent and safe to parallelize. Pysam
+        TabixFile objects aren't picklable, so each worker re-opens its own files via the
+        Pool initializer.
+        """
+        tasks = []
+        for i, v in enumerate(variants):
+            r = bp_ranges[i] if bp_ranges is not None else bp_range
+            t = thresholds[i] if thresholds is not None else None
+            tasks.append((v, r, t))
+        total = len(tasks)
+        if workers is None or workers <= 1 or total <= 1:
+            return {v: self.get_range(v, r, t) for v, r, t in tasks}
+        # for gs:// panels make sure a fresh token exists to hand to the workers
+        if self.path_template.startswith("gs://"):
+            self.refresh_token()
+        gcs_token = os.environ.get("GCS_OAUTH_TOKEN")
+        n = min(workers, total)
+        chunksize = max(1, total // (n * 4))
+        out: Dict[Variant, List[LDData]] = {}
+        done = 0
+        with mp.Pool(n, initializer=_ld_worker_init,
+                     initargs=(self.path_template, self.assume_variant1_indexed, gcs_token)) as pool:
+            for variant, ld in pool.imap_unordered(_ld_worker_fetch, tasks, chunksize=chunksize):
+                out[variant] = ld
+                done += 1
+                if done % 500 == 0 or done == total:
+                    print(f"LD prefetch: {done}/{total} variants fetched", flush=True)
+        return out
         
+    def make_fetcher(self, workers: int = 1) -> LDFetcher:
+        return _PooledLDFetcher(self, workers)
+
     def refresh_token(self):
         tmp = subprocess.run(shlex.split("gcloud auth print-access-token"),capture_output=True,encoding="utf-8")
         os.environ["GCS_OAUTH_TOKEN"] = tmp.stdout.strip()
@@ -211,4 +281,52 @@ class TabixLD(LDAccess):
         #NOTE: always call close after the resource is no longer needed
         for _,b in self.fileobjects.items():
             b.close()
-        
+
+
+# per-worker TabixLD, opened once in each Pool worker (pysam file objects aren't picklable)
+_WORKER_LD: Optional[TabixLD] = None
+
+def _ld_worker_init(path_template, assume_variant1_indexed, gcs_token):
+    global _WORKER_LD
+    if gcs_token:
+        os.environ["GCS_OAUTH_TOKEN"] = gcs_token
+    _WORKER_LD = TabixLD(path_template, assume_variant1_indexed=assume_variant1_indexed)
+
+def _ld_worker_fetch(task):
+    variant, bp_range, threshold = task
+    return (variant, _WORKER_LD.get_range(variant, bp_range, threshold))
+
+
+class _PooledLDFetcher(LDFetcher):
+    """LDFetcher backed by a persistent worker pool. The pool is opened once (workers re-open
+    their tabix files in the initializer, the costly step for remote gs:// panels) and reused
+    for every batch, so lazy batched prefetch doesn't re-pay pool/file-open cost per batch.
+    Falls back to serial fetching when workers <= 1."""
+    def __init__(self, ld: "TabixLD", workers: int):
+        super().__init__(ld)
+        self.workers = workers
+        self.pool = None
+        if workers and workers > 1:
+            if ld.path_template.startswith("gs://"):
+                ld.refresh_token()
+            gcs_token = os.environ.get("GCS_OAUTH_TOKEN")
+            self.pool = mp.Pool(workers, initializer=_ld_worker_init,
+                                initargs=(ld.path_template, ld.assume_variant1_indexed, gcs_token))
+
+    def fetch(self, leads: List[Variant], bp_range: int) -> Dict[Variant, List[LDData]]:
+        if not leads:
+            return {}
+        if self.pool is None:
+            return {v: self.ld.get_range(v, bp_range, None) for v in leads}
+        tasks = [(v, bp_range, None) for v in leads]
+        chunksize = max(1, len(tasks) // (self.workers * 4))
+        out: Dict[Variant, List[LDData]] = {}
+        for variant, ld in self.pool.imap_unordered(_ld_worker_fetch, tasks, chunksize=chunksize):
+            out[variant] = ld
+        return out
+
+    def close(self):
+        if self.pool is not None:
+            self.pool.close()
+            self.pool.join()
+            self.pool = None

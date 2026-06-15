@@ -38,7 +38,7 @@ def is_strongest_association(var: Variant, loc_id: str, pval_threshold: float, r
     return True
 
 
-def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: str)->pd.DataFrame:
+def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: str, ld_workers: int = 1)->pd.DataFrame:
     """Calculate r2 between rows, and check if the locus it the strongest hit in region
     """
     #go through the data row by row
@@ -55,16 +55,23 @@ def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: 
     #create list of variants in our data
     list_of_datavars = [Variant(str(d.chrom),int(d.pos),str(d.ref),str(d.alt)) for d in data.itertuples()]
 
+    #prefetch LD for every locus in parallel; the loop below reads from cache
+    total_rows = len(list_of_datavars)
+    print(f"post_process: prefetching LD for {total_rows} loci with {ld_workers} worker(s)", flush=True)
+    ld_cache = ld_api.get_ranges(list_of_datavars, region_width, workers=ld_workers)
+
     for idx,dtuple in enumerate(data.itertuples()):
+        print(f"post_process: locus {idx+1}/{total_rows}", flush=True)
         #create easier to work with Variant from the row named tuple
-        variant = Variant(str(dtuple.chrom),int(dtuple.pos),dtuple.ref,dtuple.alt)
+        #str-wrap ref/alt to match the cache keys built from list_of_datavars
+        variant = Variant(str(dtuple.chrom),int(dtuple.pos),str(dtuple.ref),str(dtuple.alt))
 
 
         r2=0.0
         max_var = ""
 
         # Part 1: calculate r2
-        ld_data = ld_api.get_range(variant,region_width)
+        ld_data = ld_cache[variant]
 
         ld_max = max_r2_correlation(variant,list_of_datavars,ld_data)
 
@@ -89,18 +96,22 @@ if __name__=="__main__":
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink', 'online' and 'tabix'.")
     parser.add_argument("--ld-panel-path",required=True)
     parser.add_argument("--plink-memory",type=int,default=17000)
+    parser.add_argument("--ld-workers",dest="ld_workers",type=int,default=None,help="Number of worker processes for parallel tabix LD fetching. Default: number of CPUs. Set to 1 for serial fetching.")
+    parser.add_argument("--ld-assume-variant1-indexed",dest="ld_assume_variant1_indexed",action=argparse.BooleanOptionalAction,default=True,help="Tabix LD only: assume the LD file is indexed by variant1 position (true for the finngen LD panels), enabling a much narrower (1bp) fetch per lead. On by default; pass --no-ld-assume-variant1-indexed for a panel not indexed by variant1 position.")
     args=parser.parse_args()
     #load prerequisites
+    import multiprocessing
+    ld_workers = args.ld_workers if args.ld_workers else multiprocessing.cpu_count()
     ld_api=None
     if args.ld_api_choice == "plink":
         ld_api = linkage.PlinkLD(args.ld_panel_path,args.plink_memory)
     elif args.ld_api_choice == "online":
         ld_api = linkage.OnlineLD(url="http://api.finngen.fi/api/ld")
     elif args.ld_api_choice == "tabix":
-        ld_api = linkage.TabixLD(args.ld_panel_path)
+        ld_api = linkage.TabixLD(args.ld_panel_path,assume_variant1_indexed=args.ld_assume_variant1_indexed)
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     region_width_bp = args.region_width_kb*1000
     data=pd.read_csv(args.input_data,sep="\t")
     #calc & write output
-    main(data, region_width_bp, ld_api,args.output)
+    main(data, region_width_bp, ld_api,args.output, ld_workers)
