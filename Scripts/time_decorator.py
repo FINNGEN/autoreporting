@@ -1,3 +1,4 @@
+import os
 import time
 import functools
 import contextlib
@@ -18,7 +19,12 @@ def timefunc(f):
 @contextlib.contextmanager
 def timed(label):
     """Wall-clock timer for a stage, logged with a greppable [STAGE] prefix. Works across
-    multiprocessing (unlike cProfile, which only sees the main process)."""
+    multiprocessing (unlike cProfile, which only sees the main process). Off unless the
+    AUTOREP_STAGE_TIMING env var is truthy, so production runs stay quiet; main.py sets it
+    from --stage-timing and the local benchmark driver sets it for profiling runs."""
+    if os.environ.get("AUTOREP_STAGE_TIMING", "") in ("", "0"):
+        yield
+        return
     t0 = time.perf_counter()
     print(f"[STAGE] {label}: start", flush=True)
     try:

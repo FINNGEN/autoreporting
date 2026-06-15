@@ -33,6 +33,11 @@ def ldModeFactory(ld_chisq):
     return LDMode.CONSTANT
 
 def main(args):
+    if getattr(args, "stage_timing", False):
+        # gate the [STAGE] wall-clock logs in time_decorator.timed (off by default so
+        # production WDL runs stay quiet); set before any timed() block runs, including
+        # those deep in grouping (they run in this process)
+        os.environ["AUTOREP_STAGE_TIMING"] = "1"
     print("input file: {}".format(args.gws_fpath))
     ### Construct options & resources
     # grouping mode
@@ -269,7 +274,8 @@ if __name__=="__main__":
     parser.add_argument("--top-report-out",dest="top_report_out",type=str,default="top_report.tsv",help="Top level report filename.")
     parser.add_argument("--strict-group-r2",dest="strict_group_r2",type=float,default=0.5,help="R^2 threshold for including variants in strict groups in top report")
     parser.add_argument("--efo-codes",dest="efo_traits",type=str,nargs="+",default=[],help="Specific EFO codes to look for in the top level report")
-    
+    parser.add_argument("--stage-timing",dest="stage_timing",action="store_true",help="log [STAGE] wall-clock timings for the main pipeline stages (off by default)")
+
     args=parser.parse_args()
     if args.prefix!="":
         args.prefix=args.prefix+"."

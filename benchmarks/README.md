@@ -8,8 +8,10 @@ without Cromwell or docker.
 It resolves inputs from the WDL json (+ the input array tsv), tabix-slices the chosen
 chromosome straight from GCS (local pysam/htslib here has GCS support), runs
 `Scripts/main.py` on the slice (the LD panel stays remote), and prints a `pstats` summary
-when `--profile` is set. Stage timings are logged with a greppable `[STAGE]` prefix from
-`time_decorator.timed`.
+when `--profile` is set. This driver always surfaces the per-stage wall-clock timings
+(greppable `[STAGE]` prefix, from `time_decorator.timed`) by setting the
+`AUTOREP_STAGE_TIMING` env var for the run — independent of `--profile`. In production those
+`[STAGE]` logs are off by default and enabled with `main.py --stage-timing`.
 
 ## Usage
 
