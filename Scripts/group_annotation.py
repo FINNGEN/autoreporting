@@ -62,8 +62,7 @@ def generate_chrom_ranges(variants:set[Variant],maximum_range_length:Optional[in
                 # if we have started, and the region is too long, we wrap up range.
                 else:
                     chr_d[c].append(Region(c,region_start,region_end))
-                    #if we reset both to -1, then it starts with the next variant correctly.
-                    region_start = v.pos
+                    region_start = max(v.pos-1,0)
                     region_end = v.pos
             if region_end != -1 and region_start != -1:
                 chr_d[c].append(Region(c,region_start,region_end))
@@ -73,7 +72,7 @@ class TabixAnnotation(AnnotationSource):
     def __init__(self,opts: TabixOptions):
         self.cpra = [opts.c,opts.p,opts.r,opts.a]
         self.fname = opts.fname
-        self.variant_switch = 100_000
+        self.variant_switch = 5000
         with tb_resource_manager(self.fname,opts.c,opts.p,opts.r,opts.a) as tb_resource:
             self.sequences= tb_resource.sequences
             if any([a for a in (self.cpra) if a not in tb_resource.header ]):
@@ -166,7 +165,6 @@ class PreviousReleaseAnnotation(TabixAnnotation):
         self.beta_col = opts.beta_col
         self.other_cols = opts.other_cols
         self.cols = [self.pval_col,self.beta_col]+self.other_cols
-        self.variant_switch = 50_000
         #validate source file
         with tb_resource_manager(self.fname,opts.c,opts.p,opts.r,opts.a) as tb_resource:
 
@@ -196,7 +194,6 @@ class ExtraColAnnotation(TabixAnnotation):
     def __init__(self, opts: TabixOptions,extra_columns:List[str]) -> None:
         super().__init__(opts)
         self.extra_columns = extra_columns
-        self.variant_switch = 50_000
         with tb_resource_manager(self.fname,opts.c,opts.p,opts.r,opts.a) as tb_resource:
             if any([a for a in extra_columns if a not in tb_resource.header ]):
                 raise Exception(f"Summary statistic file did not contain all extra columns! Missing columns: {[a for a in self.extra_columns if a not in tb_resource.header ]}. Supplied columns:{self.extra_columns}")
@@ -315,7 +312,6 @@ class FunctionalAnnotation(TabixAnnotation):
             "nfsee.AF":tryfloat,
             "nfsee.homozygote_count":tryint
         }
-        self.variant_switch = 1_000_000
         #make sure all columns are in 
         with tb_resource_manager(self.fname,opts.c,opts.p,opts.r,opts.a) as tb_resource:
             if any([a for a in [b for b in self.columntypes.keys()] if a not in tb_resource.header ]):
@@ -379,7 +375,6 @@ class FGAnnotation(TabixAnnotation):
             "rsids":"rsid",
             "FG_AF":"AF"
         }
-        self.variant_switch = 1_000_000
 
     def _create_annotation(self, cols: List[str], hdi: Dict[str, int])->Annotation:
         most_severe_gene = cols[hdi[self.colnames["most_severe_gene"]]]
@@ -432,7 +427,6 @@ def calculate_enrichment(nfe_AC:List[int],nfe_AN:List[int],fi_af:float):
 class GnomadGenomeAnnotation(TabixAnnotation):
     def __init__(self,fname: str):
         super().__init__(TabixOptions(fname,"#CHROM","POS","REF","ALT"))
-        self.variant_switch = 1_000_000
         self.columns=["AF_fin",
         "AF_nfe",
         "AF_nfe_est",
@@ -483,7 +477,6 @@ class GnomadGenomeAnnotation(TabixAnnotation):
 class GnomadExomeAnnotation(TabixAnnotation):
     def __init__(self,fname: str):
         super().__init__(TabixOptions(fname,"#CHROM","POS","REF","ALT"))
-        self.variant_switch = 50_000
         self.columns=["AF_nfe_bgr",
         "AF_fin",
         "AF_nfe",
@@ -549,7 +542,6 @@ class GnomadExomeAnnotation(TabixAnnotation):
 class Gnomad4Annotation(TabixAnnotation):
     def __init__(self,fname: str):
         super().__init__(TabixOptions(fname,"#chr","pos","ref","alt"))
-        self.variant_switch = 500_000
 
 
     def _create_annotation(self, cols: List[str], hdi: Dict[str, int]) -> Annotation:

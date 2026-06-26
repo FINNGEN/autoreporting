@@ -52,7 +52,7 @@ def main(args):
         elif args.ld_api_choice == "online":
             ld_api = OnlineLD(url="http://api.finngen.fi/api/ld")
         elif args.ld_api_choice == "tabix":
-            ld_api = TabixLD(args.ld_panel_path)
+            ld_api = TabixLD(args.ld_panel_path,args.tabixld_assume_narrow_ld)
         else:
             raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     args.sig_treshold_2 = max(args.sig_treshold, args.sig_treshold_2)
@@ -193,6 +193,7 @@ if __name__=="__main__":
     parser.add_argument("--locus-width-kb",dest="loc_width",type=int,default=250,help="locus width to include for each SNP, in kb")
     parser.add_argument("--alt-sign-treshold",dest="sig_treshold_2",type=float, default=5e-8,help="optional group treshold")
     parser.add_argument("--ld-panel-path",dest="ld_panel_path",type=str,help="Filename to the genotype data for ld calculation, without suffix")
+    parser.add_argument("--tabix-ld-wide-fetch",dest ="tabixld_assume_narrow_ld",default=True,action="store_false",help = "Only on TabixLD: When using FinnGen tabix panel, we assume by default that all LD pairs are keyed on first variant. That greatly reduces runtime. Pass this flag to disable this assumption when using LD files not compatible with that assumption." )
     
     #r2 static bound or dynamic per peak
     r2_group = parser.add_mutually_exclusive_group()
