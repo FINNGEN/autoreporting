@@ -159,14 +159,23 @@ class TabixLD(LDAccess):
             ld_threshold = ld_threshold_
         data = []
         tries = 0
+        # Pysam does not always error on tabix fileobject corruption.
+        # Errors logged by tbx_itr_next and bgzf_read_block do not seem to trigger exceptions.
+        # This check triggers once if the query was empty, to try and find the problematic cases.
+        restart_fileobject_fetch_failure = False
         while True:
             try:
                 data = []
                 iter = self.fileobjects[sequence].fetch(sequence, fetch_start,fetch_end)
+                iter_len = 0
                 for l in iter:
                     cols = l.split("\t")
                     if cols[self.hdi["variant1"]].replace("chrX","chr23") == variant_id:
                         data.append(cols)
+                    iter_len +=1
+                if iter_len == 0 and not restart_fileobject_fetch_failure:
+                    restart_fileobject_fetch_failure = True
+                    raise Exception("LD Iterator was empty, restart fileobject and redo")
                 break
             except:
                 print(f"Error loading data from region {sequence}:{fetch_start}-{fetch_end}",file=sys.stderr)
