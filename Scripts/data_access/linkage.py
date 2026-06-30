@@ -108,9 +108,10 @@ class PlinkLD(LDAccess):
         return ld_data
 
 class TabixLD(LDAccess):
-    def __init__(self,path_template:str):
+    def __init__(self,path_template:str,single_variant_ld:bool):
         self.token_refresh_time = time.time()
         self.path_template = path_template
+        self.single_variant_ld = single_variant_ld
         ## NOTE: we assume that data is in chromosomes 1..22,X, and that the files are named so
         chroms = [str(a).replace("23","X") for a in range(1,24)]
         paths={str(a):path_template.replace("{CHROM}",f"{a}") for a in chroms}
@@ -140,8 +141,15 @@ class TabixLD(LDAccess):
                 self.refresh_token()
                 self.token_refresh_time = current_time
         variant_id=f"chr{variant.chrom.replace('chr','')}_{variant.pos}_{variant.ref}_{variant.alt}"
+        
         start = max(0,variant.pos-bp_range)
         end = variant.pos+bp_range
+        if self.single_variant_ld:
+            fetch_start = variant.pos-1
+            fetch_end = variant.pos+1
+        else:
+            fetch_start = start
+            fetch_end = end
         sequence = variant.chrom.replace("23","X")
         if sequence not in self.sequences:
             raise Exception(f"Error in fetching LD for variant {variant}: File for chromosome {sequence} not in available files.")
@@ -151,20 +159,29 @@ class TabixLD(LDAccess):
             ld_threshold = ld_threshold_
         data = []
         tries = 0
+        # Pysam does not always error on tabix fileobject corruption.
+        # Errors logged by tbx_itr_next and bgzf_read_block do not seem to trigger exceptions.
+        # This check triggers once if the query was empty, to try and find the problematic cases.
+        restart_fileobject_fetch_failure = False
         while True:
             try:
                 data = []
-                iter = self.fileobjects[sequence].fetch(sequence, start,end)
+                iter = self.fileobjects[sequence].fetch(sequence, fetch_start,fetch_end)
+                iter_len = 0
                 for l in iter:
                     cols = l.split("\t")
                     if cols[self.hdi["variant1"]].replace("chrX","chr23") == variant_id:
                         data.append(cols)
+                    iter_len +=1
+                if iter_len == 0 and not restart_fileobject_fetch_failure:
+                    restart_fileobject_fetch_failure = True
+                    raise Exception("LD Iterator was empty, restart fileobject and redo")
                 break
             except:
-                print(f"Error loading data from region {sequence}:{start}-{end}",file=sys.stderr)
+                print(f"Error loading data from region {sequence}:{fetch_start}-{fetch_end}",file=sys.stderr)
                 #assume error is in accessing over gcp, so we retry
                 if tries > MAX_RETRIES:
-                    raise Exception(f"Accessing LD region {sequence}:{start}-{end} from file {self.paths[sequence]} failed after {tries} tries!")
+                    raise Exception(f"Accessing LD region {sequence}:{fetch_start}-{fetch_end} from file {self.paths[sequence]} failed after {tries} tries!")
                 
                 print(f"Error when accessing data from LD tabix file, assuming error is with access over GCP. Waiting {2**tries} seconds, recycling fileobject.",file=sys.stderr)
                 time.sleep(2**tries)
