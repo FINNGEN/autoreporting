@@ -39,6 +39,7 @@ class GroupingOptions(NamedTuple):
     p1_threshold: float
     p2_threshold: float
     overlap: bool
+    pval_is_mlog10p: bool = False
 
 class PhenoInfo(NamedTuple):
     name: Optional[str]
