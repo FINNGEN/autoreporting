@@ -88,6 +88,7 @@ if __name__=="__main__":
     parser.add_argument("--region-width-kb",type=int,default=2000,help="region width in kb")
     parser.add_argument("--ld-api",dest="ld_api_choice",type=str,default="plink",help="LD interface to use. Valid options are 'plink', 'online' and 'tabix'.")
     parser.add_argument("--ld-panel-path",required=True)
+    parser.add_argument("--tabix-ld-wide-fetch",dest="tabixld_assume_narrow_ld",default=True,action="store_false",help="Only on TabixLD: by default we assume all LD pairs are keyed on the first variant (FinnGen panel), which is much faster. Pass this flag to disable that assumption for incompatible LD files.")
     parser.add_argument("--plink-memory",type=int,default=17000)
     args=parser.parse_args()
     #load prerequisites
@@ -97,7 +98,7 @@ if __name__=="__main__":
     elif args.ld_api_choice == "online":
         ld_api = linkage.OnlineLD(url="http://api.finngen.fi/api/ld")
     elif args.ld_api_choice == "tabix":
-        ld_api = linkage.TabixLD(args.ld_panel_path)
+        ld_api = linkage.TabixLD(args.ld_panel_path,args.tabixld_assume_narrow_ld)
     else:
         raise ValueError("Wrong argument for --ld-api:{}".format(args.ld_api_choice))
     region_width_bp = args.region_width_kb*1000
