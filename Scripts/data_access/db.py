@@ -5,6 +5,24 @@ import abc
 from typing import List, Dict,Any, Optional, NamedTuple
 from autoreporting_utils import Region
 
+
+def open_tabix(path: str, encoding: str = "utf-8", tries: int = 6) -> "pysam.TabixFile":
+    """pysam.TabixFile(path) with exponential backoff. A Cromwell run starts thousands of
+    shards at once and each opens the same remote panel and annotation files; some opens then
+    come back HTTP 4xx (htslib reports them as 'Invalid argument'), and without a retry the
+    shard fails at startup. Backoff 1, 2, 4, ... seconds; a local path fails on the first try."""
+    import time, sys
+    import pysam
+    for attempt in range(tries):
+        try:
+            return pysam.TabixFile(path, encoding=encoding)
+        except (OSError, ValueError) as err:
+            if attempt == tries - 1 or not str(path).startswith("gs://"):
+                raise
+            wait = 2 ** attempt
+            print(f"Could not open {path} ({err}); retrying in {wait} s", file=sys.stderr)
+            time.sleep(wait)
+
 class ExtDB(object):
     """Abstract base class for association searches
     """

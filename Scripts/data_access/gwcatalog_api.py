@@ -133,22 +133,38 @@ class LocalDB(ExtDB):
     def __init__(self, db_path: str, pval_threshold: float, padding: int, alleledb: AlleleDB):
         self.pad = int(padding)
         self.pval_threshold = float(pval_threshold)
-        try:
-            self.df=pd.read_csv(db_path,sep="\t",low_memory=False)
-        except FileNotFoundError as err:
+        # fail at construction for a missing path as before; the tests pass a StringIO here
+        if isinstance(db_path, str) and not os.path.exists(db_path):
             raise FileNotFoundError("argument {} to flag '--local-gwascatalog' not found: Does the file exist?".format(db_path))
+        self.db_path = db_path
         self.alleledb = alleledb
-        self.df=self.df.astype(str)
-        self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains(";") ,:]
-        self.df=self.df.loc[ ~ self.df["CHR_POS"].str.contains("x") ,:]
-        self.df["CHR_POS"]=pd.to_numeric(self.df["CHR_POS"],errors="coerce")
-        self.df["SNP_ID_CURRENT"]=pd.to_numeric(self.df["SNP_ID_CURRENT"],errors="coerce")
-        self.df["P-VALUE"]=pd.to_numeric(self.df["P-VALUE"],errors="coerce")
-        self.df["PVALUE_MLOG"]=pd.to_numeric(self.df["PVALUE_MLOG"],errors="coerce")
-        self.df=self.df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE","PVALUE_MLOG","SNP_ID_CURRENT"])
-        self.df=self.df.astype({"CHR_POS":int,"P-VALUE":float,"SNP_ID_CURRENT": int})
-        self.df=self.df.loc[self.df["P-VALUE"]<=self.pval_threshold ,:] #filter the df now by pval
+        # the catalog is only queried in the annotation stage, after grouping. Loading it here,
+        # before the LD worker pool forks, is what OOM-killed 4 GB report tasks: the frame is
+        # ~0.9 GB of Python strings, and every forked worker's garbage collector walks it and
+        # copies the pages, so four workers turn it into ~4.5 GB. Load it on first query instead
+        self._df: Optional[pd.DataFrame] = None
+
+    @property
+    def df(self) -> pd.DataFrame:
+        if self._df is None:
+            self._df = self._load(self.db_path)
+        return self._df
+
+    def _load(self, db_path: str) -> pd.DataFrame:
+        df=pd.read_csv(db_path,sep="\t",low_memory=False)
+        df=df.astype(str)
+        df=df.loc[ ~ df["CHR_POS"].str.contains(";") ,:]
+        df=df.loc[ ~ df["CHR_POS"].str.contains("x") ,:]
+        df["CHR_POS"]=pd.to_numeric(df["CHR_POS"],errors="coerce")
+        df["SNP_ID_CURRENT"]=pd.to_numeric(df["SNP_ID_CURRENT"],errors="coerce")
+        df["P-VALUE"]=pd.to_numeric(df["P-VALUE"],errors="coerce")
+        df["PVALUE_MLOG"]=pd.to_numeric(df["PVALUE_MLOG"],errors="coerce")
+        df=df.dropna(axis="index",subset=["CHR_POS","CHR_ID","P-VALUE","PVALUE_MLOG","SNP_ID_CURRENT"])
+        df=df.astype({"CHR_POS":int,"P-VALUE":float,"SNP_ID_CURRENT": int})
+        df=df.loc[df["P-VALUE"]<=self.pval_threshold ,:] #filter the df now by pval
     
+        return df
+
     def __get_associations(self, chromosome: str, start: int, end: int)-> List[Dict[str,Any]]:
         start=max(0,int(start)-self.pad)
         end=int(end)+self.pad

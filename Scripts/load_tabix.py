@@ -1,7 +1,7 @@
 import gzip
 import shlex,subprocess, glob, time
 from typing import Dict, List,Generator,NamedTuple
-from data_access.db import Variant
+from data_access.db import Variant, open_tabix
 import pysam
 import os
 import sys
@@ -34,7 +34,7 @@ class TabixResource:
             self.local=True
             if not os.path.exists(opts.fname):
                 raise Exception(f"Resource {opts.fname} does not to exist")
-        self.fileobject = pysam.TabixFile(opts.fname,encoding="utf-8")
+        self.fileobject = open_tabix(opts.fname)
         self.cpra = [
             opts.c,
             opts.p,

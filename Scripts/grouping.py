@@ -9,8 +9,11 @@ from time_decorator import timefunc, timed
 # number of lead variants whose LD is fetched per batch in ld_grouping. Bounds peak memory:
 # only one batch of LD is held at a time, instead of the whole genome's LD prefetched up front
 # (which OOMs the WDL task on many-signal sumstats). Leads consumed as partners before their
-# turn are never fetched.
-LD_FETCH_BATCH = 500
+# turn are never fetched. 100 rather than 500: a batch's partner rows exist three times over
+# while it is fetched (in the workers, in flight, and in the parent), and at 500 leads that
+# transient reached 2.2 GB on a 1,047-lead pQTL sumstat inside a 4 GB task; the batch size
+# only sets how much LD is in memory at once, never which LD is fetched or what is grouped
+LD_FETCH_BATCH = 100
 
 def ld_threshold(ld_thresh:float, mode: LDMode,pval:float, pval_is_mlog10p:bool=False)->float:
     if mode.value == LDMode.DYNAMIC.value:

@@ -4,7 +4,7 @@ from subprocess import PIPE
 from typing import Dict, List,  Optional
 import pandas as pd, numpy as np # type: ignore
 from data_access.gwcatalog_api import try_request, ResourceNotFound, ResponseFailure
-from data_access.db import LDAccess, LDData, LDFetcher, Variant
+from data_access.db import LDAccess, LDData, LDFetcher, Variant, open_tabix
 import pysam
 
 MAX_RETRIES=7
@@ -132,7 +132,7 @@ class TabixLD(LDAccess):
             "pos"
         ]
         self.sequences = [a for a in paths.keys()]
-        self.fileobjects = {a:pysam.TabixFile(b,encoding="utf-8") for a,b in self.paths.items()}
+        self.fileobjects = {a:open_tabix(b) for a,b in self.paths.items()}
         self.header = self.fileobjects[self.sequences[0]].header[0].split("\t")
         self.hdi= {a:i for i,a in enumerate(self.header)}
 

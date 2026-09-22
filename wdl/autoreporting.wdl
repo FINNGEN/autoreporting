@@ -209,6 +209,9 @@ task report {
         disks: "local-disk ${disk_size} HDD"
         zones: "europe-west1-b europe-west1-c europe-west1-d"
         preemptible: 2
+        # a mass start opens the LD panel from thousands of shards at once and some opens come
+        # back 4xx; main.py has no retry at open time, so the retry has to live here
+        maxRetries: 2
     }
 }
 
