@@ -220,6 +220,7 @@ task post_process_top_reports {
     #determine ld api 
     String ld_api
     Int locus_width_kb
+    Boolean pval_is_mlog10p = false
 
     #directly to this task
     Float r2_threshold
@@ -236,7 +237,7 @@ task post_process_top_reports {
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         #filter the top report
         meta_filter_top.py ${top_report} --width-kb ${locus_width_kb} --r2-threshold ${r2_threshold} --af-column ${af_col} \
-            --af-threshold ${af_threshold} --fg-specific-column ${in_fg_col} --output ${top}.top
+            --af-threshold ${af_threshold} --fg-specific-column ${in_fg_col} ${true="--pval-is-mlog10p" false="" pval_is_mlog10p} --output ${top}.top
         #check r2 between hits
 
         python3 <<CODE
@@ -269,7 +270,7 @@ task post_process_top_reports {
         CODE
 
         LD_PANEL=$(cat ld_panel_path.txt)
-        post_process_hits.py  ${top}.top --ld-panel-path $LD_PANEL --ld-api ${ld_api}  --region-width-kb ${locus_width_kb} --output ${top}.top.post.tsv
+        post_process_hits.py  ${top}.top --ld-panel-path $LD_PANEL --ld-api ${ld_api}  --region-width-kb ${locus_width_kb} ${true="--pval-is-mlog10p" false="" pval_is_mlog10p} --output ${top}.top.post.tsv
     >>>
     output {
         File top_filtered = top+".top"
@@ -293,18 +294,19 @@ workflow autoreporting{
     String ld_panel
     String ld_api
     Int locus_width_kb
+    Boolean pval_is_mlog10p = false
     Array[Array[String]] input_array = read_tsv(input_array_file)
 
     scatter (arr in  input_array ){
         call report {
-            input: input_file_list = arr, docker=docker, ld_panel=ld_panel, locus_width_kb=locus_width_kb,ld_api=ld_api
+            input: input_file_list = arr, docker=docker, ld_panel=ld_panel, locus_width_kb=locus_width_kb,ld_api=ld_api,pval_is_mlog10p=pval_is_mlog10p
         }
         if( report.had_results ) {
             File variants = report.variant_report
             File groups = report.group_report
 
             call post_process_top_reports {
-                input: top_report = report.group_report, docker=docker, ld_panel=ld_panel,locus_width_kb=locus_width_kb,ld_api=ld_api
+                input: top_report = report.group_report, docker=docker, ld_panel=ld_panel,locus_width_kb=locus_width_kb,ld_api=ld_api,pval_is_mlog10p=pval_is_mlog10p
             }
         }
 

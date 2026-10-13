@@ -22,13 +22,18 @@ def max_r2_correlation(variant: Variant, data_variants: List[Variant], ld_data: 
     return None
 
 
-def is_strongest_association(var: Variant, loc_id: str, pval_threshold: float, region_width: int, data: pd.DataFrame)->bool:
-    """Check if the locus is the strongest association in the region.  
+def is_strongest_association(var: Variant, loc_id: str, pval_threshold: float, region_width: int, data: pd.DataFrame, pval_is_mlog10p: bool = False)->bool:
+    """Check if the locus is the strongest association in the region.
     """
     chrom = str(var.chrom)
     pos_min = int(var.pos)-region_width
     pos_max = int(var.pos)+region_width
-    stronger_hits_idx = ((data["pval"]<pval_threshold)&
+    #for mlog10p, larger value is more significant
+    if pval_is_mlog10p:
+        stronger_pval = data["pval"]>pval_threshold
+    else:
+        stronger_pval = data["pval"]<pval_threshold
+    stronger_hits_idx = (stronger_pval&
             (data["chrom"].astype(str)==chrom)&
             (data["pos"].astype(int)>pos_min)&
             (data["pos"].astype(int)<pos_max)&
@@ -38,7 +43,7 @@ def is_strongest_association(var: Variant, loc_id: str, pval_threshold: float, r
     return True
 
 
-def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: str)->pd.DataFrame:
+def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: str, pval_is_mlog10p: bool = False)->pd.DataFrame:
     """Calculate r2 between rows, and check if the locus it the strongest hit in region
     """
     #go through the data row by row
@@ -73,7 +78,7 @@ def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: 
             max_var = f"chr{ld_max.variant2.chrom}_{ld_max.variant2.pos}_{ld_max.variant2.ref}_{ld_max.variant2.alt}"
 
         # Part 2: calculate whether there is any variant that is a stronger association than our variant "in the region"
-        strongest_hit = is_strongest_association(variant,dtuple.locus_id,dtuple.pval,region_width,data)
+        strongest_hit = is_strongest_association(variant,dtuple.locus_id,dtuple.pval,region_width,data,pval_is_mlog10p)
 
         # write results for this locus to data
         out_data.loc[idx,"max_r2"] = r2
@@ -90,6 +95,7 @@ if __name__=="__main__":
     parser.add_argument("--ld-panel-path",required=True)
     parser.add_argument("--tabix-ld-wide-fetch",dest="tabixld_assume_narrow_ld",default=True,action="store_false",help="Only on TabixLD: by default we assume all LD pairs are keyed on the first variant (FinnGen panel), which is much faster. Pass this flag to disable that assumption for incompatible LD files.")
     parser.add_argument("--plink-memory",type=int,default=17000)
+    parser.add_argument("--pval-is-mlog10p",dest="pval_is_mlog10p",action="store_true",default=False,help="If set, the pval column contains -log10(p) values instead of raw p-values.")
     args=parser.parse_args()
     #load prerequisites
     ld_api=None
@@ -104,4 +110,4 @@ if __name__=="__main__":
     region_width_bp = args.region_width_kb*1000
     data=pd.read_csv(args.input_data,sep="\t")
     #calc & write output
-    main(data, region_width_bp, ld_api,args.output)
+    main(data, region_width_bp, ld_api,args.output,args.pval_is_mlog10p)
