@@ -105,10 +105,10 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
         for _, line in data.iterrows():
 
             #if finngen-specific values are not present for this line, then the locus is not in finngen data and we don't care about it -> filter out
-            if line[fg_specific_column] == "NA":
+            if pd.isna(line[fg_specific_column]):
                 not_in_fg.append(NotInFinnGen(
                     line["locus_id"],
-                    line["pval"]
+                    str(line["pval"])
                 ))
                 continue
 
