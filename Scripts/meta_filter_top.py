@@ -78,7 +78,7 @@ def part_of_stronger_hit(locus:Locus,
             )
     return None
 
-def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_threshold:float,fg_specific_column:str,pval_is_mlog10p:bool=False):
+def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_threshold:float,fg_specific_column:str,pval_is_mlog10p:bool=False,remove_not_in_finngen:bool=False):
     """
     Filter out bad rows that are in presence of a row that most likely is responsible for those rows
     """
@@ -109,7 +109,13 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
     
     not_in_fg = []
     filtered_out = []
-    
+
+    #loci removed for not being in finngen can not remove other loci
+    if remove_not_in_finngen:
+        remover_data = data[data[fg_specific_column].notna()]
+    else:
+        remover_data = data
+
     with open(output, "w", encoding="utf-8") as outfile:
 
         outfile.write('\t'.join(data.columns) + '\n')
@@ -117,12 +123,14 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
         for _, line in data.iterrows():
 
             #if finngen-specific values are not present for this line, then the locus is not in finngen data and we don't care about it -> filter out
+            #unless asked to keep them, in which case they are only listed in the not_in_finngen file
             if pd.isna(line[fg_specific_column]):
                 not_in_fg.append(NotInFinnGen(
                     line["locus_id"],
                     str(line["pval"])
                 ))
-                continue
+                if remove_not_in_finngen:
+                    continue
 
             #build locus
 
@@ -136,7 +144,7 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
                 float(line[af_col])
             )
 
-            stronger_hit = part_of_stronger_hit(locus,data,r2_threshold,width,af_threshold,pval_is_mlog10p)
+            stronger_hit = part_of_stronger_hit(locus,remover_data,r2_threshold,width,af_threshold,pval_is_mlog10p)
             if stronger_hit:
                 filtered_out.append(stronger_hit)
             else:
@@ -181,6 +189,7 @@ if __name__ == "__main__":
     parser.add_argument("--af-threshold",type=float,default=0.01,help="af threshlod for weak hits")
     parser.add_argument("--fg-specific-column",required=True,help="This column is used to determine whether the variant is in finngen or not")
     parser.add_argument("--pval-is-mlog10p",dest="pval_is_mlog10p",action="store_true",default=False,help="If set, the pval column contains -log10(p) values instead of raw p-values.")
+    parser.add_argument("--remove-not-in-finngen",dest="remove_not_in_finngen",action="store_true",default=False,help="If set, loci not in FinnGen are removed from the output. They are listed in the not_in_finngen file either way.")
     args=parser.parse_args()
     width_bp = args.width_kb*1000
-    main(args.top_report,args.output,width_bp,args.r2_threshold,args.af_column,args.af_threshold,args.fg_specific_column,args.pval_is_mlog10p)
+    main(args.top_report,args.output,width_bp,args.r2_threshold,args.af_column,args.af_threshold,args.fg_specific_column,args.pval_is_mlog10p,args.remove_not_in_finngen)

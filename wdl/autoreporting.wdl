@@ -227,7 +227,8 @@ task post_process_top_reports {
     String af_col
     Float af_threshold
     String in_fg_col
-    
+    Boolean remove_not_in_finngen = false
+
     #derived
 
     String top = basename(top_report,".top.out")
@@ -237,7 +238,8 @@ task post_process_top_reports {
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         #filter the top report
         meta_filter_top.py ${top_report} --width-kb ${locus_width_kb} --r2-threshold ${r2_threshold} --af-column ${af_col} \
-            --af-threshold ${af_threshold} --fg-specific-column ${in_fg_col} ${true="--pval-is-mlog10p" false="" pval_is_mlog10p} --output ${top}.top
+            --af-threshold ${af_threshold} --fg-specific-column ${in_fg_col} ${true="--pval-is-mlog10p" false="" pval_is_mlog10p} \
+            ${true="--remove-not-in-finngen" false="" remove_not_in_finngen} --output ${top}.top
         #check r2 between hits
 
         python3 <<CODE
