@@ -53,10 +53,12 @@ def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: 
     #assign r2_max column and r2_max_var columns to row, or create new data, whatever
     #check for strongest_hit by checking if there are any variants within the same chromosome with distance less than region_width and pval<my_pval
     #assign that to the row
+    #check if lead variant is in the LD panel, i.e. it has at least one LD pair other than itself
     out_data = data.copy(deep=True)
     out_data["max_r2"]=0.0
     out_data["max_r2_hit"]=""
     out_data["strongest_hit"]=False
+    out_data["lead_in_ld_panel"]=False
     #create list of variants in our data
     list_of_datavars = [Variant(str(d.chrom),int(d.pos),str(d.ref),str(d.alt)) for d in data.itertuples()]
 
@@ -72,6 +74,8 @@ def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: 
         ld_data = ld_api.get_range(variant,region_width)
 
         ld_max = max_r2_correlation(variant,list_of_datavars,ld_data)
+        #LD panels have no self-pairs, so a lead without other pairs is missing from the panel
+        lead_in_ld_panel = any( (a.variant1 == variant) and (a.variant2 != variant) for a in ld_data)
 
         if ld_max:
             r2 = ld_max.r2
@@ -84,6 +88,7 @@ def main(data: pd.DataFrame, region_width: int, ld_api: LDAccess, output_fname: 
         out_data.loc[idx,"max_r2"] = r2
         out_data.loc[idx,"max_r2_hit"] = max_var
         out_data.loc[idx,"strongest_hit"] = strongest_hit
+        out_data.loc[idx,"lead_in_ld_panel"] = lead_in_ld_panel
     out_data.fillna("NA").replace("","NA").to_csv(output_fname,sep="\t",index=False,float_format="%.3g")
 
 if __name__=="__main__":
