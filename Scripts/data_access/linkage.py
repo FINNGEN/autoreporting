@@ -8,6 +8,15 @@ import pysam
 
 MAX_RETRIES=7
 
+def _normalize_variant_id(variant_id: str) -> str:
+    """Normalize LD panel variant id so that chr1_1_A_G and 1_1_A_G match, as do chrX_1_A_G, X_1_A_G and 23_1_A_G
+    """
+    chrom, rest = variant_id.split("_",1)
+    chrom = chrom.replace("chr","")
+    if chrom == "X":
+        chrom = "23"
+    return f"{chrom}_{rest}"
+
 class OnlineLD(LDAccess):
     def __init__(self,url,panel="sisu42"):
         self.url=url
@@ -140,8 +149,8 @@ class TabixLD(LDAccess):
                 print("Refreshing GCS_AUTH_TOKEN",file=sys.stderr)
                 self.refresh_token()
                 self.token_refresh_time = current_time
-        variant_id=f"chr{variant.chrom.replace('chr','')}_{variant.pos}_{variant.ref}_{variant.alt}"
-        
+        variant_id=_normalize_variant_id(f"{variant.chrom}_{variant.pos}_{variant.ref}_{variant.alt}")
+
         start = max(0,variant.pos-bp_range)
         end = variant.pos+bp_range
         if self.single_variant_ld:
@@ -170,7 +179,7 @@ class TabixLD(LDAccess):
                 iter_len = 0
                 for l in iter:
                     cols = l.split("\t")
-                    if cols[self.hdi["variant1"]].replace("chrX","chr23") == variant_id:
+                    if _normalize_variant_id(cols[self.hdi["variant1"]]) == variant_id:
                         data.append(cols)
                     iter_len +=1
                 if iter_len == 0 and not restart_fileobject_fetch_failure:
@@ -191,8 +200,8 @@ class TabixLD(LDAccess):
         lddata = []
         variant1 = variant
         for d in data:
-            v2_str = d[self.hdi["variant2"]].split("_")
-            variant2 = Variant(v2_str[0].replace("chr","").replace("X","23"),int(v2_str[1]),v2_str[2],v2_str[3])
+            v2_str = _normalize_variant_id(d[self.hdi["variant2"]]).split("_")
+            variant2 = Variant(v2_str[0],int(v2_str[1]),v2_str[2],v2_str[3])
             r2 = float(d[self.hdi["r2"]])
             if variant2.pos < end and variant2.pos >= start and r2 > ld_threshold:
                 lddata.append(LDData(variant1,variant2,r2))
