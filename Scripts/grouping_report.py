@@ -354,6 +354,12 @@ def generate_top_report(data:PhenoData,output:TextIO, options: TopReportOptions,
             if lead.id in extra_anno:
                 for c in options.extra_columns:
                     cols[f"lead_{c}"] = extra_anno[lead.id][0].get(c, None)
+        #if no mlogp extra column was given (e.g. meta-analysis sumstats), derive lead_mlogp from the lead pval
+        if cols["lead_mlogp"] is None:
+            if options.pval_is_mlog10p:
+                cols["lead_mlogp"] = lead.pval
+            elif lead.pval > 0:
+                cols["lead_mlogp"] = -math.log10(lead.pval)
         #previous release cols
         if PreviousReleaseAnnotation.get_name() in data.annotations:
             prev_anno = data.annotations[PreviousReleaseAnnotation.get_name()]
