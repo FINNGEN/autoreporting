@@ -183,11 +183,8 @@ class TabixLD(LDAccess):
                         data.append(cols)
                     iter_len +=1
                 if iter_len == 0 and not restart_fileobject_fetch_failure:
-                    #usually the variant is just missing from the panel, so reopen and redo without the wait and token refresh used for access errors
                     restart_fileobject_fetch_failure = True
-                    self.fileobjects[sequence].close()
-                    self.fileobjects[sequence] = pysam.TabixFile(self.paths[sequence],encoding="utf-8")
-                    continue
+                    raise Exception("LD Iterator was empty, restart fileobject and redo")
                 break
             except:
                 print(f"Error loading data from region {sequence}:{fetch_start}-{fetch_end}",file=sys.stderr)
