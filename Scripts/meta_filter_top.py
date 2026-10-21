@@ -6,7 +6,8 @@ Filter out two types of loci:
 """
 import pandas as pd
 import numpy as np
-import scipy.stats as stats 
+import scipy.stats as stats
+from scipy.special import ndtri_exp
 import argparse
 from typing import NamedTuple, List, Dict, Optional
 
@@ -37,6 +38,7 @@ def part_of_stronger_hit(locus:Locus,
     r2_threshold:float,
     region_width:int,
     af_threshold: float,
+    pval_is_mlog10p: bool = False,
     )->Optional[FilteredOut]:
     """
     Check if a locus is near a stronger signal, and if it is, return a FilteredOut object with information about the (to be removed) locus and its remover
@@ -57,7 +59,12 @@ def part_of_stronger_hit(locus:Locus,
 
         if larger_hits_in_region.any():
             possible_strong_hits = data.loc[larger_hits_in_region,:]
-            most_significant_hit = possible_strong_hits.loc[possible_strong_hits["pval"].idxmin(),:]
+            #for mlog10p, larger value is more significant
+            if pval_is_mlog10p:
+                most_significant_idx = possible_strong_hits["pval"].idxmax()
+            else:
+                most_significant_idx = possible_strong_hits["pval"].idxmin()
+            most_significant_hit = possible_strong_hits.loc[most_significant_idx,:]
             sig_locus_id = most_significant_hit["locus_id"]
             sig_ld = most_significant_hit["lead_r2_threshold"]
             sig_distance = abs(most_significant_hit["pos"]-locus.p)
@@ -71,7 +78,7 @@ def part_of_stronger_hit(locus:Locus,
             )
     return None
 
-def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_threshold:float,fg_specific_column:str):
+def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_threshold:float,fg_specific_column:str,pval_is_mlog10p:bool=False,remove_not_in_finngen:bool=False):
     """
     Filter out bad rows that are in presence of a row that most likely is responsible for those rows
     """
@@ -93,11 +100,22 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
     
     #fill in lead_r2_threshold
     if "lead_r2_threshold" not in data.columns:
-        data["lead_r2_threshold"] = 5.0/stats.chi2.isf(data["pval"],df=1)
+        if pval_is_mlog10p:
+            #chi2.isf(p, df=1) == ndtri(p/2)**2, computed in log space so that tiny p-values don't underflow
+            z = ndtri_exp(-data["pval"]*np.log(10) - np.log(2))
+            data["lead_r2_threshold"] = 5.0/(z*z)
+        else:
+            data["lead_r2_threshold"] = 5.0/stats.chi2.isf(data["pval"],df=1)
     
     not_in_fg = []
     filtered_out = []
-    
+
+    #loci removed for not being in finngen can not remove other loci
+    if remove_not_in_finngen:
+        remover_data = data[data[fg_specific_column].notna()]
+    else:
+        remover_data = data
+
     with open(output, "w", encoding="utf-8") as outfile:
 
         outfile.write('\t'.join(data.columns) + '\n')
@@ -105,12 +123,14 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
         for _, line in data.iterrows():
 
             #if finngen-specific values are not present for this line, then the locus is not in finngen data and we don't care about it -> filter out
-            if line[fg_specific_column] == "NA":
+            #unless asked to keep them, in which case they are only listed in the not_in_finngen file
+            if pd.isna(line[fg_specific_column]):
                 not_in_fg.append(NotInFinnGen(
                     line["locus_id"],
-                    line["pval"]
+                    str(line["pval"])
                 ))
-                continue
+                if remove_not_in_finngen:
+                    continue
 
             #build locus
 
@@ -124,7 +144,7 @@ def main(summstat:str,output:str,width:int,r2_threshold:float,af_col:str,af_thre
                 float(line[af_col])
             )
 
-            stronger_hit = part_of_stronger_hit(locus,data,r2_threshold,width,af_threshold)
+            stronger_hit = part_of_stronger_hit(locus,remover_data,r2_threshold,width,af_threshold,pval_is_mlog10p)
             if stronger_hit:
                 filtered_out.append(stronger_hit)
             else:
@@ -168,6 +188,8 @@ if __name__ == "__main__":
     parser.add_argument("--af-column",required=True,help="column to determine whether a locus is rare")
     parser.add_argument("--af-threshold",type=float,default=0.01,help="af threshlod for weak hits")
     parser.add_argument("--fg-specific-column",required=True,help="This column is used to determine whether the variant is in finngen or not")
+    parser.add_argument("--pval-is-mlog10p",dest="pval_is_mlog10p",action="store_true",default=False,help="If set, the pval column contains -log10(p) values instead of raw p-values.")
+    parser.add_argument("--remove-not-in-finngen",dest="remove_not_in_finngen",action="store_true",default=False,help="If set, loci not in FinnGen are removed from the output. They are listed in the not_in_finngen file either way.")
     args=parser.parse_args()
     width_bp = args.width_kb*1000
-    main(args.top_report,args.output,width_bp,args.r2_threshold,args.af_column,args.af_threshold,args.fg_specific_column)
+    main(args.top_report,args.output,width_bp,args.r2_threshold,args.af_column,args.af_threshold,args.fg_specific_column,args.pval_is_mlog10p,args.remove_not_in_finngen)
